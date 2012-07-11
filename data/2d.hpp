@@ -26,9 +26,9 @@ namespace PatTk
     inline void trace( typename std::enable_if< std::is_same<T,int>::value>::type
                        __attribute__((__unused__)) *padding=0 )
     {
-      printf( "%d", *this[0] );
+      printf( "%d", (*this)[0] );
       for ( int i=1; i<length; i++ ) {
-        printf( " %d", *this[i] );
+        printf( " %d", (*this)[i] );
       }
     }
 

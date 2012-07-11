@@ -26,7 +26,7 @@ namespace PatTk
     {
       h = content;
     }
-
+    
     HistCell( const HistCell& other ) : AbstractCell<dataType>(other.length)
     {
       h = other.h;
