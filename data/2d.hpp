@@ -6,6 +6,8 @@
 
 #pragma once
 #include <type_traits>
+#include <vector>
+
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
 
@@ -49,7 +51,7 @@ namespace PatTk
         printf( " %.2lf", (*this)[i] );
       }
     }
-
+    
     template <typename T>
     inline void trace( typename std::enable_if< std::is_same<T,float>::value>::type
                        __attribute__((__unused__)) *padding=0 )
@@ -62,8 +64,10 @@ namespace PatTk
 
     
   public:
+    typedef dataType type;
+    
     int length;
-
+    
     // Constructor
     AbstractCell( const int len ) : length(len) {}
     
@@ -91,17 +95,19 @@ namespace PatTk
 
   // Variadic Concatenation of CellTypes
   // Should also be a valid cell type
-  template <typename... cellTypes> class Concat {};
+  template <typename dataType, typename... cellTypes> class Concat {};
 
-  template <> class Concat<>
+  template <typename dataType> class Concat<dataType>
   {
   public:
     void trace() {}
   };
   
-  template <typename Head, typename... Tail>
-  class Concat< Head, Tail... > : private Concat<Tail...>
+  template <typename dataType, typename Head, typename... Tail>
+  class Concat< dataType, Head, Tail... > : private Concat<dataType, Tail...>
   {
+    static_assert( std::is_same< dataType, typename Head::type >::value,
+                   "Concat and Head do not share the same data type. " );
   protected:
     Head m_head;
 
@@ -110,16 +116,17 @@ namespace PatTk
     
     Concat() {}
 
-    Concat( const Head& v, const Tail&... vtail ) : Concat<Tail...>(vtail...), m_head(v) {}
+    Concat( const Head& v, const Tail&... vtail ) : Concat<dataType, Tail...>(vtail...), m_head(v) {}
 
     // copy constructor
     template <typename ...cellTypes>
-    Concat( const Concat<cellTypes...>& other ) : Concat<Tail...>(other.tail()), m_head(other.head()) {}
+    Concat( const Concat<dataType, cellTypes...>& other ) :
+      Concat<dataType, Tail...>(other.tail()), m_head(other.head()) {}
 
     // move constructor
     template <typename ...cellTypes>
-    Concat( Concat<cellTypes...>&& other ) :
-      Concat<Tail...>(std::move(other.tail())), m_head(std::move(other.head())) {}
+    Concat( Concat<dataType, cellTypes...>&& other ) :
+      Concat<dataType, Tail...>(std::move(other.tail())), m_head(std::move(other.head())) {}
 
 
     // Access head and tail (tail = instance of base class)
@@ -127,9 +134,9 @@ namespace PatTk
     const Head& head() const { return m_head; }
     // There is a trick that since Concat<Tail...> is the base class,
     // there is going to be a implicit conversion
-    Concat<Tail...>& tail() { return *this; }
-    const Concat<Tail...>& tail() const {return *this; }
-
+    Concat<dataType, Tail...>& tail() { return *this; }
+    const Concat<dataType, Tail...>& tail() const {return *this; }
+    
     void trace() {
       head().trace();
       if ( num > 1 ) {
@@ -137,7 +144,6 @@ namespace PatTk
       }
       tail().trace();
     }
-
     
     void Summary() {
       printf( "count: %d\n", num );

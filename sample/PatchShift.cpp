@@ -11,7 +11,8 @@ using namespace PatTk;
 
 int main()
 {
-  Concat<LabCell, LabCell> a( LabCell( 12, 12 ,12 ), LabCell( 255, 255 ,255 ));
+  Concat<unsigned char, LabCell, LabCell> a( LabCell( 12, 12 ,12 ), LabCell( 255, 255 ,255 ));
+  HistCell<int> b(3);
   a.Summary();
   return 0;
 }

@@ -5,11 +5,50 @@
  *********************************************************************************/
 
 #pragma once
-
 #include "2d.hpp"
+
+using std::vector;
+
 
 namespace PatTk
 {
+
+  template <typename dataType>
+  class HistCell : public AbstractCell<dataType>
+  {
+  private:
+    vector<dataType> h;
+  public:
+
+    HistCell( int n ) : AbstractCell<dataType>(n) {}
+
+    HistCell( vector<dataType>&& content ) : AbstractCell<dataType>( static_cast<int>( content.size() ) )
+    {
+      h = content;
+    }
+
+    HistCell( const HistCell& other ) : AbstractCell<dataType>(other.length)
+    {
+      h = other.h;
+    }
+
+    HistCell( HistCell&& other ) : AbstractCell<dataType>(other.length)
+    {
+      h = std::move( other.h );
+    }
+
+    inline dataType& operator[]( const int index )
+    {
+      return h[index];
+    }
+
+    inline const dataType& operator()( const int index ) const
+    {
+      return h[index];
+    }
+
+    
+  };
 
   // Container for an CIE L*a*b* cell (raw Lab color feature)
   class LabCell : public AbstractCell<unsigned char>
