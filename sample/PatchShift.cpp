@@ -14,8 +14,8 @@ int main()
 
   HistCell<int> b(vector<int>({1,2,3}));
   b.Summary();
-  Concat<unsigned char, LabCell, HistCell<unsigned char>> a( LabCell( 12, 12 ,12 ),
-                                                   HistCell<unsigned char>( vector<unsigned char>( {255, 255 ,255} ) ) );
+  concat<unsigned char, LabCell, HistCell<unsigned char>> a( LabCell( 12, 12 ,12 ),
+							     HistCell<unsigned char>( vector<unsigned char>( {255, 255 ,255} ) ) );
   a.Summary();
   return 0;
 }

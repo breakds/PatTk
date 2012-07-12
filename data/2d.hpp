@@ -95,61 +95,66 @@ namespace PatTk
 
   // Variadic Concatenation of CellTypes
   // Should also be a valid cell type
-  template <typename dataType, typename... cellTypes> class Concat {};
+  template <typename dataType, typename... cellTypes> class concat {};
 
-  template <typename dataType> class Concat<dataType>
+  template <typename dataType> class concat<dataType>
   {
   public:
+    int length;
+    concat() : length(0) {}
     void trace() {}
   };
   
   template <typename dataType, typename Head, typename... Tail>
-  class Concat< dataType, Head, Tail... > : private Concat<dataType, Tail...>
+  class concat< dataType, Head, Tail... > : private concat<dataType, Tail...>
   {
     static_assert( std::is_same< dataType, typename Head::type >::value,
-                   "Concat and Head do not share the same data type. " );
+                   "concat and Head do not share the same data type. " );
   protected:
     Head m_head;
 
   public:
     static const int num = 1 + count<Tail...>::value;
+    int length;
     
-    Concat() {}
+    concat() {}
 
-    Concat( const Head& v, const Tail&... vtail ) : Concat<dataType, Tail...>(vtail...), m_head(v) {}
+    concat( const Head& v, const Tail&... vtail ) : concat<dataType, Tail...>(vtail...), m_head(v) 
+    {
+      length = v.length + tail().length;
+    }
 
     // copy constructor
     template <typename ...cellTypes>
-    Concat( const Concat<dataType, cellTypes...>& other ) :
-      Concat<dataType, Tail...>(other.tail()), m_head(other.head()) {}
+    concat( const concat<dataType, cellTypes...>& other ) :
+      concat<dataType, Tail...>(other.tail()), m_head(other.head()), length(other.length) {}
 
     // move constructor
     template <typename ...cellTypes>
-    Concat( Concat<dataType, cellTypes...>&& other ) :
-      Concat<dataType, Tail...>(std::move(other.tail())), m_head(std::move(other.head())) {}
+    concat( concat<dataType, cellTypes...>&& other ) :
+      concat<dataType, Tail...>(std::move(other.tail())), m_head(std::move(other.head())), length(other.length) {}
 
 
     // Access head and tail (tail = instance of base class)
     Head& head() { return m_head; }
     const Head& head() const { return m_head; }
-    // There is a trick that since Concat<Tail...> is the base class,
+    // There is a trick that since concat<Tail...> is the base class,
     // there is going to be a implicit conversion
-    Concat<dataType, Tail...>& tail() { return *this; }
-    const Concat<dataType, Tail...>& tail() const {return *this; }
+    concat<dataType, Tail...>& tail() { return *this; }
+    const concat<dataType, Tail...>& tail() const {return *this; }
     
     void trace() {
       head().trace();
       if ( num > 1 ) {
-        printf( " " );
+        printf( " | " );
       }
       tail().trace();
     }
     
     void Summary() {
-      printf( "count: %d\n", num );
       printf( "#(" );
       trace();
-      printf( ")\n" );
+      printf( ")  len: %d\n", length );
     }
   };
   

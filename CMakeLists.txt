@@ -83,6 +83,15 @@ if ("$ENV{HOST}" MATCHES "tarzan.cs.wisc.edu")
   MESSAGE(STATUS "tarzan.cs.wisc.edu specific configuration on!")
 endif ("$ENV{HOST}" MATCHES "tarzan.cs.wisc.edu")
 
+# For breakds@{any debian box}
+if ("$ENV{HOST}" MATCHES "")
+  include_directories(
+    "/scratch/usr/local/include"
+    "~/pf/projects"
+    ".")
+endif ("$ENV{HOST}" MATCHES "")
+
+
 
 if(COMMAND cmake_policy)
   cmake_policy(SET CMP0003 NEW)
@@ -107,5 +116,5 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # FeatureGen
 ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
-TARGET_LINK_LIBRARIES(PatchShift OPENCV)
+# TARGET_LINK_LIBRARIES(PatchShift OPENCV)
 
