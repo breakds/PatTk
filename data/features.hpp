@@ -13,6 +13,7 @@ using std::vector;
 namespace PatTk
 {
 
+
   template <typename dataType>
   class HistCell : public AbstractCell<dataType>
   {
@@ -37,6 +38,29 @@ namespace PatTk
       h = std::move( other.h );
     }
 
+
+    // move assignment
+    const HistCell& operator=( HistCell&& other )
+    {
+      this->length = other.length;
+      h.swap( other.h );
+      return (*this);
+    }
+
+    // copy assignment
+    const HistCell& operator=( HistCell& other )
+    {
+      this->length = other.length;
+      h = other.h;
+      return (*this);
+    }
+
+
+    inline int size()
+    {
+      return static_cast<int>( h.size() );
+    }
+
     inline dataType& operator[]( const int index )
     {
       return h[index];
@@ -46,7 +70,6 @@ namespace PatTk
     {
       return h[index];
     }
-
     
   };
 
@@ -80,6 +103,25 @@ namespace PatTk
       lab[2] = other.lab[2];
     }
 
+    // move assignment
+    const LabCell& operator=( LabCell&& other )
+    {
+      lab[0] = other.lab[0];
+      lab[1] = other.lab[1];
+      lab[2] = other.lab[2];
+      return (*this);
+    }
+
+    // copy assignment
+    const LabCell& operator=( LabCell& other )
+    {
+      lab[0] = other.lab[0];
+      lab[1] = other.lab[1];
+      lab[2] = other.lab[2];
+      return (*this);
+    }
+
+    
     inline unsigned char& operator[]( const int index )
     {
       return lab[index];

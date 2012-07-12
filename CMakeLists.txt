@@ -116,5 +116,5 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # FeatureGen
 ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
-# TARGET_LINK_LIBRARIES(PatchShift OPENCV)
+TARGET_LINK_LIBRARIES(PatchShift OPENCV)
 
