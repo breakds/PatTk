@@ -120,8 +120,16 @@ namespace PatTk
   public:
     typedef dataType type;
     int length;
+
+
+    const dataType& operator()( const int index ) const
+    {
+      static int tmp = 0;
+      return ((dataType) tmp);
+    }
     concat() : length(0) {}
     void trace() {}
+    
   };
 
 
@@ -161,6 +169,26 @@ namespace PatTk
     concat( concat<dataType, cellTypes...>&& other ) :
       concat<dataType, Tail...>(std::move(other.tail())), m_head(std::move(other.head())), length(other.length) {}
 
+
+    // index accessor
+    dataType& operator[]( const int index )
+    {
+      if ( index >= head().length ) {
+        return tail()[index-head().length];
+      }
+      return head()[index];
+    }
+
+    
+    const dataType& operator()( const int index ) const
+    {
+      if ( index >= head().length ) {
+        const dataType& tmp = tail().number();
+        return tmp;
+      }
+      return head()(index);
+    }
+    
 
     // Access head and tail (tail = instance of base class)
     Head& head() { return m_head; }
@@ -203,15 +231,23 @@ namespace PatTk
                    "cellType is not a valid cell type. (does not derive from AbstractCell or concat." );
     
   private:
+    // containers:
     std::vector<cellType> m_cels;
     std::vector<valueType> m_vals;
+    // properties:
     int m_size;
+
+
+  private:
+    // prohibit from calling copy constructor/assignment operator
+    Image( Image<cellType,valueType>& img ) {}
+    const Image& operator=( Image<cellType,valueType>& img ) {}
+    
   public:
 
     int cols, rows;
 
     /// Consturctors:
-
     
     Image() : cols(0), rows(0), m_cels(), m_vals() {}
 
@@ -222,6 +258,29 @@ namespace PatTk
       m_vals.resize( m_size );
     }
 
+    // move constructor
+    Image( Image<cellType,valueType>&& img ) : cols(img.cols), rows(img.rows)
+    {
+      m_size = cols * rows;
+      m_cels.swap( img.m_cels );
+      m_vals.swap( img.m_vals );
+      patmask = std::move( img.patmask );
+    }
+
+    // move assignment
+    inline const Image& operator=( Image<cellType,valueType>&& img )
+    {
+      cols = img.cols;
+      rows = img.rows;
+      m_size = cols * rows;
+      m_cels.swap( img.m_cels );
+      m_vals.swap( img.m_vals );
+      patmask = std::move( img.patmask );
+      return (*this);
+    }
+
+
+    
     // use operator() to access the cell of coordinates (y,x)
     inline const cellType& operator()( const int y, const int x ) const
     {
@@ -234,28 +293,10 @@ namespace PatTk
       return m_cels[i];
     }
     
-    // move constructor
-    Image( Image<cellType,valueType>&& img ) : cols(img.cols), rows(img.rows)
-    {
-      m_size = cols * rows;
-      m_cels.swap( img.m_cels );
-      m_vals.swap( img.m_vals );
-    }
-
-    // move assignment
-    const Image& operator=( Image<cellType,valueType>&& img )
-    {
-      cols = img.cols;
-      rows = img.rows;
-      m_size = cols * rows;
-      m_cels.swap( img.m_cels );
-      m_vals.swap( img.m_vals );
-      return (*this);
-    }
 
 
     
-    /// Selectors:
+    /// Selectors/Setters:
 
     // only rvalue semantic is provided for altering the content of cells
     inline void setCell( const int y, const int x, cellType&& cell )
@@ -296,15 +337,15 @@ namespace PatTk
     }
 
 
-    /// Properties
+    /// Properties:
     
     // whether image is empty
-    bool empty() const
+    inline bool empty() const
     {
       return !( rows && cols );
     }
 
-    int size() const
+    inline int size() const
     {
       return m_size;
     }
@@ -315,12 +356,113 @@ namespace PatTk
     {
       printf( "Image of %d x %d.\n", cols, rows );
     }
+
+
+  private:
+    /// Patch Utilities
+    static int default_patch_height;
+    static int default_patch_width;
+
+    struct Mask
+    {
+    public:
+      int height, width, stride;
+      std::vector<int> mask;
+
+      Mask() : height(1), width(1), stride(1)
+      {
+        mask.resize(1);
+        mask[0] = 0;
+      }
+
+      const Mask& operator=( Mask&& other )
+      {
+        height = other.height;
+        width = other.width;
+        stride = other.stride;
+        mask.swap( other.mask );
+        return (*this);
+      }
+    };
+
+    Mask patmask;
+
+  public:
+
+    class Patch
+    {
+    private:
+      int pos;
+    public:
+      int y, x;
+      const Image<cellType,valueType> &parent;
+
+      // constructors for Patch
+      Patch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), parent(img) {}
+      Patch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), parent(img)
+      {
+        pos = y * parent.cols + x;
+      }
+      Patch( const Patch& patch ) : pos(patch.pos), y(patch.y), x(patch.x), parent(patch.parent) {}
+      
+      inline bool isValid() const
+      {
+        if ( 0 <= x && x + parent.GetPatchWidth() <= parent.cols &&
+             0 <= y && y + parent.GetPatchHeight() <= parent.rows ) {
+          return true;
+        }
+        return false;
+      }
+
+      inline int dim() const
+      {
+        return parent.GetPatchDim();
+      }
+
+      inline const cellType& operator()( const int index ) const
+      {
+        return parent.GetPatchCell( pos, index );
+      }
+    };
     
+    void SetPatchParameter( int height, int width, int stride=1 )
+    {
+      patmask.width = width;
+      patmask.height = height;
+      patmask.stride = stride;
+      patmask.mask.resize( height * width );
+      for ( int i=0, y=0; i<height; i++, y+=stride ) {
+        for ( int j=0, x=0; j<width; j++, x+=stride ) {
+          patmask.mask[ i * width + j ] = y * cols + x;
+        }
+      }
+    }
+
+    inline int GetPatchWidth() const
+    {
+      return 1 + ( patmask.width - 1 ) * patmask.stride;
+    }
+
+    inline int GetPatchHeight() const
+    {
+      return 1 + ( patmask.height - 1 ) * patmask.stride;
+    }
+
+    inline int GetPatchDim() const
+    {
+      return patmask.width * patmask.height;
+    }
+
+    inline const cellType& GetPatchCell( int pos, int offsetIdx ) const
+    {
+      return m_cels[pos+patmask.mask[offsetIdx]];
+    }
+
+    inline Patch Spawn( int y, int x ) const
+    {
+      return Patch( (*this), y, x );
+    }
   };
-  
-  
-  
-  
 };
 
 

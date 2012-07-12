@@ -33,22 +33,17 @@ Image<LabCell,std::pair<int,int> > InitCellImage( const cv::Mat& mat )
 
 int main( int argc, char **argv )
 {
-  
+
   if ( argc < 2 ) {
     Error( "Not enough arguments." );
     exit( -1 );
   }
   cv::Mat mat = cv::imread( argv[1] );
   
-  Image<LabCell, std::pair<int,int> > img = InitCellImage( mat );
-  for ( int y=0; y<img.rows; y++ ) {
-    for ( int x=0; x<img.cols; x++ ) {
-      img(y,x).Summary();
-      char ch;
-      scanf( "%c", &ch );
-    }
-  }
-  img.Summary();
+  Image<LabCell, std::pair<int,int> > img = std::move( InitCellImage( mat ) );
+  img.SetPatchParameter( 5, 5, 4 );
+
+  
   return 0;
 }
 
