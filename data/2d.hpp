@@ -7,6 +7,7 @@
 #pragma once
 #include <type_traits>
 #include <vector>
+#include <tuple>
 
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
@@ -107,118 +108,9 @@ namespace PatTk
   };
 
 
-
-  // +-------------------------------------------------------------------------------
-  // | Variadic Concatenation of CellTypes
-  // | Example: concat< unsigned char, A, B >
-  // +-------------------------------------------------------------------------------
-  template <typename dataType, typename... cellTypes> class concat {};
-
-  // Base Class, no variadic template arguments
-  template <typename dataType> class concat<dataType>
-  {
-  public:
-    typedef dataType type;
-    int length;
-
-
-    const dataType& operator()( const int index ) const
-    {
-      static int tmp = 0;
-      return ((dataType) tmp);
-    }
-    concat() : length(0) {}
-    void trace() {}
-    
-  };
-
-
-  // iteratively define variadic templated class
-  template <typename dataType, typename Head, typename... Tail>
-  class concat< dataType, Head, Tail... > : private concat<dataType, Tail...>
-  {
-    // if one element does not have the same datatype, fail the compilation
-    static_assert( std::is_same< dataType, typename Head::type >::value,
-                   "concat and Head do not share the same data type. " );
-  protected:
-    Head m_head;
-    
-  public:
-    typedef dataType type;
-
-    // number of elements
-    static const int num = 1 + count<Tail...>::value;
-
-    // length of the whole concatenated cell
-    int length;
-    
-    concat() {}
-
-    concat( const Head& v, const Tail&... vtail ) : concat<dataType, Tail...>(vtail...), m_head(v) 
-    {
-      length = v.length + tail().length;
-    }
-
-    // copy constructor
-    template <typename ...cellTypes>
-    concat( const concat<dataType, cellTypes...>& other ) :
-      concat<dataType, Tail...>(other.tail()), m_head(other.head()), length(other.length) {}
-
-    // move constructor
-    template <typename ...cellTypes>
-    concat( concat<dataType, cellTypes...>&& other ) :
-      concat<dataType, Tail...>(std::move(other.tail())), m_head(std::move(other.head())), length(other.length) {}
-
-
-    // index accessor
-    dataType& operator[]( const int index )
-    {
-      if ( index >= head().length ) {
-        return tail()[index-head().length];
-      }
-      return head()[index];
-    }
-
-    
-    const dataType& operator()( const int index ) const
-    {
-      if ( index >= head().length ) {
-        const dataType& tmp = tail().number();
-        return tmp;
-      }
-      return head()(index);
-    }
-    
-
-    // Access head and tail (tail = instance of base class)
-    Head& head() { return m_head; }
-    const Head& head() const { return m_head; }
-    // There is a trick that since concat<Tail...> is the base class,
-    // there is going to be a implicit conversion
-    concat<dataType, Tail...>& tail() { return *this; }
-    const concat<dataType, Tail...>& tail() const {return *this; }
-
-    // aux function for Summary()
-    void trace() {
-      head().trace();
-      if ( num > 1 ) {
-        printf( " | " );
-      }
-      tail().trace();
-    }
-
-    // print the content out to the screen
-    void Summary() {
-      printf( "#(" );
-      trace();
-      printf( ")  len: %d\n", length );
-    }
-  };
-
-  
   // +-------------------------------------------------------------------------------
   // | Container class for images
-  // | Example: Image< concat< LabCell, HistCell<unsigned char> > >
+  // | Example: Image< HistCell<unsigned char>, vector<int>  >
   // +-------------------------------------------------------------------------------
   template <typename cellType, typename valueType>
   class Image
@@ -226,8 +118,7 @@ namespace PatTk
 
 
     // cellType must be a valid AbstractCell or a concat of them.
-    static_assert( std::is_base_of< AbstractCell<typename cellType::type>, cellType >::value ||
-                   std::is_base_of< concat<typename cellType::type>, cellType >::value,
+    static_assert( std::is_base_of< AbstractCell<typename cellType::type>, cellType >::value,
                    "cellType is not a valid cell type. (does not derive from AbstractCell or concat." );
     
   private:
@@ -249,7 +140,7 @@ namespace PatTk
 
     /// Consturctors:
     
-    Image() : cols(0), rows(0), m_cels(), m_vals() {}
+    Image() : m_cels(), m_vals(), cols(0), rows(0) {}
 
     Image( int h, int w ) : cols(w), rows(h)
     {

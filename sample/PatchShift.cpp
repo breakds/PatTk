@@ -8,27 +8,10 @@
 #include <utility>
 #include "data/features.hpp"
 #include "opencv2/opencv.hpp"
+#include "interfaces/cv_interface.hpp"
 
 using namespace PatTk;
 using std::pair;
-
-
-Image<LabCell,std::pair<int,int> > InitCellImage( const cv::Mat& mat )
-{
-  Image<LabCell, std::pair<int,int> > img( mat.rows, mat.cols );
-  cv::Mat lab;
-  cvtColor( mat, lab, CV_BGR2Lab );
-
-  int i = 0;
-  for ( auto it = lab.begin<cv::Vec3b>(), end = lab.end<cv::Vec3b>(); it != end; it ++ ) {
-    img.setCell( i, LabCell( (*it)[0], (*it)[1], (*it)[2] ) );
-    img.setVal( i, std::make_pair( 0, 0 ) );
-    i++;
-  }
-  
-  return img;
-}
-
 
 
 int main( int argc, char **argv )
@@ -41,8 +24,7 @@ int main( int argc, char **argv )
   cv::Mat mat = cv::imread( argv[1] );
 
   // Create an image with CIEL*a*b* feature descriptors
-  Image<LabCell, std::pair<int,int> > img = std::move( InitCellImage( mat ) );
-
+  Image<LabCell,std::pair<int,int> > img = cvFeatGen<LabCell,std::pair<int,int> >::gen( mat );
 
   // Set the parameter for patches
   // in this case, will be 5 x 5 patch with a cell stride of 4

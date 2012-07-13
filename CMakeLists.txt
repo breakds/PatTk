@@ -89,6 +89,7 @@ if ("$ENV{HOST}" MATCHES "")
     "/scratch/usr/local/include"
     "~/pf/projects"
     ".")
+  set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_imgproc -lopencv_highgui" )
 endif ("$ENV{HOST}" MATCHES "")
 
 
@@ -102,9 +103,9 @@ endif(COMMAND cmake_policy)
 # Whether build as shared libraries by default
 # SET(BUILD_SHARED_LIBS ON)
 
-
 # LINKER_FLAGS
-set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
+# set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
+
 
 # COMPILATION_FLAGS
 # Note -Wno-non-virtual-dtor is for a defect in OpenCV
@@ -116,5 +117,5 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # FeatureGen
 ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
-TARGET_LINK_LIBRARIES(PatchShift OPENCV)
+# TARGET_LINK_LIBRARIES(PatchShift OPENCV)
 

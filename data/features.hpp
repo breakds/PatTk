@@ -5,7 +5,9 @@
  *********************************************************************************/
 
 #pragma once
+#include <cassert>
 #include "2d.hpp"
+
 
 using std::vector;
 
@@ -124,14 +126,18 @@ namespace PatTk
     
     inline unsigned char& operator[]( const int index )
     {
+      assert( index < length );
       return lab[index];
     }
 
     inline const unsigned char& operator()( const int index ) const
     {
+      assert( index < length );
       return lab[index];
     }
   };
+
+  
 
   
 };
