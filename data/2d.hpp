@@ -121,7 +121,7 @@ namespace PatTk
 
     // cellType must be a valid AbstractCell or a concat of them.
     static_assert( std::is_base_of< AbstractCell<typename cellType::type>, cellType >::value,
-                   "cellType is not a valid cell type. (does not derive from AbstractCell or concat." );
+                   "cellType is not a valid cell type. (does not derive from AbstractCell." );
     
   private:
     // containers:
@@ -263,12 +263,18 @@ namespace PatTk
     {
     public:
       int height, width, stride;
-      std::vector<int> mask;
+      std::vector<int> mask; // the offset in the Image
+      std::vector<int> cellShift; // the offset in the mask
+      std::vector<int> inCellShift; // the offset in a cell
 
       Mask() : height(1), width(1), stride(1)
       {
         mask.resize(1);
         mask[0] = 0;
+        cellShift.resize(1);
+        cellShift[0] = 0;
+        inCellShift.resize(1);
+        inCellShift[0] = 0;
       }
 
       const Mask& operator=( Mask&& other )
@@ -277,6 +283,8 @@ namespace PatTk
         width = other.width;
         stride = other.stride;
         mask.swap( other.mask );
+        cellShift.swap( other.cellShift );
+        inCellShift.swap( other.inCellShift );
         return (*this);
       }
     };
@@ -310,14 +318,26 @@ namespace PatTk
         return false;
       }
 
+      inline int cellNum() const
+      {
+        return parent.GetPatchCellNum();
+      }
+
       inline int dim() const
       {
         return parent.GetPatchDim();
       }
 
+      // cell selector
       inline const cellType& operator()( const int index ) const
       {
         return parent.GetPatchCell( pos, index );
+      }
+
+      // component selector
+      inline const typename cellType::type& operator[]( const int index ) const
+      {
+        return parent.GetPatchComponent( pos, index );
       }
     };
     
@@ -327,9 +347,18 @@ namespace PatTk
       patmask.height = height;
       patmask.stride = stride;
       patmask.mask.resize( height * width );
+      patmask.cellShift.resize( GetPatchDim() );
+      patmask.inCellShift.resize( GetPatchDim() );
+      // initialize patmask
+      // Assume all the cells have the same length
+      int p = 0;
       for ( int i=0, y=0; i<height; i++, y+=stride ) {
         for ( int j=0, x=0; j<width; j++, x+=stride ) {
           patmask.mask[ i * width + j ] = y * cols + x;
+          for (int k=0; k<m_cels[0].length; k++ ) {
+            patmask.cellShift[p] = y * cols + x;
+            patmask.inCellShift[p++] = k;
+          }
         }
       }
     }
@@ -344,14 +373,24 @@ namespace PatTk
       return 1 + ( patmask.height - 1 ) * patmask.stride;
     }
 
-    inline int GetPatchDim() const
+    inline int GetPatchCellNum() const
     {
       return patmask.width * patmask.height;
+    }
+
+    inline int GetPatchDim() const
+    {
+      return patmask.width * patmask.height * m_cels[0].length;
     }
 
     inline const cellType& GetPatchCell( int pos, int offsetIdx ) const
     {
       return m_cels[pos+patmask.mask[offsetIdx]];
+    }
+
+    inline const typename cellType::type& GetPatchComponent( int pos, int index ) const
+    {
+      return m_cels[pos+patmask.cellShift[index]](patmask.inCellShift[index]);
     }
 
     inline Patch Spawn( int y, int x ) const

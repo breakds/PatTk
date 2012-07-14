@@ -35,20 +35,24 @@ int main( int argc, char **argv )
 
 
   // Iterate the cell components of this patch, and print them out
-  for ( int i=0; i<patch.dim(); i++ ) {
+  for ( int i=0; i<patch.cellNum(); i++ ) {
     patch(i).Summary();
   }
 
   // Iterate the cell components of the patch
-  for ( int i=0; i<patch.dim(); i++ ) {
+  for ( int i=0; i<patch.cellNum(); i++ ) {
     // Iterate the feature descriptors component of the cell
     for ( int j=0; j<patch(i).length; j++ ) {
       printf( "%hhu ", patch(i)(j) );
     }
   }
   printf( "\n" );
-  
-  
+
+  // Iterate the patch components directly
+  for ( int i=0; i<patch.dim(); i++ ) {
+    printf( "%hhu ", patch[i] );
+  }
+  printf( "\n" );
   return 0;
 }
 
