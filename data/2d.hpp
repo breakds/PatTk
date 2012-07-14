@@ -25,6 +25,8 @@ namespace PatTk
   template <typename dataType>
   class AbstractCell
   {
+    static_assert( std::is_integral<dataType>::value || std::is_floating_point<dataType>::value,
+                   "Non numeric type is not allowed as dataType in AbstractCell." );
   private:
     // Prohibit constructor to be called with no argument
     AbstractCell() {}
@@ -128,7 +130,6 @@ namespace PatTk
     // properties:
     int m_size;
 
-
   private:
     // prohibit from calling copy constructor/assignment operator
     Image( Image<cellType,valueType>& img ) {}
@@ -137,12 +138,14 @@ namespace PatTk
   public:
 
     int cols, rows;
+    int id;
+
 
     /// Consturctors:
     
-    Image() : m_cels(), m_vals(), cols(0), rows(0) {}
+    Image() : m_cels(), m_vals(), cols(0), rows(0), id(0) {}
 
-    Image( int h, int w ) : cols(w), rows(h)
+    Image( int h, int w ) : cols(w), rows(h), id(0)
     {
       m_size = h * w;
       m_cels.resize( m_size );
@@ -155,6 +158,7 @@ namespace PatTk
       m_size = cols * rows;
       m_cels.swap( img.m_cels );
       m_vals.swap( img.m_vals );
+      id = img.id;
       patmask = std::move( img.patmask );
     }
 
@@ -167,6 +171,7 @@ namespace PatTk
       m_cels.swap( img.m_cels );
       m_vals.swap( img.m_vals );
       patmask = std::move( img.patmask );
+      id = img.id;
       return (*this);
     }
 
@@ -188,7 +193,7 @@ namespace PatTk
 
     
     /// Selectors/Setters:
-
+    
     // only rvalue semantic is provided for altering the content of cells
     inline void setCell( const int y, const int x, cellType&& cell )
     {
@@ -285,12 +290,12 @@ namespace PatTk
     private:
       int pos;
     public:
-      int y, x;
+      int y, x, pid;
       const Image<cellType,valueType> &parent;
 
       // constructors for Patch
-      Patch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), parent(img) {}
-      Patch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), parent(img)
+      Patch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
+      Patch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
       {
         pos = y * parent.cols + x;
       }
@@ -354,6 +359,38 @@ namespace PatTk
       return Patch( (*this), y, x );
     }
   };
+
+
+  // +-------------------------------------------------------------------------------
+  // | Album, collection of imges.
+  // | Serve as owner of images, as well as owner of patches.
+  // +-------------------------------------------------------------------------------
+  template <typename dataType, typename valueType>
+  class Album
+  {
+  private:
+    std::vector< Image<dataType, valueType> > pages;
+  public:
+    Album()
+    {
+      pages.clear();
+    }
+
+    // push() has side effect. It is destructive as it steals the
+    // Image that img refer to.
+    void push( Image<dataType, valueType>&& img )
+    {
+      img.id = static_cast<int>( pages.size() );
+      pages.push_back( std::forward( img ) );
+    }
+
+    // Only provide read-only access to member images
+    const Image<dataType, valueType>& operator()( const int index )
+    {
+      return pages[index];
+    }
+  };
+
 };
 
 

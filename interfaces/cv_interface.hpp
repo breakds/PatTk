@@ -30,7 +30,7 @@ namespace PatTk
     }
   };
   
-
+  
   /// LabCell Specialization
   template <typename valueType>
   class cvFeatGen<LabCell, valueType>
