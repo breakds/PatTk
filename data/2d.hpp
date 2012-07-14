@@ -250,7 +250,7 @@ namespace PatTk
     /// Debug Utilities
     void Summary() const
     {
-      printf( "Image of %d x %d.\n", cols, rows );
+      printf( "Image of %d x %d (%ld).\n", cols, rows, m_vals.size()  );
     }
 
 
@@ -370,20 +370,47 @@ namespace PatTk
   {
   private:
     std::vector< Image<dataType, valueType> > pages;
+
+    // prohibited copy constructor
+    Album( const Album<dataType,valueType>& other ) {}
+
+    // prohibited copy assignment
+    const Album<dataType,valueType>& operator=( const Album<dataType,valueType>& other ) {}
+    
   public:
+
     Album()
     {
       pages.clear();
     }
 
-    // push() has side effect. It is destructive as it steals the
-    // Image that img refer to.
-    void push( Image<dataType, valueType>&& img )
+    // move constructor
+    Album( Album<dataType,valueType>&& other )
     {
-      img.id = static_cast<int>( pages.size() );
-      pages.push_back( std::forward( img ) );
+      pages.swap( other.pages );
     }
 
+    // move assignment
+    const Album<dataType,valueType>& operator=( Album<dataType,valueType>&& other )
+    {
+      pages.swap( other.pages );
+      return (*this);
+    }
+
+    // size()
+    int size() const
+    {
+      return static_cast<int>( pages.size() );
+    }
+
+    // push() has side effect. It is destructive as it steals the
+    // Image that img refer to.
+    inline void push( Image<dataType, valueType>&& img )
+    {
+      img.id = static_cast<int>( pages.size() );
+      pages.push_back( std::move(img) );
+    }
+    
     // Only provide read-only access to member images
     const Image<dataType, valueType>& operator()( const int index )
     {

@@ -6,7 +6,8 @@
 
 
 #pragma once
-
+#include <string>
+#include "LLPack/utils/extio.hpp"
 #include "data/2d.hpp"
 #include "data/features.hpp"
 #include "opencv2/opencv.hpp"
@@ -50,5 +51,27 @@ namespace PatTk
       return img;
     }
   };
+
+  // +-------------------------------------------------------------------------------
+  // |  Album<cellType, typename valueType> Generators
+  // +-------------------------------------------------------------------------------
+  template <typename cellType, typename valueType>
+  class cvAlbumGen
+  {
+  public:
+    static Album<cellType,valueType> gen( const vector<std::string>& lst )
+    {
+      Info( "Creating Album..." );
+      Album<cellType,valueType> album;
+      for ( int i=0, end=lst.size(); i<end; i++ ) {
+        cv::Mat raw = cv::imread( lst[i] );
+        album.push( cvFeatGen<cellType,valueType>::gen(raw) );
+      }
+      Done( "Album created." );
+      return album;
+    }
+  };
+
+  
   
 };

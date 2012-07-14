@@ -1,8 +1,7 @@
 /*********************************************************************************
- * File: PatchShift.cpp
- * Description: Sample program for using 2d library. Search for the nearest neighbor
- *              in image A from image B. Search is limited within a range.
- * by BreakDS, University of Wisconsin Madison, Wed Jul 11 10:45:21 CDT 2012
+ * File: usage.cpp
+ * Description: usage of 2d library.
+ * by BreakDS, University of Wisconsin Madison, Fri Jul 13 23:12:59 CDT 2012
  *********************************************************************************/
 
 #include <utility>
@@ -24,7 +23,7 @@ int main( int argc, char **argv )
   cv::Mat mat = cv::imread( argv[1] );
 
   // Create an image with CIEL*a*b* feature descriptors
-  Image<LabCell,std::pair<int,int> > img = cvFeatGen<LabCell,std::pair<int,int> >::gen( mat );
+  auto img = cvFeatGen<LabCell,std::pair<int,int> >::gen( mat );
 
   // Set the parameter for patches
   // in this case, will be 5 x 5 patch with a cell stride of 4

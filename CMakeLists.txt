@@ -115,7 +115,12 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g  -D_GLIBCXX_DEBUG")
 set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 
-# FeatureGen
-ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
+# PatchShift
+# ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
 # TARGET_LINK_LIBRARIES(PatchShift OPENCV)
 
+# Usage
+ADD_EXECUTABLE(usage sample/usage.cpp)
+
+# AlbumTest
+ADD_EXECUTABLE(AlbumTest sample/AlbumTest.cpp)
