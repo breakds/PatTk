@@ -301,13 +301,16 @@ namespace PatTk
       int y, x, pid;
       const Image<cellType,valueType> &parent;
 
+    public:
       // constructors for Patch
       Patch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
       Patch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
       {
         pos = y * parent.cols + x;
       }
-      Patch( const Patch& patch ) : pos(patch.pos), y(patch.y), x(patch.x), parent(patch.parent) {}
+
+      // copy constructor
+      Patch( const Patch& patch ) : pos(patch.pos), y(patch.y), x(patch.x), pid(patch.pid), parent(patch.parent) {}
       
       inline bool isValid() const
       {
@@ -339,6 +342,12 @@ namespace PatTk
       {
         return parent.GetPatchComponent( pos, index );
       }
+
+      inline void Summary() const
+      {
+        printf( "Patch %d:(%d,%d) | dimension %d | %d cells.\n", pid, y, x, dim(), cellNum() );
+      }
+      
     };
     
     void SetPatchParameter( int height, int width, int stride=1 )

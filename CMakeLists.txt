@@ -124,3 +124,6 @@ ADD_EXECUTABLE(usage sample/usage.cpp)
 
 # AlbumTest
 ADD_EXECUTABLE(AlbumTest sample/AlbumTest.cpp)
+
+# TreeBuild
+ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
