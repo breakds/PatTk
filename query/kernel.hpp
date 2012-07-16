@@ -17,7 +17,7 @@
 
 
 // TODO: temp options
-#define projDim 10
+#define projDim 7
 #define hypoNum 20
 #define convergeTh 120
 
@@ -27,7 +27,8 @@ namespace PatTk
   class BasicKernel : public AbstractKernel<cellType,valueType>
   {
   public:
-    // the branching class (test function)
+
+    /// the branching class (test function)
     class branch : public AbstractBranch<cellType,valueType>
     {
     public:
@@ -35,14 +36,14 @@ namespace PatTk
       vector<typename BasicKernel<cellType,valueType>::data_t> vertex[2];
       int th;
       // TODO: add score so that don't need to calculate again
-
     private:
-
-      // prohibited copy constructor and copy assignment operator
+      // prohibit calling copy constructor and copy assignment operator
       branch( const branch& other );
       const branch& operator=( const branch& other );
-      
     public:
+
+
+      // below are two calculate() functions for integral types
       template<typename T=typename cellType::type>
       inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& patch,
                             typename std::enable_if<std::is_integral<T>::value>::type
@@ -57,8 +58,6 @@ namespace PatTk
         }
         return val;
       }
-
-      // below are two calculate functions for integral types
 
       template<typename T=typename cellType::type>
       inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
@@ -90,7 +89,6 @@ namespace PatTk
       }
 
       // below are tow caculate functions for floating point types
-
       template<typename T=typename cellType::type>
       inline double calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
                                const typename BasicKernel<cellType,valueType>::patch_t& b,
@@ -120,7 +118,6 @@ namespace PatTk
         return true;
       }
 
-
     public:
       
       branch() {}
@@ -149,15 +146,50 @@ namespace PatTk
         }
         return 1;
       }
+
+      // debugging utility
+      void trace() const
+      {
+        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
+          printf( "%hhu\t", vertex[0][i] );
+        }
+        printf ( "\n" );
+        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
+          printf( "%hhu\t", vertex[1][i] );
+        }
+        printf ( "\n" );
+
+      }
+
+
+      template<typename T=typename cellType::type>
+      inline int debug( const typename BasicKernel<cellType,valueType>::patch_t& patch,
+                            typename std::enable_if<std::is_integral<T>::value>::type
+                            __attribute__((__unused__)) *padding=0 ) const
+      {
+        int val = 0;
+        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
+          int tmp = vertex[0][i] - patch[proj[i]];
+          val += tmp * tmp;
+          tmp = vertex[1][i] - patch[proj[i]];
+          val -= tmp * tmp;
+        }
+        return val;
+      }
+
     };
 
+
   public:
+    
     static vector<branch> RaiseHypothesis( const vector<typename BasicKernel<cellType,valueType>::patch_t>& patchList,
                                            const int* ref,
                                            int len )
     {
+      // dimension of patches
       int dim = patchList[0].dim();
-      
+
+      // hypotheses container
       vector<branch> hypos;
       hypos.clear();
       for ( int i=0; i<hypoNum; i++ ) {
@@ -183,12 +215,25 @@ namespace PatTk
         // get median value
         vector<int> vals;
         vals.clear();
+        int min = 0;
+        int max = 0;
         for ( int j=0; j<len; j++ ) {
-          vals.push_back( b.calculate( patchList[ref[j]] ) );
+          int val = b.calculate( patchList[ref[j]] );
+          vals.push_back( val );
+          if ( 0 == j || val < min ) min = val;
+          if ( 0 == j || val > max ) max = val;
         }
+
 
         b.th = sorting::median( vals );
 
+        // compensating for the case where median happens to be the
+        // max or min which contaminates the split
+        if ( b.th == max ) {
+          b.th--;
+        } else if ( b.th == min ) {
+          b.th++;
+        }
       }
       return hypos;
     }
@@ -198,6 +243,27 @@ namespace PatTk
                                    int len,
                                    const branch& hypo )
     {
+      // In this function we will score the hypothesis "hypo" by how
+      // many times it correctly put a nearest neighbor pair it the
+      // same cluster. A nearest neighbor pair is described as and
+      // index ("i") and its coressponding nearest neighbor index
+      // (nearest[i]). The index comes from a small subset of the
+      // datapoints, and the nearest neighbors are searched in a
+      // larger subset.
+
+
+
+      // 
+
+
+
+
+
+
+
+
+      // create the nearest neighbor list
+      // nearest[i] will store the reference
       vector<int> nearest;
       nearest.resize( len );
       for ( int i=0; i<len; i++ ) {
@@ -218,7 +284,7 @@ namespace PatTk
       for ( int i=0; i<len; i++ ) {
         tag[i] = hypo( patchList[ref[i]] );
       }
-
+      
       int accuErr = 0;
       for ( int i=0; i<len; i++ ) {
         if ( tag[i] != tag[nearest[i]] ) {

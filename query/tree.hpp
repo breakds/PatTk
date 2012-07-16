@@ -135,6 +135,7 @@ namespace PatTk
           }
           continue;
         }
+
         
         // Acquire the best hypothesis
         node->fork = std::move( hypos[bestHypoIdx] );
@@ -151,7 +152,6 @@ namespace PatTk
         }
         right++;
 
-        
         assert( right != 0 && right != len );
         node->child[0].reset( new Tree() );
         node->child[1].reset( new Tree() );

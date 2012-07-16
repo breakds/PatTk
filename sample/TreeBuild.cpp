@@ -3,8 +3,9 @@
  * Description: Demonstrate the usage of tree library
  * by BreakDS, University of Wisconsin Madison, Sat Jul 14 09:41:29 CDT 2012
  *********************************************************************************/
-
+#include <type_traits>
 #include "LLPack/utils/extio.hpp"
+#include "LLPack/algorithms/random.hpp"
 #include "data/2d.hpp"
 #include "data/features.hpp"
 #include "query/tree.hpp"
@@ -12,21 +13,25 @@
 #include "opencv2/opencv.hpp"
 #include "interfaces/cv_interface.hpp"
 
-#define STRIDE 3
+#define STRIDE 5
 #define CELL_STRIDE 1
 #define PATCH_SIZE 10
 
 using namespace PatTk;
 
-int main( int argc, char **argv )
+int main()
 {
+  
+  srand( 1342464046 );
 
+  /*
   if ( argc < 2 ) {
     Error( "Not enough arguments." );
     exit( -1 );
   }
+  */
 
-  cv::Mat mat = cv::imread( argv[1] );
+  cv::Mat mat = cv::imread( "Seq05VD_f02520.png" );
 
   // Create an image with CIEL*a*b* feature descriptors
   auto img = cvFeatGen<LabCell,int>::gen( mat );
