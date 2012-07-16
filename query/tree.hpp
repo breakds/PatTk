@@ -24,7 +24,7 @@ namespace PatTk
   };
 
   
-
+  
   template <typename cellType, typename valueType>
   class AbstractKernel
   {

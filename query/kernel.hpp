@@ -36,7 +36,12 @@ namespace PatTk
       int th;
       // TODO: add score so that don't need to calculate again
 
+    private:
 
+      // prohibited copy constructor and copy assignment operator
+      branch( const branch& other );
+      const branch& operator=( const branch& other );
+      
     public:
       template<typename T=typename cellType::type>
       inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& patch,
@@ -52,6 +57,8 @@ namespace PatTk
         }
         return val;
       }
+
+      // below are two calculate functions for integral types
 
       template<typename T=typename cellType::type>
       inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
@@ -81,6 +88,8 @@ namespace PatTk
         }
         return val;
       }
+
+      // below are tow caculate functions for floating point types
 
       template<typename T=typename cellType::type>
       inline double calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
@@ -113,10 +122,10 @@ namespace PatTk
 
 
     public:
-
+      
       branch() {}
       
-      branch( branch&& other )
+      branch( branch&& other ) noexcept
       {
         proj.swap( other.proj );
         vertex[0].swap( other.vertex[0] );
@@ -124,7 +133,7 @@ namespace PatTk
         th = other.th;
       }
 
-      const branch& operator=( branch&& other )
+      const branch& operator=( branch&& other ) noexcept
       {
         proj.swap( other.proj );
         vertex[0].swap( other.vertex[0] );
