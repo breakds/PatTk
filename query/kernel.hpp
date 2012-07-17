@@ -10,6 +10,7 @@
 #include <type_traits>
 #include <cstdlib>
 #include "LLPack/utils/extio.hpp"
+#include "LLPack/utils/candy.hpp"
 #include "LLPack/algorithms/sort.hpp"
 #include "data/2d.hpp"
 #include "data/features.hpp"
@@ -17,9 +18,11 @@
 
 
 // TODO: temp options
-#define projDim 7
+#define projDim 8
 #define hypoNum 20
 #define convergeTh 120
+#define size_set_a 50
+#define size_set_b 1000
 
 namespace PatTk
 {
@@ -34,24 +37,21 @@ namespace PatTk
     public:
       vector<int> proj;
       vector<typename BasicKernel<cellType,valueType>::data_t> vertex[2];
-      int th;
+      typename BasicKernel<cellType,valueType>::gen_data_t th;
       // TODO: add score so that don't need to calculate again
     private:
       // prohibit calling copy constructor and copy assignment operator
       branch( const branch& other );
       const branch& operator=( const branch& other );
+
+
     public:
-
-
-      // below are two calculate() functions for integral types
-      template<typename T=typename cellType::type>
-      inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& patch,
-                            typename std::enable_if<std::is_integral<T>::value>::type
-                            __attribute__((__unused__)) *padding=0 ) const
+      inline typename BasicKernel<cellType,valueType>::gen_data_t
+      calculate( const typename BasicKernel<cellType,valueType>::patch_t& patch ) const
       {
-        int val = 0;
+        typename BasicKernel<cellType,valueType>::gen_data_t val(0);
         for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          int tmp = vertex[0][i] - patch[proj[i]];
+          typename BasicKernel<cellType,valueType>::gen_data_t tmp = vertex[0][i] - patch[proj[i]];
           val += tmp * tmp;
           tmp = vertex[1][i] - patch[proj[i]];
           val -= tmp * tmp;
@@ -59,59 +59,27 @@ namespace PatTk
         return val;
       }
 
-      template<typename T=typename cellType::type>
-      inline int calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
-                            const typename BasicKernel<cellType,valueType>::patch_t& b,
-                            typename std::enable_if<std::is_integral<T>::value>::type
-                            __attribute__((__unused__)) *padding=0 ) const
+      inline typename BasicKernel<cellType,valueType>::gen_data_t
+      calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
+                 const typename BasicKernel<cellType,valueType>::patch_t& b) const
       {
-        int val = 0;
+        typename BasicKernel<cellType,valueType>::gen_data_t val = 0;
         for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          int tmp = a[proj[i]] - b[proj[i]];
+          typename BasicKernel<cellType,valueType>::gen_data_t tmp = a[proj[i]] - b[proj[i]];
           val += tmp * tmp;
         }
         return val;
       }
-
-      template<typename T=typename cellType::type>
-      inline double calculate( const typename BasicKernel<cellType,valueType>::patch_t& patch,
-                               typename std::enable_if<std::is_floating_point<T>::value>::type
-                               __attribute__((__unused__)) *padding=0 ) const
-      {
-        double val = 0;
-        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          double tmp = vertex[0][i] - patch[proj[i]];
-          val += tmp * tmp;
-          tmp = vertex[1][i] - patch[proj[i]];
-          val -= tmp * tmp;
-        }
-        return val;
-      }
-
-      // below are tow caculate functions for floating point types
-      template<typename T=typename cellType::type>
-      inline double calculate( const typename BasicKernel<cellType,valueType>::patch_t& a,
-                               const typename BasicKernel<cellType,valueType>::patch_t& b,
-                               typename std::enable_if<std::is_floating_point<T>::value>::type
-                               __attribute__((__unused__)) *padding=0 ) const
-      {
-        double val = 0;
-        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          double tmp = a[proj[i]] - b[proj[i]];
-          val += tmp * tmp;
-        }
-        return val;
-      }
-
-      inline bool isValid( typename std::enable_if<std::is_integral<typename cellType::type>::value>::type
-                           __attribute__((__unused__)) *padding=0 ) const
+      
+      inline bool isValid() const
       {
 
-        int val = 0;
+        typename BasicKernel<cellType,valueType>::gen_data_t val = 0;
         for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          int tmp = static_cast<int>( vertex[0][i] ) - static_cast<int>( vertex[1][i] );
+          typename BasicKernel<cellType,valueType>::gen_data_t tmp = vertex[0][i] - vertex[1][i];
           val += tmp * tmp;
         }
+
         if ( val < convergeTh ) {
           return false;
         }
@@ -147,86 +115,62 @@ namespace PatTk
         return 1;
       }
 
-      // debugging utility
-      void trace() const
-      {
-        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          printf( "%hhu\t", vertex[0][i] );
-        }
-        printf ( "\n" );
-        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          printf( "%hhu\t", vertex[1][i] );
-        }
-        printf ( "\n" );
-
-      }
-
-
-      template<typename T=typename cellType::type>
-      inline int debug( const typename BasicKernel<cellType,valueType>::patch_t& patch,
-                            typename std::enable_if<std::is_integral<T>::value>::type
-                            __attribute__((__unused__)) *padding=0 ) const
-      {
-        int val = 0;
-        for ( int i=0, end=static_cast<int>( proj.size() ); i<end; i++ ) {
-          int tmp = vertex[0][i] - patch[proj[i]];
-          val += tmp * tmp;
-          tmp = vertex[1][i] - patch[proj[i]];
-          val -= tmp * tmp;
-        }
-        return val;
-      }
-
     };
 
 
   public:
     
-    static vector<branch> RaiseHypothesis( const vector<typename BasicKernel<cellType,valueType>::patch_t>& patchList,
-                                           const int* ref,
-                                           int len )
+    static int split( const vector<typename BasicKernel<cellType,valueType>::patch_t>& patches,
+                      const int* ref,
+                      int len,
+                      branch& fork )
     {
-      // dimension of patches
-      int dim = patchList[0].dim();
+      // 1. sub-sampling set A and set B. For each patch in set A,
+      // search for its nearest neighbor in set B.
+      
+      vector<int> A = std::move( rndgen::randperm<int>( ref, size_set_a, len ) );
+      vector<int> B = std::move( rndgen::randperm<int>( ref, size_set_b, len ) );
 
-      // hypotheses container
-      vector<branch> hypos;
-      hypos.clear();
+      int sizeA = static_cast<int>( A.size() );
+      int sizeB = static_cast<int>( B.size() );
+       
+      
+      vector<typename BasicKernel<cellType,valueType>::gen_data_t> vals;
+      vals.resize( len );
+
+      int minErr = -1;
+
+      // 2. enumerating hypothesis
       for ( int i=0; i<hypoNum; i++ ) {
-        hypos.push_back( std::move( branch()) );
-        branch& b = hypos[i];
-        // TODO: use randperm()
-        b.proj.resize( projDim );
-        for ( int j=0; j<projDim; j++ ) {
-          b.proj[j] = rand() % dim;
-        }
-
-        // TODO: use randperm()
+        branch b;
+        b.proj = std::move( rndgen::randperm( projDim, projDim ) );
         int pos[2] = {0,0};
         pos[0] = rand() % len;
-        do { pos[1] = rand() % len; } while ( pos[1] == pos[0] );
+        do { pos[1] = rand() % len; } while ( 1 < len && pos[1] == pos[0] );
         for ( int k=0; k<2; k++ ) {
           b.vertex[k].resize( projDim );
           for ( int j=0; j<projDim; j++ ) {
-            b.vertex[k][j] = patchList[ref[pos[k]]][b.proj[j]];
+            b.vertex[k][j] = patches[ref[pos[k]]][b.proj[j]];
           }
         }
 
-        // get median value
-        vector<int> vals;
-        vals.clear();
-        int min = 0;
-        int max = 0;
+        typename BasicKernel<cellType,valueType>::gen_data_t min = 0;
+        typename BasicKernel<cellType,valueType>::gen_data_t max = 0;
         for ( int j=0; j<len; j++ ) {
-          int val = b.calculate( patchList[ref[j]] );
-          vals.push_back( val );
+          typename BasicKernel<cellType,valueType>::gen_data_t val = b.calculate( patches[ref[j]] );
+          vals[j] = val;
           if ( 0 == j || val < min ) min = val;
           if ( 0 == j || val > max ) max = val;
         }
 
 
-        b.th = sorting::median( vals );
 
+        
+
+
+        
+        b.th = sorting::median( vals );
+        
         // compensating for the case where median happens to be the
         // max or min which contaminates the split
         if ( b.th == max ) {
@@ -234,67 +178,40 @@ namespace PatTk
         } else if ( b.th == min ) {
           b.th++;
         }
-      }
-      return hypos;
-    }
 
-    static double ScoreHypothesis( const vector<typename BasicKernel<cellType,valueType>::patch_t>& patchList,
-                                   const int* ref,
-                                   int len,
-                                   const branch& hypo )
-    {
-      // In this function we will score the hypothesis "hypo" by how
-      // many times it correctly put a nearest neighbor pair it the
-      // same cluster. A nearest neighbor pair is described as and
-      // index ("i") and its coressponding nearest neighbor index
-      // (nearest[i]). The index comes from a small subset of the
-      // datapoints, and the nearest neighbors are searched in a
-      // larger subset.
+        if ( !b.isValid() ) continue;
 
-
-
-      // 
-
-
-
-
-
-
-
-
-      // create the nearest neighbor list
-      // nearest[i] will store the reference
-      vector<int> nearest;
-      nearest.resize( len );
-      for ( int i=0; i<len; i++ ) {
-        int min = -1;
-        nearest[i] = -1;
-        for ( int j=0; j<len; j++ ) {
-          if ( i == j )  continue;
-          int dist = hypo.calculate( patchList[ref[i]], patchList[ref[j]] );
-          if ( -1 == nearest[i] || dist < min ) {
-            min = dist;
-            nearest[i] = j;
+        // scoring
+        int error = 0;
+        for ( int j=0; j<sizeA; j++ ) {
+          int nearest = B[0];
+          typename BasicKernel<cellType,valueType>::gen_data_t min = b.calculate( patches[A[j]], patches[B[0]] );
+          for ( int k=1; k<sizeB; k++ ) {
+            typename BasicKernel<cellType,valueType>::gen_data_t dist = b.calculate( patches[A[j]], patches[B[k]] );
+            if ( dist < min ) {
+              min = dist;
+              nearest = B[k];
+            }
+          }
+          if ( b(patches[A[j]]) != b(patches[nearest]) ) {
+            error++; 
           }
         }
-      }
 
-      vector<int> tag;
-      tag.resize( len );
-      for ( int i=0; i<len; i++ ) {
-        tag[i] = hypo( patchList[ref[i]] );
-      }
-      
-      int accuErr = 0;
-      for ( int i=0; i<len; i++ ) {
-        if ( tag[i] != tag[nearest[i]] ) {
-          accuErr++;
+        if ( -1 == minErr || error < minErr ) {
+          minErr = error;
+          fork = std::move( b );
         }
+        
       }
       
-      return static_cast<double>( -accuErr );
+      if ( -1 == minErr ) {
+        return -1;
+      }
+      
+      return 0;
     }
-
+    
     static bool terminate( const vector<typename BasicKernel<cellType,valueType>::patch_t>
                            __attribute__((__unused__)) &patchList,
                            const int __attribute__((__unused__)) *ref,

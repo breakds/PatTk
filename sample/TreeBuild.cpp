@@ -21,7 +21,7 @@ using namespace PatTk;
 
 int main()
 {
-  
+
   srand( 1342464046 );
 
   /*

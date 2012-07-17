@@ -347,6 +347,16 @@ namespace PatTk
       {
         printf( "Patch %d:(%d,%d) | dimension %d | %d cells.\n", pid, y, x, dim(), cellNum() );
       }
+
+      inline void trace() const
+      {
+        for ( int i=0; i<cellNum(); i++ ) {
+          if ( i > 0 ) {
+            printf( " | " );
+          }
+          (*this)(i).trace();
+        }
+      }
       
     };
     

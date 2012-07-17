@@ -13,6 +13,7 @@
 #include <type_traits>
 #include "data/2d.hpp"
 #include "data/features.hpp"
+#include "LLPack/algorithms/sort.hpp"
 
 namespace PatTk
 {
@@ -36,6 +37,7 @@ namespace PatTk
     typedef valueType value_t;
     typedef typename Image<cellType,valueType>::Patch patch_t;
     typedef typename cellType::type data_t;
+    typedef typename Generalized<typename cellType::type>::type gen_data_t;
   public:
     static vector<AbstractBranch<cellType,valueType> > RaiseHypothesis() {}
   };
@@ -102,44 +104,27 @@ namespace PatTk
         int len = std::get<2>( stack.front() );
         stack.pop_front();
 
-        // whether satisfies the terminating condition
+
         if ( kernel::terminate( patchList, ref, len ) ) {
+          // first termination condition statisfied
           for ( int i=0; i<len; i++ ) {
             node->patches.push_back( patchList[ref[i]] );
           }
           continue;
         }
 
-        
-        vector<typename kernel::branch> hypos = std::move( kernel::RaiseHypothesis( patchList, ref, len ) );
-        assert( hypos.size() > 0 );
 
-        // Acquire the best hypothesis
-        double best = 0.0;
-        int bestHypoIdx = -1;
-        
-        for ( int i=0, end=static_cast<int>( hypos.size() ); i<end; i++ ) {
-          if ( hypos[i].isValid() ) {
-            double score = kernel::ScoreHypothesis( patchList, ref, len, hypos[i] );
-            if ( -1 == bestHypoIdx || score > best ) {
-              best = score;
-              bestHypoIdx = i;
-            }
-          }
-        }
-
-        // whether satisfies the covergence condition
-        if ( -1 == bestHypoIdx ) {
+        if ( -1 == kernel::split( patchList, ref, len, node->fork ) ) {
+          // second termination condition satisfied
+          printf( "alert! failed to split with len %d.\n", len );
+          char ch;
+          scanf( "%c", &ch );
           for ( int i=0; i<len; i++ ) {
             node->patches.push_back( patchList[ref[i]] );
           }
           continue;
         }
 
-        
-        // Acquire the best hypothesis
-        node->fork = std::move( hypos[bestHypoIdx] );
-        
         // Get the right branch's reference start point
         int right(-1), t(0);
         for ( int i=0; i<len; i++ ) {
@@ -152,6 +137,8 @@ namespace PatTk
         }
         right++;
 
+        printf( "%d -> %d + %d\n", len, right, len - right );
+        
         assert( right != 0 && right != len );
         node->child[0].reset( new Tree() );
         node->child[1].reset( new Tree() );
@@ -187,7 +174,7 @@ namespace PatTk
     inline void Summary() const
     {
       if ( leaf() ) {
-        printf( "leaf with \n" );
+        printf( "leaf with %ld patches. They are:\n", patches.size() );
         for ( auto& ele : patches ) {
           ele.Summary();
         }
