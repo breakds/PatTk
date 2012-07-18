@@ -480,6 +480,19 @@ namespace PatTk
     {
       return pages[index];
     }
+
+    Image<dataType, valueType>& back()
+    {
+      return pages.back();
+    }
+
+    // Set patch parameters, applied to all the images
+    void SetPatchParameter( int height, int width, int stride=1 )
+    {
+      for ( auto& every : pages ) {
+        every.SetPatchParameter( height, width, stride );
+      }
+    }
   };
 
 };

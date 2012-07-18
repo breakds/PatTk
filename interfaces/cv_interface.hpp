@@ -67,6 +67,7 @@ namespace PatTk
       for ( int i=0, end=lst.size(); i<end; i++ ) {
         cv::Mat raw = cv::imread( lst[i] );
         album.push( cvFeatGen<cellType,valueType>::gen(raw) );
+        album.back().setFullPath( lst[i] );
       }
       Done( "Album created." );
       return album;
@@ -76,7 +77,7 @@ namespace PatTk
   // +-------------------------------------------------------------------------------
   // |  Visualization sub-Library
   // +-------------------------------------------------------------------------------
-  void put( const cv::Mat& icon, const int y, const int x, cv::Mat& bg )
+  void put( const cv::Mat& icon, const int y, const int x, cv::Mat& bg, const int zoom = 1 )
   {
     if ( CV_8UC3 != icon.type() || CV_8UC3 != icon.type() ) {
       Error( "IconList::put() - either icon or bg is not of CV_8UC3" );
@@ -85,19 +86,25 @@ namespace PatTk
     for ( int dy=0; dy<icon.rows; dy++ ) {
       for ( int dx=0; dx<icon.cols; dx++ ) {
         for ( int k=0; k<3; k++ ) {
-          bg.at<cv::Vec3b>( y + dy, x + dx )[k] = icon.at<cv::Vec3b>( y, x )[k];
+          for ( int zy=0; zy<zoom; zy++ ) {
+            for ( int zx=0; zx<zoom; zx++ ) {
+              bg.at<cv::Vec3b>( y + dy * zoom + zy, x + dx * zoom + zx )[k] = icon.at<cv::Vec3b>( dy, dx )[k];
+            }
+          }
         }
       }
     }
   }
 
-  
+  template <typename patchType>
   class IconList
   {
   private:
     vector<cv::Mat> icons;
+    
     std::function<void(const int)> callback;
   public:
+    vector<patchType> patches;
     std::string window;
     struct Options
     {
@@ -105,9 +112,10 @@ namespace PatTk
       int cols;
       int colSep;
       int rowSep;
+      int zoom;
       cv::Scalar background;
     } options;
-
+    
   private:
     IconList();
 
@@ -126,6 +134,7 @@ namespace PatTk
       options.cols = 40;
       options.colSep = 5;
       options.rowSep = 5;
+      options.zoom = 1;
       options.background = cv::Scalar( 0, 0, 0 );
       callback = [](const int index){ printf("%d clicked.\n", index ); };
     }
@@ -136,7 +145,6 @@ namespace PatTk
     }
 
     
-    template <typename patchType>
     void push( const patchType& patch )
     {
       cv::Mat tmp = cv::imread( patch.parent.fullpath );
@@ -157,7 +165,12 @@ namespace PatTk
           }
         }
       }
-      tmp.release();
+      
+      patches.push_back( patch );
+    }
+
+    void setCallback( std::function<void(const int)> cb ) {
+      callback = cb;
     }
 
     void display( const int my = -1, const int mx = -1 )
@@ -166,31 +179,32 @@ namespace PatTk
         Info( "IconList::display() - nothing to show." );
         return ;
       }
-      int width = options.margin * 2 + options.colSep * ( options.cols - 1 ) + icons[0].cols * options.cols;
+      int width = options.margin * 2 + options.colSep * ( options.cols - 1 )
+        + icons[0].cols * options.zoom * options.cols;
       int rows = ( icons.size() - 1 ) / options.cols + 1;
-      int height = options.margin * 2 + options.rowSep * ( rows - 1 ) + icons[0].rows * rows;
+      int height = options.margin * 2 + options.rowSep * ( rows - 1 ) + icons[0].rows * options.zoom * rows;
       cv::Mat canvas( height, width, CV_8UC3, options.background );
 
       int y = options.margin;
       int x = options.margin;
       for ( uint i=0; i<icons.size(); i++ ) {
-        put( icons[i], y, x, canvas );
+        put( icons[i], y, x, canvas, options.zoom );
         // highlight
         if ( -1 != my && -1 != mx ) {
-          if ( y <=  my && my < y + icons[0].rows &&
-               x <= mx && mx < x + icons[0].cols ) {
+          if ( y <=  my && my < y + icons[0].rows * options.zoom &&
+               x <= mx && mx < x + icons[0].cols * options.zoom ) {
             callback( i );
             rectangle( canvas,
                        cv::Point( x-2, y-2 ),
-                       cv::Point( x + icons[0].cols + 1, y + icons[0].rows + 1 ),
-                       cv:: Scalar( 0, 255, 0 ) ) ;
+                       cv::Point( x + icons[0].cols * options.zoom + 1, y + icons[0].rows * options.zoom + 1 ),
+                       cv::Scalar( 0, 255, 0 ) ) ;
           }
         }
         if ( 0 == (i+1) % options.cols ) {
-          y += options.rowSep + icons[0].rows;
+          y += options.rowSep + icons[0].rows * options.zoom;
           x = options.margin;
         } else {
-          x += options.colSep + icons[0].cols;
+          x += options.colSep + icons[0].cols * options.zoom;
         }
       }
       cv::imshow( window, canvas );

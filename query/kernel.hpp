@@ -11,24 +11,31 @@
 #include <cstdlib>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
+#include "LLPack/utils/Environment.hpp"
 #include "LLPack/algorithms/sort.hpp"
 #include "data/2d.hpp"
 #include "data/features.hpp"
 #include "tree.hpp"
 
+using namespace EnvironmentVariable;
 
 // TODO: temp options
-#define projDim 8
-#define hypoNum 20
-#define convergeTh 120
-#define size_set_a 50
-#define size_set_b 1000
 
 namespace PatTk
 {
   template <typename cellType, typename valueType>
   class BasicKernel : public AbstractKernel<cellType,valueType>
   {
+  public:
+    struct Options
+    {
+      int projDim;
+      int hypoNum;
+      int convergeTh;
+      int set_size_a;
+      int set_size_b;
+    };
+
   public:
 
     /// the branching class (test function)
@@ -80,7 +87,7 @@ namespace PatTk
           val += tmp * tmp;
         }
 
-        if ( val < convergeTh ) {
+        if ( val < env["converge-th"] ) {
           return false;
         }
         return true;
@@ -115,6 +122,20 @@ namespace PatTk
         return 1;
       }
 
+      // debugging:
+      void trace()
+      {
+        for ( uint i=0; i<proj.size(); i++ ) {
+          printf( "%3hhu\t", vertex[0][i] );
+        }
+        printf( "\n" );
+        for ( uint i=0; i<proj.size(); i++ ) {
+          printf( "%3hhu\t", vertex[1][i] );
+        }
+        printf( "\n" );
+
+      }
+
     };
 
 
@@ -127,9 +148,11 @@ namespace PatTk
     {
       // 1. sub-sampling set A and set B. For each patch in set A,
       // search for its nearest neighbor in set B.
-      
-      vector<int> A = std::move( rndgen::randperm<int>( ref, size_set_a, len ) );
-      vector<int> B = std::move( rndgen::randperm<int>( ref, size_set_b, len ) );
+
+      int dim = patches[0].dim();
+        
+      vector<int> A = std::move( rndgen::randperm<int>( ref, env["set-size-a"], len ) );
+      vector<int> B = std::move( rndgen::randperm<int>( ref, env["set-size-b"], len ) );
 
       int sizeA = static_cast<int>( A.size() );
       int sizeB = static_cast<int>( B.size() );
@@ -141,19 +164,19 @@ namespace PatTk
       int minErr = -1;
 
       // 2. enumerating hypothesis
-      for ( int i=0; i<hypoNum; i++ ) {
+      for ( int i=0; i<env["hypo-num"]; i++ ) {
         branch b;
-        b.proj = std::move( rndgen::randperm( projDim, projDim ) );
+        b.proj = std::move( rndgen::randperm( dim, env["proj-dim"] ) );
         int pos[2] = {0,0};
         pos[0] = rand() % len;
         do { pos[1] = rand() % len; } while ( 1 < len && pos[1] == pos[0] );
         for ( int k=0; k<2; k++ ) {
-          b.vertex[k].resize( projDim );
-          for ( int j=0; j<projDim; j++ ) {
+          b.vertex[k].resize( env["proj-dim"] );
+          for ( int j=0; j<env["proj-dim"]; j++ ) {
             b.vertex[k][j] = patches[ref[pos[k]]][b.proj[j]];
           }
         }
-
+        
         typename BasicKernel<cellType,valueType>::gen_data_t min = 0;
         typename BasicKernel<cellType,valueType>::gen_data_t max = 0;
         for ( int j=0; j<len; j++ ) {
@@ -162,10 +185,6 @@ namespace PatTk
           if ( 0 == j || val < min ) min = val;
           if ( 0 == j || val > max ) max = val;
         }
-
-
-
-        
 
 
         

@@ -32,7 +32,7 @@ int main( int argc, char **argv )
   // path::FFFL will create a filelist (vector<string>)
   // pass it to cvAlbumGen::gen will generate an album
   // using std::move to avoid lvalue copy
-  auto album = std::move( cvAlbumGen<LabCell,int>::gen( path::FFFL( env["folder"], env["files"], "png" ) ) );
+  auto album = std::move( cvAlbumGen<LabCell,int>::gen( path::FFFL( env["folder"], env["files"], ".png" ) ) );
 
 
 

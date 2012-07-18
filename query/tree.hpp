@@ -118,19 +118,6 @@ namespace PatTk
 
 
         if ( -1 == kernel::split( patchList, ref, len, node->fork ) ) {
-          // debugging
-          printf( "alert! failed to split with len %d.\n", len );
-          if ( len > 30 ) {
-            IconList dbg( "debug" );
-            for ( int i=0; i<len; i++ ) {
-              dbg.push( patchList[ref[i]] );
-            }
-            dbg.display();
-            cv::waitKey();
-          }
-          char ch;
-          scanf( "%c", &ch );
-
           // second termination condition satisfied
           for ( int i=0; i<len; i++ ) {
             node->patches.push_back( patchList[ref[i]] );
@@ -150,7 +137,6 @@ namespace PatTk
         }
         right++;
 
-        printf( "%d -> %d + %d\n", len, right, len - right );
         
         assert( right != 0 && right != len );
         node->child[0].reset( new Tree() );
