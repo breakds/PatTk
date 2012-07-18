@@ -15,6 +15,9 @@
 #include "data/features.hpp"
 #include "LLPack/algorithms/sort.hpp"
 
+// TODO: remove interface header
+#include "interfaces/cv_interface.hpp"
+
 namespace PatTk
 {
   template <typename cellType, typename valueType>
@@ -115,10 +118,20 @@ namespace PatTk
 
 
         if ( -1 == kernel::split( patchList, ref, len, node->fork ) ) {
-          // second termination condition satisfied
+          // debugging
           printf( "alert! failed to split with len %d.\n", len );
+          if ( len > 30 ) {
+            IconList dbg( "debug" );
+            for ( int i=0; i<len; i++ ) {
+              dbg.push( patchList[ref[i]] );
+            }
+            dbg.display();
+            cv::waitKey();
+          }
           char ch;
           scanf( "%c", &ch );
+
+          // second termination condition satisfied
           for ( int i=0; i<len; i++ ) {
             node->patches.push_back( patchList[ref[i]] );
           }

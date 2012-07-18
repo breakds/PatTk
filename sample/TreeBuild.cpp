@@ -19,22 +19,26 @@
 
 using namespace PatTk;
 
-int main()
+int main( int argc, char **argv )
 {
 
   srand( 1342464046 );
 
-  /*
+
   if ( argc < 2 ) {
     Error( "Not enough arguments." );
     exit( -1 );
   }
-  */
 
-  cv::Mat mat = cv::imread( "Seq05VD_f02520.png" );
+
+  cv::Mat mat = cv::imread( argv[1] );
 
   // Create an image with CIEL*a*b* feature descriptors
   auto img = cvFeatGen<LabCell,int>::gen( mat );
+
+  // Set the original image path for img
+  // This is going to be used in visualization
+  img.setFullPath( argv[1] );
   
   // Set the parameter for patches
   // in this case, will be 5 x 5 patch with a cell stride of 4

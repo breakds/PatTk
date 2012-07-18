@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <vector>
 #include <tuple>
+#include <string>
 
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
@@ -139,13 +140,13 @@ namespace PatTk
 
     int cols, rows;
     int id;
-
+    std::string fullpath;
 
     /// Consturctors:
     
-    Image() : m_cels(), m_vals(), cols(0), rows(0), id(0) {}
+    Image() : m_cels(), m_vals(), cols(0), rows(0), id(0), fullpath("") {}
 
-    Image( int h, int w ) : cols(w), rows(h), id(0)
+    Image( int h, int w ) : cols(w), rows(h), id(0), fullpath("")
     {
       m_size = h * w;
       m_cels.resize( m_size );
@@ -160,6 +161,7 @@ namespace PatTk
       m_vals.swap( img.m_vals );
       id = img.id;
       patmask = std::move( img.patmask );
+      fullpath.swap( img.fullpath );
     }
 
     // move assignment
@@ -218,8 +220,12 @@ namespace PatTk
     {
       return m_vals[i];
     }
-
-
+    
+    void setFullPath( const std::string& filename )
+    {
+      fullpath = filename;
+    }
+    
     // only rvalue semantic is provided for altering the values
     inline void setVal( const int y, const int x, valueType&& val )
     {
