@@ -19,6 +19,16 @@
 using namespace EnvironmentVariable;
 using namespace PatTk;
 
+
+struct MCP
+{
+  cv::Mat& testImg;
+  Image<LabCell,int>& target;
+  IconList<Image<LabCell,int>::Patch>& dbg;
+  Tree<BasicKernel<LabCell,int> >& tree;
+};
+
+
 int main( int argc, char **argv )
 {
   
@@ -62,7 +72,49 @@ int main( int argc, char **argv )
   // Show the node
   node->Summary();
   
+  cv::Mat testImg = cv::imread( strf( "%s/%s.png", env["folder"].c_str(), env["target"].c_str() ) );
+  auto target = cvFeatGen<LabCell,int>::gen( testImg );
+  target.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
+  cv::imshow( "show", testImg );
 
+
+  IconList<Image<LabCell,int>::Patch> dbg( "debug" );
+  MCP mcp = { testImg, target, dbg, tree };
+
+  
+  cv::setMouseCallback( "show",
+                        []( int event, int x, int y,
+                            int __attribute__((__unused__)) flags, void *param )
+                        {
+                          if ( CV_EVENT_LBUTTONDOWN == event) {
+                            MCP *mcp = (MCP*) param;
+
+                            int cx = x - ( env["patch-size"] >> 1 );
+                            int cy = y - ( env["patch-size"] >> 1 );
+
+                            mcp->target.Summary();
+                            if ( 0 <= cx && cx + env["patch-size"] <= mcp->testImg.cols &&
+                                 0 <= cy && cy + env["patch-size"] <= mcp->testImg.rows ) {
+                              cv::Mat canvas = mcp->testImg.clone();
+                              rectangle( canvas,
+                                         cv::Point( cx, cy ),
+                                         cv::Point( cx + env["patch-size"], cy + env["patch-size"] ),
+                                         cv::Scalar( 0, 255, 0 ) ) ;
+                              cv::imshow( "show", canvas );
+
+                              const Tree<BasicKernel<LabCell,int> > *node =
+                                mcp->tree.direct( mcp->target.Spawn( cy, cx ) );
+                              mcp->dbg.clear();
+                              mcp->dbg.options.zoom = 2;
+                              for ( auto& patch : node->patches ) {
+                                mcp->dbg.push( patch );
+                              }
+                              mcp->dbg.display();
+                            }
+                          }
+                        }, &mcp );
+  while ( 27 != cv::waitKey(30) ) ;
+  
   return 0;
 
 

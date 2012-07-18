@@ -59,8 +59,6 @@ namespace PatTk
     std::unique_ptr<Tree<kernel> > child[2];
     // Test Function
     typename kernel::branch fork;
-    // patches (valid for leaf nodes only)
-    vector<typename kernel::patch_t> patches;
     
   private:
     // Prohibited copy/move constructors
@@ -71,6 +69,9 @@ namespace PatTk
     const Tree<kernel>& operator=( Tree<kernel>&& tree ) {}
 
   public:
+    // patches (valid for leaf nodes only)
+    vector<typename kernel::patch_t> patches;
+
 
     // default constructor
     Tree() : fork()

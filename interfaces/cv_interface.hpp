@@ -144,6 +144,11 @@ namespace PatTk
       close();
     }
 
+    void clear()
+    {
+      icons.clear();
+      patches.clear();
+    }
     
     void push( const patchType& patch )
     {
