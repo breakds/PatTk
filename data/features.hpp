@@ -5,6 +5,7 @@
  *********************************************************************************/
 
 #pragma once
+#include <type_traits>
 #include <cassert>
 #include "2d.hpp"
 
@@ -15,7 +16,6 @@ using std::vector;
 namespace PatTk
 {
 
-
   template <typename dataType>
   class HistCell : public AbstractCell<dataType>
   {
@@ -23,8 +23,8 @@ namespace PatTk
     vector<dataType> h;
   public:
 
+    HistCell() : AbstractCell<dataType>(0) {}
     HistCell( int n ) : AbstractCell<dataType>(n) {}
-
     HistCell( vector<dataType>&& content ) : AbstractCell<dataType>( static_cast<int>( content.size() ) )
     {
       h = content;
@@ -50,31 +50,107 @@ namespace PatTk
     }
 
     // copy assignment
-    const HistCell& operator=( HistCell& other )
+    const HistCell& operator=( const HistCell& other )
     {
       this->length = other.length;
       h = other.h;
       return (*this);
     }
 
-
-    inline int size()
+    // extra operator
+    const HistCell& operator+=( const HistCell& other )
     {
-      return static_cast<int>( h.size() );
+      assert( this->length == other.length );
+      for ( int i=0; i<this->length; i++ ) {
+        h[i] += other.h[i];
+      }
+      return (*this);
     }
+
+
+    const HistCell& operator-=( const HistCell& other )
+    {
+      assert( this->length == other.length );
+      for ( int i=0; i<this->length; i++ ) {
+        h[i] -= other.h[i];
+      }
+      return (*this);
+    }
+
+    
+    inline void reset( const int s )
+    {
+      this->length = s;
+      h.resize(s);
+      for ( auto& ele : h ) ele = 0;
+    }
+    
 
     inline dataType& operator[]( const int index )
     {
       return h[index];
     }
-
+    
     inline const dataType& operator()( const int index ) const
     {
       return h[index];
     }
+
+    template <typename array>
+    inline void NormalizeToUchar( array& a )
+    {
+      int bins = this->length;
+      double sum = 0;
+
+      for ( auto& ele : h ) sum += ele;
+
+      
+      if ( sum < 1e-5 ) {
+        for ( int i=0; i<bins; i++ ) {
+          a[i] = 0;
+        }
+        return ;
+      }
+      uint index[bins];
+      double score[bins];
+      int remainder = 128;
+      for ( int i=0; i<bins; i++ ) {
+        score[i] = h[i] / sum * 128;
+        a[i] = static_cast<unsigned char>( score[i] );
+        score[i] -= a[i];
+        remainder -= a[i];
+        index[i] = i;
+      }
+
+      // Sort
+      for ( int i=0; i<bins-1; i++ ) {
+        for ( int j=i+1; j<bins; j++ ) {
+          if ( score[index[i]] < score[index[j]] ) {
+            uint tmp = index[i];
+            index[i] = index[j];
+            index[j] = tmp;
+          }
+        }
+      }
+  
+      uint k = 0;
+      while ( remainder > 0 ) {
+        remainder--;
+        a[index[k++]]++;
+      }
+    }
     
   };
 
+
+
+  class HoGCell : public HistCell<unsigned char> {};
+
+
+
+
+
+  
   // Container for an CIE L*a*b* cell (raw Lab color feature)
   class LabCell : public AbstractCell<unsigned char>
   {
@@ -137,7 +213,58 @@ namespace PatTk
     }
   };
 
-  
 
+  // +-------------------------------------------------------------------------------
+  // | Integral Operations for Image
+  // | Example: IntegralImage( img );
+  // +-------------------------------------------------------------------------------
+  template <typename cellType, typename valueType>
+  void IntegralImage( Image<cellType,valueType>& img, int wndSize ) 
+  {
+    typedef typename cellType::type data_t;
+    static_assert( std::is_same<HistCell<data_t>, cellType>::value,
+                   "IntergralImage() - only supports HistCell." );
+
+    cellType tmp[img.rows][img.cols];
+    for ( int i=0; i<img.rows; i++ ) {
+      for ( int j=0; j<img.cols; j++ ) {
+        tmp[i][j] = img(i,j);
+      }
+    }
+
+    for ( int i=0; i<img.rows; i++ ) {
+      for ( int j=1; j<img.cols; j++ ) {
+        tmp[i][j] += tmp[i][j-1];
+      }
+    }
+
+    for ( int j=0; j<img.cols; j++ ) {
+      for ( int i=1; i<img.rows; i++  ) {
+        tmp[i][j] += tmp[i-1][j];
+      }
+    }
+
+    int neg = wndSize >> 1;
+    int pos = wndSize - neg - 1; 
+
+    for ( int i=0; i<img.rows; i++ ) {
+      for ( int j=0; j<img.cols; j++ ) {
+        int bottom = ( j + pos < img.rows ) ? j + pos : img.rows - 1;
+        int right = ( i + pos < img.cols ) ? i + pos : img.cols - 1;
+        img[ i * img.cols + j ] = tmp[bottom][right];
+      }
+    }
+
+    for ( int i=0; i<img.rows; i++ ) {
+      for ( int j=0; j<img.cols; j++ ) {
+        int top = i - neg;
+        int left = j - neg;
+        if ( 0 <= top && 0 <= left ) {
+          img[ i * img.cols + j ] -= tmp[top][left];
+        }
+      }
+    }
+  }
   
 };
+

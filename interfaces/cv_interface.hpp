@@ -9,10 +9,12 @@
 #include <string>
 #include <functional>
 #include "LLPack/utils/extio.hpp"
+#include "LLPack/utils/Environment.hpp"
 #include "data/2d.hpp"
 #include "data/features.hpp"
 #include "opencv2/opencv.hpp"
 
+using namespace EnvironmentVariable;
 
 namespace PatTk
 {
@@ -42,7 +44,7 @@ namespace PatTk
     {
       Image<LabCell, valueType > img( raw.rows, raw.cols );
       cv::Mat lab;
-      cvtColor( raw, lab, CV_BGR2Lab );
+      cv::cvtColor( raw, lab, CV_BGR2Lab );
 
       int i = 0;
       for ( auto it = lab.begin<cv::Vec3b>(), end = lab.end<cv::Vec3b>(); it != end; it ++ ) {
@@ -50,6 +52,69 @@ namespace PatTk
         i++;
       }
       return img;
+    }
+  };
+
+
+  // HoGCell Specialization
+  template <typename valueType>
+  class cvFeatGen<HoGCell,valueType>
+  {
+  public:
+    static Image<HoGCell,valueType> gen( const cv::Mat& raw )
+    {
+      static int hogBins = env["hog-bins"];
+      cv::Mat lab = cv::Mat::zeros( raw.rows, raw.cols, CV_8UC3 );
+      cv::cvtColor( raw, lab, CV_BGR2Lab );
+      cv::Mat gray( raw.rows, raw.cols, CV_8UC1 );
+      cv::Mat_<cv::Vec3b>::const_iterator it = raw.begin<cv::Vec3b>();
+      cv::Mat_<cv::Vec3b>::const_iterator end = raw.end<cv::Vec3b>();
+      cv::Mat_<uchar>::iterator grayit = gray.begin<uchar>();
+      for ( ; it != end; it++ ) {
+        *(grayit++) = (*it)[0];
+      }
+      cv::Mat gradx, grady;
+      cv::Sobel( gray, gradx, CV_32F, 1, 0 );
+      cv::Sobel( gray, grady, CV_32F, 0, 1 );
+      
+      Image<HistCell<double>, valueType > img( raw.rows, raw.cols );
+      
+      cv::Mat_<float>::iterator itGradx = gradx.begin<float>();
+      cv::Mat_<float>::iterator itGrady = grady.begin<float>();
+      cv::Mat_<float>::iterator itEnd = gradx.end<float>();
+  
+      double radCell = M_PI / hogBins;
+      uint i = 0;
+      for ( ; itGradx != itEnd; itGradx++, itGrady++ ){
+        double dx = static_cast<double>( *itGradx );
+        double dy = static_cast<double>( *itGrady );
+        double val = sqrt( dx * dx + dy * dy );
+        double rad = atan2( dy, dx );
+        if ( rad < 0 ) {
+          rad += M_PI;
+        }
+        double pos = rad / radCell - 0.5;
+        int b0 = static_cast<int>( floor( pos ) );
+        int b1 = b0 + 1;
+        double w0 = b1 - pos;
+        double w1 = 1.0 - w0;
+        if ( b0 < 0) b0 = hogBins - 1;
+        if ( b1 >= hogBins ) b1 -= hogBins;
+        img[i].reset( hogBins );
+        
+        img[i][b0] = w0 * val;
+        img[i][b1] = w1 * val;
+        i++;
+      }
+
+      IntegralImage( img, env["hog-cell-size"] );
+
+      Image<HoGCell, valueType > hog( raw.rows, raw.cols );
+      for ( int i=0,end=raw.rows*raw.cols; i<end; i++ ) {
+        hog[i].reset( hogBins );
+        img[i].NormalizeToUchar( hog[i] );
+      }
+      return hog;
     }
   };
 
@@ -66,7 +131,7 @@ namespace PatTk
       Album<cellType,valueType> album;
       for ( int i=0, end=lst.size(); i<end; i++ ) {
         cv::Mat raw = cv::imread( lst[i] );
-        album.push( cvFeatGen<cellType,valueType>::gen(raw) );
+        album.push( std::move( cvFeatGen<cellType,valueType>::gen(raw) ) );
         album.back().setFullPath( lst[i] );
       }
       Done( "Album created." );

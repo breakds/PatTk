@@ -190,6 +190,12 @@ namespace PatTk
     {
       return m_cels[i];
     }
+
+    // operator[] to access non-const cell by index i
+    inline cellType& operator[]( const int i )
+    {
+      return m_cels[i];
+    }
     
 
 

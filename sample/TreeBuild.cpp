@@ -16,6 +16,8 @@
 #include "interfaces/cv_interface.hpp"
 
 
+#define CELL HoGCell
+
 using namespace EnvironmentVariable;
 using namespace PatTk;
 
@@ -23,15 +25,15 @@ using namespace PatTk;
 struct MCP
 {
   cv::Mat& testImg;
-  Image<LabCell,int>& target;
-  IconList<Image<LabCell,int>::Patch>& dbg;
-  Tree<BasicKernel<LabCell,int> >& tree;
+  Image<CELL,int>& target;
+  IconList<Image<CELL,int>::Patch>& dbg;
+  Tree<BasicKernel<CELL,int> >& tree;
 };
 
 
 int main( int argc, char **argv )
 {
-  
+
   srand( 1342464046 );
   
 
@@ -44,11 +46,18 @@ int main( int argc, char **argv )
   env.Summary();
 
   // Create an album with CIEL*a*b* feature descriptors
-  auto album = cvAlbumGen<LabCell,int>::gen( path::FFFL( env["folder"], env["files"], ".png" ) );
+  auto album = cvAlbumGen<CELL,int>::gen( path::FFFL( env["folder"], env["files"], ".png" ) );
   album.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
 
+  
+  // debugging
+  album(0).Spawn( 120, 60 ).trace();
+  printf( "\n----------------------------------------------------------------------------------------\n" );
+  album(0).Spawn( 123, 60 ).trace();
+  exit( -1 );
+
   // Create vector of patches
-  vector<Image<LabCell,int>::Patch> patches;
+  vector<Image<CELL,int>::Patch> patches;
   for ( int i=0; i<album.size(); i++ ) {
     const auto& img = album(i);
     for ( int y=0; y<img.rows; y+=env["patch-stride"] ) {
@@ -64,21 +73,21 @@ int main( int argc, char **argv )
   printf( "in total: %ld\n", patches.size() );
   
   // Create the tree
-  Tree<BasicKernel<LabCell,int> > tree( patches );
+  Tree<BasicKernel<CELL,int> > tree( patches );
 
   // Tree Query
-  const Tree<BasicKernel<LabCell,int> > *node = tree.direct( album(0).Spawn( 0, 0 ) );
+  const Tree<BasicKernel<CELL,int> > *node = tree.direct( album(0).Spawn( 0, 0 ) );
 
   // Show the node
   node->Summary();
   
   cv::Mat testImg = cv::imread( strf( "%s/%s.png", env["folder"].c_str(), env["target"].c_str() ) );
-  auto target = cvFeatGen<LabCell,int>::gen( testImg );
+  auto target = cvFeatGen<CELL,int>::gen( testImg );
   target.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
   cv::imshow( "show", testImg );
 
 
-  IconList<Image<LabCell,int>::Patch> dbg( "debug" );
+  IconList<Image<CELL,int>::Patch> dbg( "debug" );
   MCP mcp = { testImg, target, dbg, tree };
 
   
@@ -102,7 +111,7 @@ int main( int argc, char **argv )
                                          cv::Scalar( 0, 255, 0 ) ) ;
                               cv::imshow( "show", canvas );
 
-                              const Tree<BasicKernel<LabCell,int> > *node =
+                              const Tree<BasicKernel<CELL,int> > *node =
                                 mcp->tree.direct( mcp->target.Spawn( cy, cx ) );
                               mcp->dbg.clear();
                               mcp->dbg.options.zoom = 2;
