@@ -16,7 +16,7 @@
 #include "interfaces/cv_interface.hpp"
 
 
-#define CELL HoGCell
+#define CELL LabCell
 
 using namespace EnvironmentVariable;
 using namespace PatTk;
@@ -29,6 +29,22 @@ struct MCP
   IconList<Image<CELL,int>::Patch>& dbg;
   Tree<BasicKernel<CELL,int> >& tree;
 };
+
+
+void trace( const Image<HoGCell,int>::Patch& p )
+{
+  printf( "+--------------------------------------------------\n" );
+  for ( int i=0; i<p.cellNum(); i++ ) {
+    printf( "| " );
+    int sum = 0;
+    for ( int j=0; j<p(i).length; j++ ) {
+      printf( "%3hhu ", p(i)(j) );
+      sum += p(i)(j);
+    }
+    printf( "sum = %d\n", sum );
+  }
+  printf( "+--------------------------------------------------\n\n" );
+}
 
 
 int main( int argc, char **argv )
@@ -50,12 +66,6 @@ int main( int argc, char **argv )
   album.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
 
   
-  // debugging
-  album(0).Spawn( 120, 60 ).trace();
-  printf( "\n----------------------------------------------------------------------------------------\n" );
-  album(0).Spawn( 123, 60 ).trace();
-  exit( -1 );
-
   // Create vector of patches
   vector<Image<CELL,int>::Patch> patches;
   for ( int i=0; i<album.size(); i++ ) {
@@ -82,47 +92,55 @@ int main( int argc, char **argv )
   node->Summary();
   
   cv::Mat testImg = cv::imread( strf( "%s/%s.png", env["folder"].c_str(), env["target"].c_str() ) );
-  auto target = cvFeatGen<CELL,int>::gen( testImg );
-  target.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
-  cv::imshow( "show", testImg );
-
-
-  IconList<Image<CELL,int>::Patch> dbg( "debug" );
-  MCP mcp = { testImg, target, dbg, tree };
 
   
-  cv::setMouseCallback( "show",
-                        []( int event, int x, int y,
-                            int __attribute__((__unused__)) flags, void *param )
-                        {
-                          if ( CV_EVENT_LBUTTONDOWN == event) {
-                            MCP *mcp = (MCP*) param;
+  // auto target = cvFeatGen<CELL,int>::gen( testImg );
+  // target.SetPatchParameter( env["patch-size"], env["patch-size"], env["cell-stride"] );
 
-                            int cx = x - ( env["patch-size"] >> 1 );
-                            int cy = y - ( env["patch-size"] >> 1 );
+  // cv::imshow( "show", testImg );
 
-                            mcp->target.Summary();
-                            if ( 0 <= cx && cx + env["patch-size"] <= mcp->testImg.cols &&
-                                 0 <= cy && cy + env["patch-size"] <= mcp->testImg.rows ) {
-                              cv::Mat canvas = mcp->testImg.clone();
-                              rectangle( canvas,
-                                         cv::Point( cx, cy ),
-                                         cv::Point( cx + env["patch-size"], cy + env["patch-size"] ),
-                                         cv::Scalar( 0, 255, 0 ) ) ;
-                              cv::imshow( "show", canvas );
 
-                              const Tree<BasicKernel<CELL,int> > *node =
-                                mcp->tree.direct( mcp->target.Spawn( cy, cx ) );
-                              mcp->dbg.clear();
-                              mcp->dbg.options.zoom = 2;
-                              for ( auto& patch : node->patches ) {
-                                mcp->dbg.push( patch );
-                              }
-                              mcp->dbg.display();
-                            }
-                          }
-                        }, &mcp );
-  while ( 27 != cv::waitKey(30) ) ;
+  // IconList<Image<CELL,int>::Patch> dbg( "debug" );
+  // MCP mcp = { testImg, target, dbg, tree };
+
+  
+  // cv::setMouseCallback( "show",
+  //                       []( int event, int x, int y,
+  //                           int __attribute__((__unused__)) flags, void *param )
+  //                       {
+  //                         if ( CV_EVENT_LBUTTONDOWN == event) {
+  //                           MCP *mcp = (MCP*) param;
+
+  //                           int width = mcp->target.GetPatchWidth();
+  //                           int height = mcp->target.GetPatchHeight();
+
+  //                           int cx = x - ( width >> 1 );
+  //                           int cy = y - ( height >> 1 );
+
+
+  //                           mcp->target.Summary();
+  //                           if ( 0 <= cx && cx + width <= mcp->testImg.cols &&
+  //                                0 <= cy && cy + height <= mcp->testImg.rows ) {
+  //                             cv::Mat canvas = mcp->testImg.clone();
+  //                             rectangle( canvas,
+  //                                        cv::Point( cx, cy ),
+  //                                        cv::Point( cx + width,
+  //                                                   cy + height ),
+  //                                        cv::Scalar( 0, 255, 0 ) ) ;
+  //                             cv::imshow( "show", canvas );
+
+  //                             const Tree<BasicKernel<CELL,int> > *node =
+  //                               mcp->tree.direct( mcp->target.Spawn( cy, cx ) );
+  //                             mcp->dbg.clear();
+  //                             mcp->dbg.options.zoom = 2;
+  //                             for ( auto& patch : node->patches ) {
+  //                               mcp->dbg.push( patch );
+  //                             }
+  //                             mcp->dbg.display();
+  //                           }
+  //                         }
+  //                       }, &mcp );
+  // while ( 27 != cv::waitKey(30) ) ;
   
   return 0;
 

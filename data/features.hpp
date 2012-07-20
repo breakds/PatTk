@@ -77,6 +77,15 @@ namespace PatTk
       return (*this);
     }
 
+
+    const HistCell& operator/=( const double divisor )
+    {
+      for ( int i=0; i<this->length; i++ ) {
+        h[i] /= divisor;
+      }
+      return (*this);
+    }
+
     
     inline void reset( const int s )
     {
@@ -145,6 +154,7 @@ namespace PatTk
 
 
   class HoGCell : public HistCell<unsigned char> {};
+  
 
 
 
@@ -244,26 +254,40 @@ namespace PatTk
       }
     }
 
+
     int neg = wndSize >> 1;
     int pos = wndSize - neg - 1; 
 
-    for ( int i=0; i<img.rows; i++ ) {
-      for ( int j=0; j<img.cols; j++ ) {
-        int bottom = ( j + pos < img.rows ) ? j + pos : img.rows - 1;
-        int right = ( i + pos < img.cols ) ? i + pos : img.cols - 1;
-        img[ i * img.cols + j ] = tmp[bottom][right];
-      }
-    }
 
     for ( int i=0; i<img.rows; i++ ) {
       for ( int j=0; j<img.cols; j++ ) {
+        int bottom = ( i + pos < img.rows ) ? i + pos : img.rows - 1;
+        int right = ( j + pos < img.cols ) ? j + pos : img.cols - 1;
         int top = i - neg;
         int left = j - neg;
-        if ( 0 <= top && 0 <= left ) {
-          img[ i * img.cols + j ] -= tmp[top][left];
+        int k = i * img.cols + j;
+        img[k] = tmp[bottom][right];
+
+        if ( 0 < top && 0 < left ) {
+          img[k] += tmp[top-1][left-1];
         }
+        
+        if ( 0 < top ) {
+          img[k] -= tmp[top-1][right];
+        } else {
+          top = 0;
+        }
+        
+        if ( 0 < left ) {
+          img[k] -= tmp[bottom][left-1];
+        } else {
+          left = 0;
+        }
+
+        img[k] /= ( (bottom - top + 1) * (right - left + 1) );
       }
     }
+    
   }
   
 };
