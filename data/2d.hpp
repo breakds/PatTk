@@ -9,9 +9,14 @@
 #include <vector>
 #include <tuple>
 #include <string>
-
+#include <cmath>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
+
+
+#define _USE_MATH_DEFINES
+#define vertical_x -horiz_y
+#define vertical_y horiz_x
 
 namespace PatTk
 {
@@ -114,8 +119,9 @@ namespace PatTk
   // +-------------------------------------------------------------------------------
   // | Container class for images
   // | Example: Image< HistCell<unsigned char>, vector<int>  >
+  //            Image< HistCell<unsigned char>, int, true >
   // +-------------------------------------------------------------------------------
-  template <typename cellType, typename valueType>
+  template <typename cellType, typename valueType, bool lite = true >
   class Image
   {
 
@@ -123,7 +129,6 @@ namespace PatTk
     // cellType must be a valid AbstractCell or a concat of them.
     static_assert( std::is_base_of< AbstractCell<typename cellType::type>, cellType >::value,
                    "cellType is not a valid cell type. (does not derive from AbstractCell." );
-    
   private:
     // containers:
     std::vector<cellType> m_cels;
@@ -278,6 +283,8 @@ namespace PatTk
       std::vector<int> mask; // the offset in the Image
       std::vector<int> cellShift; // the offset in the mask
       std::vector<int> inCellShift; // the offset in a cell
+      std::vector<int> x_offset;
+      std::vector<int> y_offset;
 
       Mask() : height(1), width(1), stride(1)
       {
@@ -287,6 +294,11 @@ namespace PatTk
         cellShift[0] = 0;
         inCellShift.resize(1);
         inCellShift[0] = 0;
+        x_offset.resize(1);
+        x_offset[0] = 0;
+        y_offset.resize(1);
+        y_offset[0] = 0;
+        
       }
 
       const Mask& operator=( Mask&& other )
@@ -297,6 +309,8 @@ namespace PatTk
         mask.swap( other.mask );
         cellShift.swap( other.cellShift );
         inCellShift.swap( other.inCellShift );
+        x_offset.swap( other.x_offset );
+        y_offset.swap( other.y_offset );
         return (*this);
       }
     };
@@ -305,7 +319,15 @@ namespace PatTk
 
   public:
 
-    class Patch
+
+    template <bool T, typename enabled = void>
+    class AttachedPatch {};
+
+    
+    /// Specialization: Lite Weighted Patch
+    
+    template <bool T>
+    class AttachedPatch<T,typename std::enable_if<T>::type>
     {
     private:
       int pos;
@@ -315,14 +337,15 @@ namespace PatTk
 
     public:
       // constructors for Patch
-      Patch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
-      Patch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
+      AttachedPatch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
+      AttachedPatch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
       {
         pos = y * parent.cols + x;
       }
 
       // copy constructor
-      Patch( const Patch& patch ) : pos(patch.pos), y(patch.y), x(patch.x), pid(patch.pid), parent(patch.parent) {}
+      AttachedPatch( const AttachedPatch<T>& patch )
+        : pos(patch.pos), y(patch.y), x(patch.x), pid(patch.pid), parent(patch.parent) {}
       
       inline bool isValid() const
       {
@@ -341,6 +364,16 @@ namespace PatTk
       inline int dim() const
       {
         return parent.GetPatchDim();
+      }
+
+      inline double GetScale() const
+      {
+        return 1.0;
+      }
+
+      inline double GetRotation() const
+      {
+        return 0.0;
       }
 
       // cell selector
@@ -371,7 +404,138 @@ namespace PatTk
       }
       
     };
-    
+
+
+
+    /// Specialization: Heavy Weighted Patch
+    template <bool T>
+    class AttachedPatch<T,typename std::enable_if<!T>::type>
+    {
+    private:
+      double horiz_x, horiz_y; 
+      // ( horiz_x, horiz_y ) forms the horizontal vector of length "cell side"
+      // ( -horiz_y, horiz_x) turns out to be the vertical vector of same length.
+    public:
+      double x, y;
+      int pid;
+      double scale, rotation; // rotation is clockwise and in DEGREE
+      const Image<cellType,valueType> &parent;
+
+    public:
+      // constructors for Patch
+      AttachedPatch( const Image<cellType,valueType> &img )
+        : y(0), x(0), pid(img.id), scale(1.0), rotation(0.0),
+          parent(img)
+      {
+        horiz_x = 1.0;
+        horiz_y = 0.0;
+      }
+
+      AttachedPatch( const Image<cellType,valueType> &img, double y1, double x1 )
+        : y(y1), x(x1), pid(img.id),
+          scale(1.0), rotation(0.0),
+          parent(img)
+      {
+        horiz_x = 1.0;
+        horiz_y = 0.0;
+      }
+
+
+
+      AttachedPatch( const Image<cellType,valueType> &img, double y1, double x1, double scl, double rot )
+        : y(y1), x(x1), pid(img.id),
+          scale(scl), rotation(rot),
+          parent(img)
+      {
+        double tmp = rotation * M_PI / 180.0;
+        horiz_x = cos( tmp ) / scale;
+        horiz_y = sin( tmp ) / scale;
+      }
+
+
+      
+      // copy constructor
+      AttachedPatch( const AttachedPatch<T>& patch )
+        : y(patch.y), x(patch.x), pid(patch.pid),
+          scale(patch.scale), rotation(patch.scale),
+          parent(patch.parent) {}
+      
+
+      inline bool isValid() const
+      {
+        double x1 = x + parent.GetPatchWidth() * horiz_x;
+        double x2 = x + parent.GetPatchHeight() * vertical_x;
+        double x3 = x1 + parent.GetPatchHeight() * vertical_x;
+
+        double y1 = y + parent.GetPatchWidth() * horiz_y;
+        double y2 = y + parent.GetPatchHeight() * vertical_y;
+        double y3 = y1 + parent.GetPatchHeight() * vertical_y;
+
+        double top = INF( y, y1, y2 ,y3 );
+        double bottom = SUP( y, y1, y2 ,y3 );
+
+        double left = INF( x, x1, x2 ,x3 );
+        double right = SUP( x, x1, x2 ,x3 );
+
+        if ( 0.0 <= left && right <= parent.cols &&
+             0.0 <= top && bottom <= parent.rows ) {
+          return true;
+        }
+        return false;
+      }
+      
+      inline int cellNum() const
+      {
+        return parent.GetPatchCellNum();
+      }
+      
+      inline int dim() const
+      {
+        return parent.GetPatchDim();
+      }
+
+      // cell selector
+      // inline const cellType& operator()( const int index ) const
+      // {
+      //   return parent.GetPatchCell( pos, index );
+      // }
+      
+      // component selector
+      inline const typename cellType::type& operator[]( const int index ) const
+      {
+        
+        return parent.GetPatchComponent( y, x, index );
+      }
+
+      inline void Summary() const
+      {
+        printf( "Patch %d:(%.2lf,%2lf) | dimension %d | %d cells.\n", pid, y, x, dim(), cellNum() );
+      }
+
+      inline void trace() const
+      {
+        printf( "trace() is not currently supported in Heavy Weighted Patch." );
+      }
+      
+    };
+
+  public:
+    typedef AttachedPatch<lite> Patch;
+
+    inline const typename cellType::type& Interpolate( double x, double y, int i ) const
+    {
+      // TODO: shfit
+      int y0 = static_cast<int>(y);
+      int x0 = static_cast<int>(x);
+      int y1 = y1 + 1;
+      int x1 = x1 + 1;
+      double frac_y = y - y0;
+      double frac_x = x - x0;
+      double left = (*this)(y0,x0) * (1.0 - frac_y) + (*this)(y0+1,x0) * frac_y;
+      double right = (*this)(y0,x0+1) * (1.0 - frac_y) + (*this)(y0+1,x0+1) * frac_y;
+      return left * (1.0 - frac_x) + right * frac_x;
+    }
+
     void SetPatchParameter( int height, int width, int stride=1 )
     {
       patmask.width = width;
@@ -386,9 +550,11 @@ namespace PatTk
       for ( int i=0, y=0; i<height; i++, y+=stride ) {
         for ( int j=0, x=0; j<width; j++, x+=stride ) {
           patmask.mask[ i * width + j ] = y * cols + x;
-          for (int k=0; k<m_cels[0].length; k++ ) {
+          for (int k=0; k<m_cels[0].length; k++, p++ ) {
             patmask.cellShift[p] = y * cols + x;
-            patmask.inCellShift[p++] = k;
+            patmask.inCellShift[p] = k;
+            patmask.x_offset[p] = j;
+            patmask.y_offset[p] = i;
           }
         }
       }
@@ -424,10 +590,18 @@ namespace PatTk
       return m_cels[pos+patmask.cellShift[index]](patmask.inCellShift[index]);
     }
 
+    inline const typename cellType::type& GetPatchComponent( double y, double x, double xs,
+                                                             double ys, int index ) const
+    {
+      return Interpolate( y + ys * patmask.y_offset[index], x + xs * patmask.x_offset[index],
+                          patmask.inCellShift[index] );
+    }
+    
     inline Patch Spawn( int y, int x ) const
     {
       return Patch( (*this), y, x );
     }
+
   };
 
 
