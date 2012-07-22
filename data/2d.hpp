@@ -138,8 +138,8 @@ namespace PatTk
 
   private:
     // prohibit from calling copy constructor/assignment operator
-    Image( Image<cellType,valueType>& img ) {}
-    const Image& operator=( Image<cellType,valueType>& img ) {}
+    Image( Image<cellType,valueType,lite>& img ) {}
+    const Image& operator=( Image<cellType,valueType,lite>& img ) {}
     
   public:
 
@@ -159,7 +159,7 @@ namespace PatTk
     }
 
     // move constructor
-    Image( Image<cellType,valueType>&& img ) : cols(img.cols), rows(img.rows)
+    Image( Image<cellType,valueType,lite>&& img ) : cols(img.cols), rows(img.rows)
     {
       m_size = cols * rows;
       m_cels.swap( img.m_cels );
@@ -170,7 +170,7 @@ namespace PatTk
     }
 
     // move assignment
-    inline const Image& operator=( Image<cellType,valueType>&& img )
+    inline const Image& operator=( Image<cellType,valueType,lite>&& img )
     {
       cols = img.cols;
       rows = img.rows;
@@ -333,12 +333,12 @@ namespace PatTk
       int pos;
     public:
       int y, x, pid;
-      const Image<cellType,valueType> &parent;
+      const Image<cellType,valueType,lite> &parent;
 
     public:
       // constructors for Patch
-      AttachedPatch( const Image<cellType,valueType> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
-      AttachedPatch( const Image<cellType,valueType> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
+      AttachedPatch( const Image<cellType,valueType,lite> &img ) : pos(0), y(0), x(0), pid(img.id), parent(img) {}
+      AttachedPatch( const Image<cellType,valueType,lite> &img, int y1, int x1 ) : y(y1), x(x1), pid(img.id), parent(img)
       {
         pos = y * parent.cols + x;
       }
@@ -383,7 +383,7 @@ namespace PatTk
       }
 
       // component selector
-      inline const typename cellType::type& operator[]( const int index ) const
+      inline const typename cellType::type operator[]( const int index ) const
       {
         return parent.GetPatchComponent( pos, index );
       }
@@ -416,14 +416,14 @@ namespace PatTk
       // ( horiz_x, horiz_y ) forms the horizontal vector of length "cell side"
       // ( -horiz_y, horiz_x) turns out to be the vertical vector of same length.
     public:
-      double x, y;
+      double y, x;
       int pid;
       double scale, rotation; // rotation is clockwise and in DEGREE
-      const Image<cellType,valueType> &parent;
+      const Image<cellType,valueType,lite> &parent;
 
     public:
       // constructors for Patch
-      AttachedPatch( const Image<cellType,valueType> &img )
+      AttachedPatch( const Image<cellType,valueType,lite> &img )
         : y(0), x(0), pid(img.id), scale(1.0), rotation(0.0),
           parent(img)
       {
@@ -431,7 +431,7 @@ namespace PatTk
         horiz_y = 0.0;
       }
 
-      AttachedPatch( const Image<cellType,valueType> &img, double y1, double x1 )
+      AttachedPatch( const Image<cellType,valueType,lite> &img, double y1, double x1 )
         : y(y1), x(x1), pid(img.id),
           scale(1.0), rotation(0.0),
           parent(img)
@@ -442,7 +442,7 @@ namespace PatTk
 
 
 
-      AttachedPatch( const Image<cellType,valueType> &img, double y1, double x1, double scl, double rot )
+      AttachedPatch( const Image<cellType,valueType,lite> &img, double y1, double x1, double scl, double rot )
         : y(y1), x(x1), pid(img.id),
           scale(scl), rotation(rot),
           parent(img)
@@ -501,10 +501,10 @@ namespace PatTk
       // }
       
       // component selector
-      inline const typename cellType::type& operator[]( const int index ) const
+      inline const typename cellType::type operator[]( const int index ) const
       {
         
-        return parent.GetPatchComponent( y, x, index );
+        return parent.GetPatchComponent( y, x, horiz_y, horiz_x, index );
       }
 
       inline void Summary() const
@@ -522,17 +522,17 @@ namespace PatTk
   public:
     typedef AttachedPatch<lite> Patch;
 
-    inline const typename cellType::type& Interpolate( double x, double y, int i ) const
+    inline const typename cellType::type Interpolate( double x, double y, int i ) const
     {
       // TODO: shfit
       int y0 = static_cast<int>(y);
       int x0 = static_cast<int>(x);
-      int y1 = y1 + 1;
-      int x1 = x1 + 1;
+      int y1 = y0 + 1;
+      int x1 = x0 + 1;
       double frac_y = y - y0;
       double frac_x = x - x0;
-      double left = (*this)(y0,x0) * (1.0 - frac_y) + (*this)(y0+1,x0) * frac_y;
-      double right = (*this)(y0,x0+1) * (1.0 - frac_y) + (*this)(y0+1,x0+1) * frac_y;
+      double left = (*this)(y0,x0)(i) * (1.0 - frac_y) + (*this)(y1,x0)(i) * frac_y;
+      double right = (*this)(y0,x1)(i) * (1.0 - frac_y) + (*this)(y1,x1)(i) * frac_y;
       return left * (1.0 - frac_x) + right * frac_x;
     }
 
@@ -585,21 +585,32 @@ namespace PatTk
       return m_cels[pos+patmask.mask[offsetIdx]];
     }
 
-    inline const typename cellType::type& GetPatchComponent( int pos, int index ) const
+    inline const typename cellType::type GetPatchComponent( int pos, int index ) const
     {
       return m_cels[pos+patmask.cellShift[index]](patmask.inCellShift[index]);
     }
 
-    inline const typename cellType::type& GetPatchComponent( double y, double x, double xs,
-                                                             double ys, int index ) const
+    inline const typename cellType::type GetPatchComponent( double y, double x, double horiz_y,
+                                                             double horiz_x, int index ) const
     {
-      return Interpolate( y + ys * patmask.y_offset[index], x + xs * patmask.x_offset[index],
+      return Interpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
+                          x + patmask.y_offset[index] * vertical_x + patmask.x_offset[index] * horiz_x,
                           patmask.inCellShift[index] );
     }
-    
-    inline Patch Spawn( int y, int x ) const
+
+
+    template<bool T = lite>
+    inline Patch Spawn( int y, int x,
+                        typename std::enable_if<T>::type __attribute__((__unused__)) *padding=0 ) const
     {
       return Patch( (*this), y, x );
+    }
+
+    template<bool T = lite>
+    inline Patch Spawn( double y, double x, double scl, double rot,
+                        typename std::enable_if<!T>::type __attribute__((__unused__)) *padding=0 ) const
+    {
+      return Patch( (*this), y, x, scl, rot );
     }
 
   };
@@ -609,17 +620,17 @@ namespace PatTk
   // | Album, collection of imges.
   // | Serve as owner of images, as well as owner of patches.
   // +-------------------------------------------------------------------------------
-  template <typename dataType, typename valueType>
+  template <typename dataType, typename valueType, bool lite = true>
   class Album
   {
   private:
-    std::vector< Image<dataType, valueType> > pages;
+    std::vector< Image<dataType, valueType, lite> > pages;
 
     // prohibited copy constructor
-    Album( const Album<dataType,valueType>& other ) {}
+    Album( const Album<dataType,valueType, lite>& other ) {}
 
     // prohibited copy assignment
-    const Album<dataType,valueType>& operator=( const Album<dataType,valueType>& other ) {}
+    const Album<dataType,valueType, lite>& operator=( const Album<dataType,valueType, lite>& other ) {}
     
   public:
 
@@ -629,13 +640,13 @@ namespace PatTk
     }
 
     // move constructor
-    Album( Album<dataType,valueType>&& other )
+    Album( Album<dataType,valueType, lite>&& other )
     {
       pages.swap( other.pages );
     }
 
     // move assignment
-    const Album<dataType,valueType>& operator=( Album<dataType,valueType>&& other )
+    const Album<dataType,valueType, lite>& operator=( Album<dataType,valueType, lite>&& other )
     {
       pages.swap( other.pages );
       return (*this);
@@ -649,19 +660,19 @@ namespace PatTk
 
     // push() has side effect. It is destructive as it steals the
     // Image that img refer to.
-    inline void push( Image<dataType, valueType>&& img )
+    inline void push( Image<dataType, valueType, lite>&& img )
     {
       img.id = static_cast<int>( pages.size() );
       pages.push_back( std::move(img) );
     }
     
     // Only provide read-only access to member images
-    const Image<dataType, valueType>& operator()( const int index )
+    const Image<dataType, valueType, lite>& operator()( const int index )
     {
       return pages[index];
     }
 
-    Image<dataType, valueType>& back()
+    Image<dataType, valueType, lite>& back()
     {
       return pages.back();
     }

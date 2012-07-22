@@ -130,3 +130,8 @@ ADD_EXECUTABLE(AlbumTest sample/AlbumTest.cpp)
 # TreeBuild
 ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
 # TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
+
+# Heavy Patch Test
+ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
+# TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
+

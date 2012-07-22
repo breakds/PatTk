@@ -24,25 +24,25 @@ namespace PatTk
   // |  Image<cellType, typename valueType> Generators
   // +-------------------------------------------------------------------------------
   
-  template <typename cellType, typename valueType>
+  template <typename cellType, typename valueType, bool lite = true>
   class cvFeatGen
   {
   public:
-    static Image<cellType,valueType> gen( const cv::Mat __attribute__((__unused__)) &raw )
+    static Image<cellType,valueType,lite> gen( const cv::Mat __attribute__((__unused__)) &raw )
     {
-      return Image<cellType,valueType>();
+      return Image<cellType,valueType,lite>();
     }
   };
   
   
   /// LabCell Specialization
-  template <typename valueType>
-  class cvFeatGen<LabCell, valueType>
+  template <typename valueType, bool lite>
+  class cvFeatGen<LabCell, valueType, lite>
   {
   public:
-    static Image<LabCell, valueType> gen( const cv::Mat& raw )
+    static Image<LabCell, valueType, lite> gen( const cv::Mat& raw )
     {
-      Image<LabCell, valueType > img( raw.rows, raw.cols );
+      Image<LabCell, valueType, lite> img( raw.rows, raw.cols );
       cv::Mat lab;
       cv::cvtColor( raw, lab, CV_BGR2Lab );
 
@@ -57,11 +57,11 @@ namespace PatTk
 
 
   // HoGCell Specialization
-  template <typename valueType>
-  class cvFeatGen<HoGCell,valueType>
+  template <typename valueType, bool lite>
+  class cvFeatGen<HoGCell,valueType, lite>
   {
   public:
-    static Image<HoGCell,valueType> gen( const cv::Mat& raw )
+    static Image<HoGCell,valueType, lite> gen( const cv::Mat& raw )
     {
       static int hogBins = env["hog-bins"];
       cv::Mat lab = cv::Mat::zeros( raw.rows, raw.cols, CV_8UC3 );
@@ -78,7 +78,7 @@ namespace PatTk
       cv::Sobel( gray, gradx, CV_32F, 1, 0 );
       cv::Sobel( gray, grady, CV_32F, 0, 1 );
       
-      Image<HistCell<double>, valueType > img( raw.rows, raw.cols );
+      Image<HistCell<double>, valueType, lite > img( raw.rows, raw.cols );
       
       cv::Mat_<float>::iterator itGradx = gradx.begin<float>();
       cv::Mat_<float>::iterator itGrady = grady.begin<float>();
@@ -111,7 +111,7 @@ namespace PatTk
 
       IntegralImage( img, env["hog-cell-size"] );
 
-      Image<HoGCell, valueType > hog( raw.rows, raw.cols );
+      Image<HoGCell, valueType, lite > hog( raw.rows, raw.cols );
       for ( int i=0,end=raw.rows*raw.cols; i<end; i++ ) {
         hog[i].reset( hogBins );
         img[i].NormalizeToUchar( hog[i] );
@@ -123,17 +123,17 @@ namespace PatTk
   // +-------------------------------------------------------------------------------
   // |  Album<cellType, typename valueType> Generators
   // +-------------------------------------------------------------------------------
-  template <typename cellType, typename valueType>
+  template <typename cellType, typename valueType, bool lite = true>
   class cvAlbumGen
   {
   public:
-    static Album<cellType,valueType> gen( const vector<std::string>& lst )
+    static Album<cellType,valueType, lite> gen( const vector<std::string>& lst )
     {
       Info( "Creating Album..." );
-      Album<cellType,valueType> album;
+      Album<cellType,valueType,lite> album;
       for ( int i=0, end=lst.size(); i<end; i++ ) {
         cv::Mat raw = cv::imread( lst[i] );
-        album.push( std::move( cvFeatGen<cellType,valueType>::gen(raw) ) );
+        album.push( std::move( cvFeatGen<cellType,valueType,lite>::gen(raw) ) );
         album.back().setFullPath( lst[i] );
       }
       Done( "Album created." );
