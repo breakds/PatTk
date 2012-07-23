@@ -547,6 +547,8 @@ namespace PatTk
       patmask.mask.resize( height * width );
       patmask.cellShift.resize( GetPatchDim() );
       patmask.inCellShift.resize( GetPatchDim() );
+      patmask.x_offset.resize( GetPatchDim() );
+      patmask.y_offset.resize( GetPatchDim() );
       // initialize patmask
       // Assume all the cells have the same length
       int p = 0;
