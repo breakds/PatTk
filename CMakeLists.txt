@@ -8,7 +8,7 @@ set(CMAKE_CXX_COMPILER_INIT "c++")
 
 
 # Project Description Starts Here
-PROJECT(Semi)
+PROJECT(PatTk)
 
 
 # System & Project Information
@@ -68,6 +68,7 @@ endif ("$ENV{HOST}" MATCHES "beggar.cs.wisc.edu")
 # Include Directory Structure for lizy@tarzan
 if ("$ENV{HOST}" MATCHES "tarzan.cs.wisc.edu")
   include_directories(
+    "/u/l/i/lizy/SemiRandomCar/PatchMatch"
     "/u/l/i/lizy/myinstall/include"
     ".")
   # OpenCV Library
@@ -89,7 +90,7 @@ if ("$ENV{HOST}" MATCHES "")
     "/scratch/usr/local/include"
     "~/pf/projects"
     ".")
-  set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_imgproc -lopencv_highgui" )
+  # set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_imgproc -lopencv_highgui" )
 endif ("$ENV{HOST}" MATCHES "")
 
 
@@ -121,17 +122,17 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # Usage
 ADD_EXECUTABLE(usage sample/usage.cpp)
-# TARGET_LINK_LIBRARIES(usage OPENCV)
+TARGET_LINK_LIBRARIES(usage OPENCV)
 
 # AlbumTest
 ADD_EXECUTABLE(AlbumTest sample/AlbumTest.cpp)
-# TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
+TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
 
 # TreeBuild
 ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
-# TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
+TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
 
 # Heavy Patch Test
 ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
-# TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
+TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
 

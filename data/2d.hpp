@@ -100,6 +100,11 @@ namespace PatTk
     // const selector of elements
     virtual const dataType& operator()( const int index ) const = 0;
 
+    // For rotation and Scaling
+    static inline dataType resample( const dataType __attribute__((__unused__)) a,
+                                     const dataType __attribute__((__unused__)) b,
+                                     const double __attribute__((__unused__)) ratio ) {}
+
     void trace() const
     {
       trace<dataType>();
@@ -504,7 +509,7 @@ namespace PatTk
       inline const typename cellType::type operator[]( const int index ) const
       {
         
-        return parent.GetPatchComponent( y, x, horiz_y, horiz_x, index );
+        return parent.GetPatchComponent( y, x, rotation, horiz_y, horiz_x, index );
       }
 
       inline void Summary() const
@@ -590,12 +595,35 @@ namespace PatTk
       return m_cels[pos+patmask.cellShift[index]](patmask.inCellShift[index]);
     }
 
-    inline const typename cellType::type GetPatchComponent( double y, double x, double horiz_y,
+    inline const typename cellType::type GetPatchComponent( double y, double x, double rotation, double horiz_y,
                                                              double horiz_x, int index ) const
     {
-      return Interpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
-                          x + patmask.y_offset[index] * vertical_x + patmask.x_offset[index] * horiz_x,
-                          patmask.inCellShift[index] );
+      static const double ang_unit = 1.0 / 180.0;
+      int base = index - patmask.inCellShift[index];
+      double offset = patmask.inCellShift[index] + rotation * ang_unit;
+      if ( (*this)(0).length <= offset ) {
+        offset -= (*this)(0).length;
+      } else if ( 0 > offset ) {
+        offset += (*this)(0).length;
+      }
+
+      int pos0 = static_cast<int>( offset );
+      double ratio = offset - pos0;
+      int pos1 = ( pos0 + 1 == (*this)(0).length ) ? 0 : pos0 + 1;
+      pos0 += base;
+      pos1 += base;
+
+      cellType::resample( Interpolate( y + patmask.y_offset[pos0] * vertical_y +
+                                       patmask.x_offset[pos0] * horiz_y,
+                                       x + patmask.y_offset[pos0] * vertical_x +
+                                       patmask.x_offset[pos0] * horiz_x,
+                                       patmask.inCellShift[pos0] ),
+                          Interpolate( y + patmask.y_offset[pos1] * vertical_y +
+                                       patmask.x_offset[pos1] * horiz_y,
+                                       x + patmask.y_offset[pos1] * vertical_x +
+                                       patmask.x_offset[pos1] * horiz_x,
+                                       patmask.inCellShift[pos1] ), ratio );
+                          
     }
 
 
