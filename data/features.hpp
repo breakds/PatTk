@@ -19,6 +19,8 @@ namespace PatTk
   template <typename dataType>
   class HistCell : public AbstractCell<dataType>
   {
+  public:
+    static const bool RotationSensitive = false;
   private:
     vector<dataType> h;
   public:
@@ -154,25 +156,12 @@ namespace PatTk
 
   class HoGCell : public HistCell<unsigned char>
   {
+  public:
+    static const int RotationSensitive = true;
 
     static inline unsigned char resample( const unsigned char a, const unsigned char b, const double ratio )
     {
       return static_cast<unsigned char>( a * ( 1.0 - ratio ) + b * ratio );
-    }
-    inline unsigned char resample( const double p )
-    {
-
-      
-      double offset = p;
-      if ( this->length <= offset ) {
-        offset -= this->length;
-      } else if ( 0 > offset ) {
-        offset += this->length;
-      }
-      int pos0 = static_cast<int>( offset );
-      double ratio = offset - pos0;
-      int pos1 = ( pos0 + 1 == length ) ? 0 : pos0 + 1;
-      return static_cast<unsigned char>( (*this)[pos0] * ( 1.0 - ratio ) + (*this)[pos1] * ratio );
     }
   };
   
@@ -185,6 +174,8 @@ namespace PatTk
   // Container for an CIE L*a*b* cell (raw Lab color feature)
   class LabCell : public AbstractCell<unsigned char>
   {
+  public:
+    static const bool RotationSensitive = false;
   private:
     unsigned char lab[3];
   public:
