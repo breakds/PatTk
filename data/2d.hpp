@@ -525,7 +525,7 @@ namespace PatTk
   public:
     typedef AttachedPatch<lite> Patch;
 
-    inline const typename cellType::type Interpolate( double x, double y, int i ) const
+    inline const typename cellType::type Interpolate( double y, double x, int i ) const
     {
       // TODO: shfit
       int y0 = static_cast<int>(y);

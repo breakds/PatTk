@@ -31,14 +31,18 @@ int main( int argc, char **argv )
 
 
   // Get a patch at coordinate (35, 102)
-  auto patch = img.Spawn( 35, 102, 1.0, 5.0 );
-
+  auto patch = img.Spawn( 54, 266, 1.8465, 18.8965 );
 
   // Iterate the patch components directly
   for ( int i=0; i<patch.dim(); i++ ) {
     printf( "%hhu ", patch[i] );
   }
   printf( "\n" );
+  
+
+  
+
+
   return 0;
 }
 
