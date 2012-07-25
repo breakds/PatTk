@@ -350,7 +350,17 @@ namespace PatTk
       // copy constructor
       AttachedPatch( const AttachedPatch<T>& patch )
         : pos(patch.pos), y(patch.y), x(patch.x), pid(patch.pid), parent(patch.parent) {}
+
+
+      // write function
+      inline void write( FILE* out ) const
+      {
+        fwrite( &y, sizeof(int), 1, out );
+        fwrite( &x, sizeof(int), 1, out );
+        fwrite( &pos, sizeof(int), 1, out );
+      }
       
+
       inline bool isValid() const
       {
         if ( 0 <= x && x + parent.GetPatchWidth() <= parent.cols &&
@@ -434,7 +444,7 @@ namespace PatTk
         horiz_x = 1.0;
         horiz_y = 0.0;
       }
-
+      
       AttachedPatch( const Image<cellType,valueType,lite> &img, double y1, double x1 )
         : y(y1), x(x1), pid(img.id),
           scale(1.0), rotation(0.0),
@@ -463,7 +473,17 @@ namespace PatTk
         : y(patch.y), x(patch.x), pid(patch.pid),
           scale(patch.scale), rotation(patch.scale),
           parent(patch.parent) {}
-      
+
+      // write()
+      inline void write( FILE* out ) const
+      {
+        fwrite( &y, sizeof(double), 1, out );
+        fwrite( &x, sizeof(double), 1, out );
+        fwrite( &scale, sizeof(double), 1, out );
+        fwrite( &rotation, sizeof(double), 1, out );
+        fwrite( &pid, sizeof(int), 1, out );
+      }
+
 
       inline bool isValid() const
       {
@@ -532,6 +552,11 @@ namespace PatTk
       int x0 = static_cast<int>(x);
       int y1 = y0 + 1;
       int x1 = x0 + 1;
+      if ( y1 == this->rows ) y1 = y0;
+      if ( y0 == -1 ) y0 = y1;
+      if ( x1 == this->cols ) x1 = x0;
+      if ( x0 == -1 ) x0 = x1;
+      
       double frac_y = y - y0;
       double frac_x = x - x0;
       double left = (*this)(y0,x0)(i) * (1.0 - frac_y) + (*this)(y1,x0)(i) * frac_y;
@@ -596,20 +621,22 @@ namespace PatTk
     }
 
     template <bool T>
-    inline const typename cellType::type GetPatchComponent( double y, double x, double rotation, double horiz_y,
+    inline const typename cellType::type GetPatchComponent( double y, double x,
+                                                            double __attribute__((__unused__)) rotation,
+                                                            double horiz_y,
                                                             double horiz_x, int index,
-                                                            typename std::enable_if<T>::type
+                                                            typename std::enable_if<!T>::type
                                                             __attribute__((__unused__)) *padding=0 ) const
     {
-      return Iterpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
-                         x + patmask.y_offset[index] * vertical_x + patmask.x_offset[index] * horiz_x,
-                         patmask.inCellShift[index] );
+      return Interpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
+                          x + patmask.y_offset[index] * vertical_x + patmask.x_offset[index] * horiz_x,
+                          patmask.inCellShift[index] );
     }
 
     template <bool T>
     inline const typename cellType::type GetPatchComponent( double y, double x, double rotation, double horiz_y,
                                                             double horiz_x, int index,
-                                                            typename std::enable_if<!T>::type
+                                                            typename std::enable_if<T>::type
                                                             __attribute__((__unused__)) *padding=0 ) const
     {
       static const double ang_unit = 1.0 / 180.0;
@@ -626,28 +653,32 @@ namespace PatTk
       int pos1 = ( pos0 + 1 == (*this)(0).length ) ? 0 : pos0 + 1;
       pos0 += base;
       pos1 += base;
-
+      
       typename cellType::type a = Interpolate( y + patmask.y_offset[pos0] * vertical_y +
                                               patmask.x_offset[pos0] * horiz_y,
                                               x + patmask.y_offset[pos0] * vertical_x +
                                               patmask.x_offset[pos0] * horiz_x,
                                               patmask.inCellShift[pos0] );
+
       typename cellType::type b = Interpolate( y + patmask.y_offset[pos1] * vertical_y +
                                               patmask.x_offset[pos1] * horiz_y,
                                               x + patmask.y_offset[pos1] * vertical_x +
                                               patmask.x_offset[pos1] * horiz_x,
                                               patmask.inCellShift[pos1] );
+
       return static_cast<typename cellType::type>( a * ( 1.0 - ratio ) + b * ratio );
     }
 
 
+    // lite version
     template<bool T = lite>
     inline Patch Spawn( int y, int x,
                         typename std::enable_if<T>::type __attribute__((__unused__)) *padding=0 ) const
     {
       return Patch( (*this), y, x );
     }
-
+    
+    // heavy version
     template<bool T = lite>
     inline Patch Spawn( double y, double x, double scl, double rot,
                         typename std::enable_if<!T>::type __attribute__((__unused__)) *padding=0 ) const
@@ -662,17 +693,17 @@ namespace PatTk
   // | Album, collection of imges.
   // | Serve as owner of images, as well as owner of patches.
   // +-------------------------------------------------------------------------------
-  template <typename dataType, typename valueType, bool lite = true>
+  template <typename cellType, typename valueType, bool lite = true>
   class Album
   {
   private:
-    std::vector< Image<dataType, valueType, lite> > pages;
+    std::vector< Image<cellType, valueType, lite> > pages;
 
     // prohibited copy constructor
-    Album( const Album<dataType,valueType, lite>& other ) {}
+    Album( const Album<cellType,valueType, lite>& other ) {}
 
     // prohibited copy assignment
-    const Album<dataType,valueType, lite>& operator=( const Album<dataType,valueType, lite>& other ) {}
+    const Album<cellType,valueType, lite>& operator=( const Album<cellType,valueType, lite>& other ) {}
     
   public:
 
@@ -682,13 +713,13 @@ namespace PatTk
     }
 
     // move constructor
-    Album( Album<dataType,valueType, lite>&& other )
+    Album( Album<cellType,valueType, lite>&& other )
     {
       pages.swap( other.pages );
     }
 
     // move assignment
-    const Album<dataType,valueType, lite>& operator=( Album<dataType,valueType, lite>&& other )
+    const Album<cellType,valueType, lite>& operator=( Album<cellType,valueType, lite>&& other )
     {
       pages.swap( other.pages );
       return (*this);
@@ -702,19 +733,19 @@ namespace PatTk
 
     // push() has side effect. It is destructive as it steals the
     // Image that img refer to.
-    inline void push( Image<dataType, valueType, lite>&& img )
+    inline void push( Image<cellType, valueType, lite>&& img )
     {
       img.id = static_cast<int>( pages.size() );
       pages.push_back( std::move(img) );
     }
     
     // Only provide read-only access to member images
-    const Image<dataType, valueType, lite>& operator()( const int index )
+    const Image<cellType, valueType, lite>& operator()( const int index ) const
     {
       return pages[index];
     }
 
-    Image<dataType, valueType, lite>& back()
+    Image<cellType, valueType, lite>& back()
     {
       return pages.back();
     }
@@ -726,6 +757,34 @@ namespace PatTk
         every.SetPatchParameter( height, width, stride );
       }
     }
+
+    // lite version
+    template<bool T = lite>
+    inline typename Image<cellType,valueType,lite>::Patch
+    ReadPatch( FILE* in, typename std::enable_if<T>::type __attribute__((__unused__)) *padding=0 ) const
+    {
+      int y(0), x(0), pid(0);
+      fread( &y, sizeof(int), 1, in );
+      fread( &x, sizeof(int), 1, in );
+      fread( &pid, sizeof(int), 1, in );
+      return (*this)(pid).Spawn( y, x );
+    }
+    
+    // heavy version
+    template<bool T = lite>
+    inline typename Image<cellType,valueType,lite>::Patch
+    ReadPatch( FILE* in, typename std::enable_if<!T>::type __attribute__((__unused__)) *padding=0 ) const
+    {
+      double y(0), x(0), scale(0), rotation(0);
+      int pid = 0;
+      fread( &y, sizeof(double), 1, in );
+      fread( &x, sizeof(double), 1, in );
+      fread( &scale, sizeof(double), 1, in );
+      fread( &rotation, sizeof(double), 1, in );
+      fread( &pid, sizeof(int), 1, in );
+      return (*this)(pid).Spwan( y, x );
+    }
+
   };
   
 };

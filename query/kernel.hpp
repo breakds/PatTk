@@ -122,6 +122,31 @@ namespace PatTk
         return 1;
       }
 
+      void write( FILE* out ) const
+      {
+        int len = static_cast<int>( proj.size() );
+        fwrite( &len, sizeof(int), 1, out );
+        fwrite( &proj[0], sizeof(int), len, out );
+        fwrite( &vertex[0][0], sizeof(typename BasicKernel<cellType,valueType>::data_t), len, out );
+        fwrite( &vertex[1][0], sizeof(typename BasicKernel<cellType,valueType>::data_t), len, out );
+        fwrite( &th, sizeof(typename BasicKernel<cellType,valueType>::gen_data_t), 1, out );
+      }
+
+
+      void read( FILE* in )
+      {
+        int len = 0;
+        fread( &len, sizeof(int), 1, in );
+        proj.resize( len );
+        vertex[0].resize( len );
+        vertex[1].resize( len );
+        fread( &proj[0], sizeof(int), len, in );
+        fread( &vertex[0][0], sizeof(typename BasicKernel<cellType,valueType>::data_t), len, in );
+        fread( &vertex[1][0], sizeof(typename BasicKernel<cellType,valueType>::data_t), len, in );
+        fread( &th, sizeof(typename BasicKernel<cellType,valueType>::gen_data_t), 1, in );
+      }
+
+
       // debugging:
       void trace()
       {

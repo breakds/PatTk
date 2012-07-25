@@ -129,7 +129,7 @@ namespace PatTk
   public:
     static Album<cellType,valueType, lite> gen( const vector<std::string>& lst )
     {
-      Info( "Creating Album..." );
+      Info( "Creating Album ..." );
       Album<cellType,valueType,lite> album;
       for ( int i=0, end=lst.size(); i<end; i++ ) {
         cv::Mat raw = cv::imread( lst[i] );

@@ -15,9 +15,6 @@
 #include "data/features.hpp"
 #include "LLPack/algorithms/sort.hpp"
 
-// TODO: remove interface header
-#include "interfaces/cv_interface.hpp"
-
 namespace PatTk
 {
   template <typename cellType, typename valueType>
@@ -25,6 +22,8 @@ namespace PatTk
   {
   public:
     virtual int operator()( const typename Image<cellType,valueType>::Patch& patch ) const = 0;
+    virtual void write( FILE* out ) const = 0;
+    virtual void read( FILE* in ) = 0;
   };
 
   
@@ -84,6 +83,70 @@ namespace PatTk
     Tree( const vector<typename kernel::patch_t>& patchList )
     {
       grow( patchList );
+    }
+
+    // write()
+    void write( const std::string& filename ) const
+    {
+      WITH_OPEN( out, filename.c_str(), "w" );
+      write( out );
+      END_WITH( out );
+    }
+    
+    void write( FILE *out ) const
+    {
+      if ( leaf() ) {
+        int flag = 1;
+        fwrite( &flag, sizeof(int), 1, out );
+        // write leaf patches
+        int len = static_cast<int>( patches.size() );
+        fwrite( &len, sizeof(int), 1, out );
+        for ( auto& ele : patches ) {
+          ele.write( out );
+        }
+      } else {
+        int flag = 0;
+        fwrite( &flag, sizeof(int), 1, out );
+        // write branch function
+        fork.write( out );
+        // write child
+        child[0]->write( out );
+        child[1]->write( out );
+      }
+    }
+
+    // read()
+    template <typename cellType, typename valueType, bool lite>
+    void read( const std::string& filename, const Album<cellType,valueType,lite>& album )
+    {
+      WITH_OPEN( in, filename.c_str(), "r" );
+      read( in, album );
+      END_WITH( in );
+    }
+
+    // read()
+    template <typename cellType, typename valueType, bool lite>
+    void read( FILE* in, const Album<cellType,valueType,lite>& album )
+    {
+      int flag = 0;
+      fread( &flag, sizeof(int), 1, in );
+      if ( 1 == flag ) {
+        // read leaf patches
+        int len = 0;
+        fread( &len, sizeof(int), 1, in );
+        patches.clear();
+        for ( int i=0; i<len; i++ ) {
+          patches.push_back( album.ReadPatch( in ) );
+        }
+      } else {
+        // read branch function
+        fork.read( in );
+        child[0].reset( new Tree() );
+        child[1].reset( new Tree() );
+        child[0]->read( in, album );
+        child[1]->read( in, album );
+      }
+      
     }
 
     // Constructor 1: Build Tree from scractch
