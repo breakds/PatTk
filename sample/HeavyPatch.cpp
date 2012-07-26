@@ -25,7 +25,7 @@ int main( int argc, char **argv )
     cv::Mat mat = cv::imread( argv[1] );
 
     // Create an image with CIEL*a*b* feature descriptors
-    auto img = cvFeatGen<LabCell,std::pair<int,int>,false >::gen( mat );
+    auto img = cvFeatGen<HoGCell,std::pair<int,int>,false >::gen( mat );
 
     // Set the parameter for patches
     // in this case, will be 5 x 5 patch with a cell stride of 4
@@ -45,7 +45,7 @@ int main( int argc, char **argv )
     cv::Mat mat = cv::imread( argv[2] );
 
     // Create an image with CIEL*a*b* feature descriptors
-    auto img = cvFeatGen<LabCell,std::pair<int,int>,false>::gen( mat );
+    auto img = cvFeatGen<HoGCell,std::pair<int,int>,false>::gen( mat );
 
     // Set the parameter for patches
     // in this case, will be 5 x 5 patch with a cell stride of 4

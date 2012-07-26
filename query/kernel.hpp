@@ -261,7 +261,8 @@ namespace PatTk
                            const int __attribute__((__unused__)) *ref,
                            int len )
     {
-      if ( len < 5 ) return true;
+      static int threshold = env["maximum-leaf-size"];
+      if ( len < threshold ) return true;
       return false;
     }
     

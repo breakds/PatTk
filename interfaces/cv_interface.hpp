@@ -221,7 +221,7 @@ namespace PatTk
     {
       cv::Mat tmp = cv::imread( patch.parent.fullpath );
       if ( tmp.empty() ) {
-        Error( "IconList::push() - failed to load image." );
+        Error( "IconList::push() - failed to load image %s.", patch.parent.fullpath.c_str() );
         exit( -1 );
       }
       if ( CV_8UC3 != tmp.type() ) {

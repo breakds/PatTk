@@ -133,8 +133,8 @@ ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
 TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
 
 # Fake Label Test
-# ADD_EXECUTABLE(FakeLabel sample/FakeLabel.cpp)
-# TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
+ADD_EXECUTABLE(FakeLabel sample/FakeLabel.cpp)
+TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
 
 
 # Heavy Patch Test

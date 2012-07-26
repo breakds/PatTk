@@ -130,6 +130,7 @@ namespace PatTk
     {
       int flag = 0;
       fread( &flag, sizeof(int), 1, in );
+
       if ( 1 == flag ) {
         // read leaf patches
         int len = 0;
@@ -141,6 +142,7 @@ namespace PatTk
       } else {
         // read branch function
         fork.read( in );
+        
         child[0].reset( new Tree() );
         child[1].reset( new Tree() );
         child[0]->read( in, album );

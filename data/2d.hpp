@@ -357,7 +357,7 @@ namespace PatTk
       {
         fwrite( &y, sizeof(int), 1, out );
         fwrite( &x, sizeof(int), 1, out );
-        fwrite( &pos, sizeof(int), 1, out );
+        fwrite( &pid, sizeof(int), 1, out );
       }
       
 

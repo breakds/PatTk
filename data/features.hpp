@@ -240,8 +240,8 @@ namespace PatTk
   // | Integral Operations for Image
   // | Example: IntegralImage( img );
   // +-------------------------------------------------------------------------------
-  template <typename cellType, typename valueType>
-  void IntegralImage( Image<cellType,valueType>& img, int wndSize ) 
+  template <typename cellType, typename valueType, bool lite = true >
+  void IntegralImage( Image<cellType,valueType,lite>& img, int wndSize ) 
   {
     typedef typename cellType::type data_t;
     static_assert( std::is_same<HistCell<data_t>, cellType>::value,
