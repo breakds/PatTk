@@ -8,8 +8,8 @@ namespace PatTk
 {
 
   template <typename cellType, typename valueType, bool lite = true>
-  inline double FakeLabelDist( typename Image<cellType,valueType,lite>::Patch &a,
-                               typename Image<cellType,valueType,lite>::Patch &b,
+  inline double FakeLabelDist( const typename Image<cellType,valueType,lite>::Patch &a,
+                               const typename Image<cellType,valueType,lite>::Patch &b,
                                typename std::enable_if<lite>::type __attribute__((__unused__)) *padding=0 )
   {
     double l2 = sqrt( ( a.y - b.y ) * ( a.y - b.y ) + ( a.x - b.x ) * ( a.x - b.x ) );
@@ -18,6 +18,22 @@ namespace PatTk
     }
     return l2;
   }
+
+
+  template <typename cellType, typename valueType, bool lite = true>
+  inline typename Generalized<typename cellType::type>::type
+  L1Dist( const typename Image<cellType,valueType,lite>::Patch& a,
+          const typename Image<cellType,valueType,lite>::Patch& b )
+  {
+    assert( a.dim() == b.dim() );
+    typename Generalized<typename cellType::type>::type accu = 0;
+    for ( int i=0, end=a.dim(); i<end; i++ ) {
+      typename Generalized<typename cellType::type>::type tmp = a[i] - b[i];
+      accu += tmp > 0 ? tmp : -tmp;
+    }
+    return accu;
+  }
+                                                   
   
 };
 
