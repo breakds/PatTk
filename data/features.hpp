@@ -60,7 +60,7 @@ namespace PatTk
     }
 
     // extra operator
-    const HistCell& operator+=( const HistCell& other )
+    inline const HistCell& operator+=( const HistCell& other )
     {
       assert( this->length == other.length );
       for ( int i=0; i<this->length; i++ ) {
@@ -70,7 +70,7 @@ namespace PatTk
     }
 
 
-    const HistCell& operator-=( const HistCell& other )
+    inline const HistCell& operator-=( const HistCell& other )
     {
       assert( this->length == other.length );
       for ( int i=0; i<this->length; i++ ) {
@@ -80,7 +80,7 @@ namespace PatTk
     }
 
 
-    const HistCell& operator/=( const double divisor )
+    inline const HistCell& operator/=( const double divisor )
     {
       for ( int i=0; i<this->length; i++ ) {
         h[i] /= divisor;
@@ -167,6 +167,71 @@ namespace PatTk
   
 
 
+  template <typename dataType>
+  class SingleCell : public AbstractCell<dataType>
+  {
+  public:
+    static const bool RotationSensitive = false;
+  private:
+    dataType d;
+  public:
+
+    SingleCell() : AbstractCell<dataType>(1), d(0) {}
+    SingleCell( const dataType& content ) : AbstractCell<dataType>(1)
+    {
+      d = content;
+    }
+    
+    SingleCell( const SingleCell& other ) : AbstractCell<dataType>(1)
+    {
+      d = other.d;
+    }
+
+    // copy assignment
+    inline const SingleCell& operator=( const SingleCell& other )
+    {
+      this->length = 1;
+      d = other.d;
+      return (*this);
+    }
+
+    // extra operator
+    inline const SingleCell& operator+=( const SingleCell& other )
+    {
+      d += other.d;
+      return (*this);
+    }
+
+
+    inline const SingleCell& operator-=( const SingleCell& other )
+    {
+      d -= other.d;
+      return (*this);
+    }
+
+
+    inline const SingleCell& operator/=( const double divisor )
+    {
+      d /= divisor;
+      return (*this);
+    }
+
+    
+    inline dataType& operator[]( const int __attribute__((__unused__)) index )
+    {
+      assert( 0 == index );
+      return d;
+    }
+    
+    inline const dataType& operator()( const int __attribute__((__unused__)) index ) const
+    {
+      assert( 0 == index );
+      return d;
+    }
+
+  };
+
+
 
 
 
@@ -236,6 +301,7 @@ namespace PatTk
   };
 
 
+
   // +-------------------------------------------------------------------------------
   // | Integral Operations for Image
   // | Example: IntegralImage( img );
@@ -244,9 +310,12 @@ namespace PatTk
   void IntegralImage( Image<cellType,valueType,lite>& img, int wndSize ) 
   {
     typedef typename cellType::type data_t;
-    static_assert( std::is_same<HistCell<data_t>, cellType>::value,
-                   "IntergralImage() - only supports HistCell." );
 
+
+    // static_assert( std::is_same<HistCell<data_t>, cellType>::value,
+    //                "IntergralImage() - only supports HistCell." );
+
+    
     cellType tmp[img.rows][img.cols];
     for ( int i=0; i<img.rows; i++ ) {
       for ( int j=0; j<img.cols; j++ ) {

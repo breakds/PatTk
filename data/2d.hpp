@@ -206,7 +206,7 @@ namespace PatTk
       return m_cels[i];
     }
     
-
+    
 
     
     /// Selectors/Setters:
@@ -268,7 +268,11 @@ namespace PatTk
     }
 
 
-    /// Debug Utilities
+    /// -------------------- Operations --------------------
+    
+    
+
+    /// -------------------- Debug Utilities --------------------
     void Summary() const
     {
       printf( "Image of %d x %d (%ld).\n", cols, rows, m_vals.size()  );

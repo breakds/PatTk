@@ -7,6 +7,26 @@
 namespace PatTk
 {
 
+
+
+  /// ==================== Cell  Metric ====================
+  
+  template <typename cellType>
+  inline typename Generalized<typename cellType::type>::type
+  L1Dist( const cellType& a,
+          const cellType& b )
+  {
+    typename Generalized<typename cellType::type>::type accu = 0;
+    for ( int i=0, end=a.length; i<end; i++ ) {
+      typename Generalized<typename cellType::type>::type tmp = a(i) - b(i);
+      accu += tmp > 0 ? tmp : -tmp;
+    }
+    return accu;
+  }
+
+
+  /// ==================== Patch Metric ====================
+  
   template <typename cellType, typename valueType, bool lite = true>
   inline double FakeLabelDist( const typename Image<cellType,valueType,lite>::Patch &a,
                                const typename Image<cellType,valueType,lite>::Patch &b,
