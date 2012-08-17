@@ -141,4 +141,8 @@ TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
 ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
 TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
 
+# BP Test
+ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
+TARGET_LINK_LIBRARIES(matting OPENCV)
+
 
