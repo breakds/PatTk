@@ -8,6 +8,7 @@
 
 #include <type_traits>
 #include <cassert>
+#include <cstring>
 #include <vector>
 #include "LLPack/utils/SafeOP.hpp"
 #include "DT.hpp"
@@ -35,11 +36,10 @@ namespace optimize
                 int* result, Options options, floating* msgBuf = nullptr )
   {
     // constants:
-    static const int UP = 0;
-    static const int LEFT = 1;
-    static const int DOWN = 2;
-    static const int RIGHT = 3;
-    const int inc[4] = {-width,-1,width,1};
+    // static const int UP = 0;
+    // static const int LEFT = 1;
+    // static const int DOWN = 2;
+    // static const int RIGHT = 3;
     const int incK[4] = {-width*K,-K,width*K,K};
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
     const int begin[4] = {height-1,width-1,0,0};
@@ -85,10 +85,10 @@ namespace optimize
         int scanBegin = begin[3-dir];
         int scanEnd = end[3-dir];
         for ( int scan=scanBegin; scan<scanEnd; scan++ ) { // outer loop
-          floating *Dp = nullptr;
-          floating *labelp = nullptr;
+          const floating *Dp = nullptr;
+          const floating *labelp = nullptr;
           int msgp = 0;
-          if ( 0 == dir & 1 ) {
+          if ( 0 == ( dir & 1 ) ) {
             Dp = D + ( begin[dir] * width + scanBegin ) * K;
             labelp = label + (begin[dir] * width + scanBegin ) * K * dim;
             msgp = ( begin[dir] * width + scanBegin ) * K;
@@ -113,7 +113,7 @@ namespace optimize
             
             for ( int hypo=0; hypo<options.numHypo; hypo++ ) {
               // Hypothesis Generation
-              hash.shuffle();
+              hash.shuffle(dim);
               // Preparation for Distance Transform
               for ( int k=0; k<K; k++ ) {
                 h[k] = Dp[k];
@@ -125,7 +125,7 @@ namespace optimize
                 }
                 h[k] /= lambda;
               }
-              floating *lp = labelp;
+              const floating *lp = labelp;
               for ( int k=0; k<K; k++ ) {
                 a[k] = hash( lp, dim );
                 lp += dim;
@@ -142,8 +142,8 @@ namespace optimize
               // Update Message
               int msgout = msgp + incK[dir];
               for ( int k=0; k<K; k++ ) {
-                floating *lp0 = labelp + match[k] * dim;
-                floating *lp1 = labelp + incDim[dim] + dim * k;
+                const floating *lp0 = labelp + match[k] * dim;
+                const floating *lp1 = labelp + incDim[dim] + dim * k;
                 floating message = h[match[k]];
                 for ( int d=0; d<dim; d++ ) {
                   if ( lp0[d] > lp1[d] ) {
@@ -161,7 +161,7 @@ namespace optimize
     }
 
     // Fill result
-    floating *Dp = D;
+    const floating *Dp = D;
     floating *msgp[4];
     for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
     for ( int i=0; i<area; i++ ) {

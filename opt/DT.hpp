@@ -24,6 +24,7 @@ namespace optimize
   template<typename floating=float>
   class FDT
   {
+  public:
     void operator()( const vector<floating> &h, const vector<floating> &a, const vector<floating> &b, int K,
               vector<int> &match )
     {

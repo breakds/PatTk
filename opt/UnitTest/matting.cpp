@@ -22,6 +22,30 @@ void display( uchar *img, int h, int w )
   cv::waitKey();
 }
 
+template <typename floating=float>
+class RandProj
+{
+public:
+  vector<floating> coeff;
+  void shuffle( int dim ) 
+  {
+    static const float ub = static_cast<double>( RAND_MAX );
+    coeff.resize(dim);
+    for ( int i=0; i<dim; i++ ) {
+      coeff[i] = rand() / ub;
+    }
+  }
+  
+  floating operator()( const floating* a, int dim )
+  {
+    floating sum;
+    for ( int i=0; i<dim; i++ ) {
+      sum += a[i] * coeff[i];
+    }
+    return sum;
+  }
+};
+
 
 int main()
 {
@@ -39,8 +63,6 @@ int main()
     }
   }
 
-  display( img, N, N );
-
   // Preparing the candidate
   uchar feature[N*N*2];
   float labels[N*N*2*1];
@@ -51,14 +73,27 @@ int main()
     labels[i*2 + (1-(i&1))] = 0;
   }
 
-  optmize::Options options;
+  optimize::Options options;
   options.maxIter = 10;
   options.numHypo = 1;
 
   float D[N*N*2];
+  for ( int i=0; i<N*N; i++ ) {
+    D[i*2] = (feature[i*2] - img[i]) * (feature[i*2] - img[i] );
+    D[i*2+1] = (feature[i*2+1] - img[i]) * (feature[i*2+1] - img[i] );
+  }
   
+
+  int result[N*N];
   
+  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 0.25, N, N, 2, 1, result, options );
   
+  uchar labeled[N*N];
+  for ( int i=0; i<N*N; i++ ) {
+    labeled[i] = static_cast<uchar>( labels[i*2+result[i]] );
+  }
+  
+  display( labeled, N, N );
 
   return 0;
 }
