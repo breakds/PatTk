@@ -16,13 +16,21 @@ using std::vector;
 namespace optimize
 {
 
+  template <typename floating=float>
+  class AbstractDT
+  {
+  public:
+    virtual void operator()( const vector<floating> &h, const vector<floating> &a, const vector<floating> &b, int K,
+                             vector<int> &match ) = 0;
+  };
+
   /*
    * Solving min_{i=1..K} h_i + ||a_i-b_j||, for j=1..K
    * Input:  h[1..K], a[1..K], b[1..K]
    * Output: match[1..K], where match[j] = arg min_i
    */
   template<typename floating=float>
-  class FDT
+  class FDT : public AbstractDT<floating>
   {
   public:
     void operator()( const vector<floating> &h, const vector<floating> &a, const vector<floating> &b, int K,

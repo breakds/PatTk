@@ -15,12 +15,29 @@
 
 namespace optimize
 {
+  
+  
 
+  // Abstract Random Hash Functor
+  template <typename floating=float>
+  class AbstractRandHash
+  {
+  public:
+    virtual void shuffle( int dim ) = 0;
+    virtual floating operator()( const floating* a, int dim) = 0;
+  };
+
+
+  // Optimization Options
   struct Options
   {
     int maxIter; // LoopyBP
     int numHypo; // LoopyBP
   };
+
+  
+
+  
   /*
    * Loopy Belief Propogation for Ising model,
    * min_{f_i} sum_i  D(f_i)  + lambda * sum_{i,j} ||g_{f_i} - g_{f_j}||
@@ -35,6 +52,7 @@ namespace optimize
                 int height, int width, int K, int dim,
                 int* result, Options options, floating* msgBuf = nullptr )
   {
+    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value, "DistTrans is not derived from AbstractDT." );
     // constants:
     // static const int UP = 0;
     // static const int LEFT = 1;

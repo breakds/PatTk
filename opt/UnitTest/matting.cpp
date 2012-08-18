@@ -23,7 +23,7 @@ void display( uchar *img, int h, int w )
 }
 
 template <typename floating=float>
-class RandProj
+class RandProj : public optimize::AbstractRandHash<floating>
 {
 public:
   vector<floating> coeff;
