@@ -10,8 +10,8 @@
 #include <functional>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/Environment.hpp"
-#include "data/2d.hpp"
-#include "data/features.hpp"
+#include "../data/2d.hpp"
+#include "../data/features.hpp"
 #include "opencv2/opencv.hpp"
 
 using namespace EnvironmentVariable;

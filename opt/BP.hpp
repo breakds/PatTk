@@ -52,7 +52,11 @@ namespace optimize
                 int height, int width, int K, int dim,
                 int* result, Options options, floating* msgBuf = nullptr )
   {
-    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value, "DistTrans is not derived from AbstractDT." );
+    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value,
+                   "DistTrans is not derived from AbstractDT." );
+    static_assert( std::is_base_of<AbstractRandHash<floating>,RandHash>::value,
+                   "RandHash is not derived from AbastractRandHash." );
+                   
     // constants:
     // static const int UP = 0;
     // static const int LEFT = 1;
