@@ -42,10 +42,10 @@ namespace optimize
    * Loopy Belief Propogation for Ising model,
    * min_{f_i} sum_i  D(f_i)  + lambda * sum_{i,j} ||g_{f_i} - g_{f_j}||
    * where
-   * D is a ( width * height * K ) 3-D matrix = Data term
-   * labels is a ( width * height * K * dim ) 4-D matrix = label feature
-   * msg[dir] is a ( width * height * K ) 3-D matrix = message from dir
-   * result is a width * height matrix = the selected indices for each pixel
+   * D is a ( height * width * K ) 3-D matrix = Data term
+   * labels is a ( height * width * K * dim ) 4-D matrix = label feature
+   * msg[dir] is a ( height * width * K ) 3-D matrix = message from dir
+   * result is a height * width matrix = the selected indices for each pixel
    */
   template <typename RandHash, typename DistTrans, typename floating=float>
   void LoopyBP( const floating* D, const floating *label, const floating lambda,
@@ -74,15 +74,15 @@ namespace optimize
 
     
 
-    floating *buf = msgBuf; // msg stores messages for each pixel, 4 * width * height * K
+    floating *buf = msgBuf; // msg stores messages for each pixel, 4 * height * width * K
     if ( nullptr == buf ) {
       // Message buffer is not provided externally
       buf = new floating[4*width*height*K];
     }
     // Init all message to 0
-    memset( buf, 0, sizeof(floating) * 4 * width * height * K );
+    memset( buf, 0, sizeof(floating) * 4 * height * width * K );
 
-    int area = width * height;
+    int area = height * width;
     floating *msg[4]; // 0 = up, 1 = left, 2 = right, 3 = down
     msg[0] = buf;
     for ( int i=1; i<=3; i++ ) {

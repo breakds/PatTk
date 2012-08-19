@@ -106,7 +106,7 @@ endif(COMMAND cmake_policy)
 
 # LINKER_FLAGS
 # set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
-# set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
+set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
 
 
 # COMPILATION_FLAGS
@@ -130,20 +130,24 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 # TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
 
 # TreeBuild
-ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
-TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
+# ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
+# TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
 
 # Fake Label Test
-ADD_EXECUTABLE(FakeLabel sample/FakeLabel.cpp)
-TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
+# ADD_EXECUTABLE(FakeLabel sample/FakeLabel.cpp)
+# TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
 
 
 # Heavy Patch Test
-ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
-TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
+# ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
+# TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
 
 # BP Test
-ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
-TARGET_LINK_LIBRARIES(matting OPENCV)
+# ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
+# TARGET_LINK_LIBRARIES(matting OPENCV)
+
+# BP Test
+ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
+# TARGET_LINK_LIBRARIES(builder OPENCV)
 
 

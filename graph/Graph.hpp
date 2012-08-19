@@ -7,16 +7,17 @@
 #pragma once
 #include <string>
 #include <vector>
+#include "LLPack/utils/extio.hpp"
 
 namespace PatTk
 {
   struct PatLoc
   {
     int index;
-    float y, x, scale, rotation;
-    PatLoc( int index_, float y_, float x_, float scale_, float rotation_ )
-      : index(index_), y(y_), x(x_), scale(scale_), rotation(rotation_) {}
-    PatLoc() : index(0), y(0), x(0), scale(0), rotation(0) {}
+    float y, x, scale, rotation, dist;
+    PatLoc( int index_, float y_, float x_, float scale_, float rotation_, float dist_ )
+      : index(index_), y(y_), x(x_), scale(scale_), rotation(rotation_), dist(dist_) {}
+    PatLoc() : index(0), y(0), x(0), scale(0), rotation(0), dist(0) {}
   };
 
   
@@ -24,8 +25,14 @@ namespace PatTk
   {
   private:
     std::vector<std::vector<PatLoc> > pool;
+    std::vector<int> pos;
   public:
     int rows, cols;
+
+  private:
+    // prohibit calling copy construtor and copy assignment
+    PatGraph( const PatGraph& other );
+    const PatGraph& operator=( const PatGraph& other );
 
   public:
 
@@ -34,11 +41,12 @@ namespace PatTk
     {
       pool.resize( h * w );
       for ( int i=0; i<h*w; i++ ) pool[i].clear();
+      for ( int i=0; i<h; i++ ) pos[i] = i * w;
     }
 
     PatGraph( std::string &filename )
     {
-      WITH_OPEN( in, filename, "r" );
+      WITH_OPEN( in, filename.c_str(), "r" );
       fread( &rows, sizeof(int), 1, in );
       fread( &cols, sizeof(int), 1, in );
       pool.resize( rows * cols );
@@ -52,16 +60,37 @@ namespace PatTk
           fread( &cand.y, sizeof(float), 1, in );
           fread( &cand.scale, sizeof(float), 1, in );
           fread( &cand.rotation, sizeof(float), 1, in );
+          fread( &cand.dist, sizeof(float), 1, in );
         }
       }
+      for ( int i=0; i<rows; i++ ) pos[i] = i * cols;
       END_WITH( in );
     }
+    
+    // Move Constructor
+    PatGraph( PatGraph&& other ) noexcept
+    {
+      rows = other.rows;
+      cols = other.rows;
+      pool.swap( other.pool );
+      pos.swap( other.pos );
+    }
 
+    // Move Assignment
+    const PatGraph& operator=( PatGraph&& other )
+    {
+      rows = other.rows;
+      cols = other.rows;
+      pool.swap( other.pool );
+      pos.swap( other.pos );
+      return (*this);
+    }
+    
   public:
     // I/O operations
     void write( std::string &filename )
     {
-      WITH_OPEN( out, filename, "w" );
+      WITH_OPEN( out, filename.c_str(), "w" );
       fwrite( &rows, sizeof(int), 1, out );
       fwrite( &cols, sizeof(int), 1, out );
       for ( auto& ele : pool ) {
@@ -73,11 +102,41 @@ namespace PatTk
           fwrite( &ele[i].y, sizeof(float), 1, out );
           fwrite( &ele[i].scale, sizeof(float), 1, out );
           fwrite( &ele[i].rotation, sizeof(float), 1, out );
+          fwrite( &ele[i].dist, sizeof(float), 1, out );
         }
       }
       END_WITH( out );
     }
+
+  public:
+    // Selectors and Operators
+    const std::vector<PatLoc>& operator()( int y, int x ) const
+    {
+      return pool[pos[y]+x];
+    }
     
+    const std::vector<PatLoc>& operator()( int i ) const
+    {
+      return pool[i];
+    }
+    
+    std::vector<PatLoc>& operator[]( int i )
+    {
+      return pool[i];
+    }
+
+
+    // Merge Operator
+    const PatGraph& operator+=( const PatGraph& other )
+    {
+      assert( rows == other.rows && cols == other.cols );
+      for ( int i=0; i<rows*cols; i++ ) {
+        for ( auto& ele : other(i) ) {
+          pool[i].push_back( ele );
+        }
+      }
+      return (*this);
+    }
   };
 };
 
