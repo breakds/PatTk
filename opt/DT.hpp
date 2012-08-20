@@ -24,6 +24,7 @@ namespace optimize
                              vector<int> &match ) = 0;
   };
 
+
   /*
    * Solving min_{i=1..K} h_i + ||a_i-b_j||, for j=1..K
    * Input:  h[1..K], a[1..K], b[1..K]

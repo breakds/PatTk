@@ -66,9 +66,9 @@ namespace PatTk
             FSCANF_CHECK( in, "%f", &loc.x );
             FSCANF_CHECK( in, "%f", &loc.y );
             FSCANF_CHECK( in, "%f", &loc.dist );
+            if ( 480000.0 <= loc.dist ) loc.dist = 480000.0f; // set an upperbound for dist
             FSCANF_CHECK( in, "%f", &loc.rotation );
             FSCANF_CHECK( in, "%f", &loc.scale );
-            loc.dist *= 0.00001;
             graph[i*w+j].push_back( loc );
           }
         }
@@ -121,7 +121,7 @@ namespace PatTk
     
     // Generate the configuration file
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
-
+    
     // Call nnmex externally
     // system( "./nnmex PatchMatch.conf" );
     
@@ -141,10 +141,10 @@ namespace PatTk
     
     // Merge Graphs
     graph += graphNew;
+    
 
 
-
-    for ( auto& ele : graph(0,55) ) {
+    for ( auto& ele : graph(0,89) ) {
       ele.show();
     }
     
@@ -167,12 +167,12 @@ namespace PatTk
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
         for ( int k=0; k<candNum; k++ ) {
-          *(labelp++) = graph(i,j)[k].index * 0.1;
-          *(labelp++) = sin(graph(i,j)[k].rotation) * 0.003;
-          *(labelp++) = cos(graph(i,j)[k].rotation) * 0.003;
-          *(labelp++) = graph(i,j)[k].scale * 0.001;
-          *(labelp++) = graph(i,j)[k].y * 0.00001;
-          *(labelp++) = graph(i,j)[k].x * 0.00001;
+          *(labelp++) = graph(i,j)[k].index * 15000.0;
+          *(labelp++) = sin(graph(i,j)[k].rotation) * 300.0;
+          *(labelp++) = cos(graph(i,j)[k].rotation) * 300.0;
+          *(labelp++) = graph(i,j)[k].scale * 100.0;
+          *(labelp++) = graph(i,j)[k].y;
+          *(labelp++) = graph(i,j)[k].x;
         }
       }
     }
@@ -185,22 +185,33 @@ namespace PatTk
     options.maxIter = 10;
     options.numHypo = 3;
     options.verbose = 1;
+
+    printf( "candNum = %d\n", candNum );
     
     optimize::LoopyBP<RandProj<float>, optimize::FDT<float>, float>( D, label, lambda, 
                                                                      tarH, tarW, candNum, 6,
                                                                      result, options );
+    
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
-        printf( "(%d,%d)->(%.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f.\n", i, j, 
+        printf( "(%d,%d)->(%d | %.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
+                graph(i,j)[result[i*tarW+j]].index,
                 graph(i,j)[result[i*tarW+j]].y,
                 graph(i,j)[result[i*tarW+j]].x,
                 graph(i,j)[result[i*tarW+j]].scale,
                 graph(i,j)[result[i*tarW+j]].rotation,
-                graph(i,j)[result[i*tarW+j]].dist );
+                graph(i,j)[result[i*tarW+j]].dist,
+                result[i*tarW+j] );
         char ch;
         scanf( "%c", &ch );
       }
     }
+    
+
+    // Save candidates
+    // string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    // graph.write( savepath );
+    
     DeleteToNullWithTestArray( label );
   }
 };
