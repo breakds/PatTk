@@ -23,12 +23,11 @@ int main( int argc, char **argv )
   }
   env.parse( argv[1] );
   env.Summary();
-
+  
   std::vector<std::string> imgList = std::move( path::FFFL( "", env["files"], "" ) );
   auto album = std::move( cvAlbumGen<HoGCell,int,false>::gen( path::FFFL( env["folder"], env["files"], ".png" ) ) );
-
-  UpdateGraph( imgList, album, 1, 0 );
   
+  UpdateGraph( imgList, album, 1, 0 );
   return 0;
                           
 }

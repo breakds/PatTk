@@ -18,8 +18,12 @@ namespace PatTk
     PatLoc( int index_, float y_, float x_, float scale_, float rotation_, float dist_ )
       : index(index_), y(y_), x(x_), scale(scale_), rotation(rotation_), dist(dist_) {}
     PatLoc() : index(0), y(0), x(0), scale(0), rotation(0), dist(0) {}
+    void show() const
+    {
+      printf( "y:%.2f, x:%.2f, scale: %.2f, rotation: %.2f, dist: %.4f\n", y, x, scale, rotation, dist );
+    }
   };
-
+  
   
   class PatGraph
   {
@@ -41,6 +45,7 @@ namespace PatTk
     {
       pool.resize( h * w );
       for ( int i=0; i<h*w; i++ ) pool[i].clear();
+      pos.resize(h);
       for ( int i=0; i<h; i++ ) pos[i] = i * w;
     }
 
@@ -63,6 +68,7 @@ namespace PatTk
           fread( &cand.dist, sizeof(float), 1, in );
         }
       }
+      pos.resize( rows );
       for ( int i=0; i<rows; i++ ) pos[i] = i * cols;
       END_WITH( in );
     }
@@ -71,7 +77,7 @@ namespace PatTk
     PatGraph( PatGraph&& other ) noexcept
     {
       rows = other.rows;
-      cols = other.rows;
+      cols = other.cols;
       pool.swap( other.pool );
       pos.swap( other.pos );
     }

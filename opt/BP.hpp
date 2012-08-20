@@ -33,10 +33,12 @@ namespace optimize
   {
     int maxIter; // LoopyBP
     int numHypo; // LoopyBP
+    int verbose; // LoopyBP (1=showEngergy and iteration)
+    
   };
 
   
-
+  
   
   /*
    * Loopy Belief Propogation for Ising model,
@@ -62,6 +64,7 @@ namespace optimize
     // static const int LEFT = 1;
     // static const int DOWN = 2;
     // static const int RIGHT = 3;
+    const int inc[4] = { -width, 0, width, 0 };
     const int incK[4] = {-width*K,-K,width*K,K};
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
     const int begin[4] = {height-1,width-1,0,0};
@@ -102,6 +105,7 @@ namespace optimize
     
     
     for ( int iter=0; iter<options.maxIter; iter++ ) {
+      // Update 4 directions sequentially
       for ( int dir=0; dir<4; dir++ ) {
         int opp = (dir+2) & 3;
         int scanBegin = begin[3-dir];
@@ -165,7 +169,7 @@ namespace optimize
               int msgout = msgp + incK[dir];
               for ( int k=0; k<K; k++ ) {
                 const floating *lp0 = labelp + match[k] * dim;
-                const floating *lp1 = labelp + incDim[dim] + dim * k;
+                const floating *lp1 = labelp + incDim[dir] + dim * k;
                 floating message = h[match[k]];
                 for ( int d=0; d<dim; d++ ) {
                   if ( lp0[d] > lp1[d] ) {
@@ -180,31 +184,82 @@ namespace optimize
           }
         }
       }
-    }
 
-    // Fill result
-    const floating *Dp = D;
-    floating *msgp[4];
-    for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
-    for ( int i=0; i<area; i++ ) {
-      result[i] = 0;
-      floating min = 0;
-      for ( int k=0; k<K; k++ ) {
-        floating sum = Dp[k];
-        for ( int dir=0; dir<4; dir++ ) {
-          sum += msgp[dir][k];
-        }
-        if ( 0 == k ) {
-          min = sum;
-        } else if ( sum < min ) {
-          min = sum;
-          result[i] = k;
-        }
-      }
-      Dp += K;
-      for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
-    }
+      // Energy Function Value
+      if ( 1 <= options.verbose ) {
 
+        const floating *Dp = D;
+        floating *msgp[4];
+        for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
+        for ( int i=0; i<area; i++ ) {
+          result[i] = 0;
+          floating min = 0;
+          for ( int k=0; k<K; k++ ) {
+            floating sum = Dp[k];
+            for ( int dir=0; dir<4; dir++ ) {
+              sum += msgp[dir][k];
+            }
+            if ( 0 == k ) {
+              min = sum;
+            } else if ( sum < min ) {
+              min = sum;
+              result[i] = k;
+            }
+          }
+          Dp += K;
+          for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
+        }
+        
+
+        double energy = 0.0;
+        int i = 0;
+        const float *labelp = label;
+        for ( int y=0; y<height; y++ ) {
+          for ( int x=0; x<width; x++ ) {
+            energy += D[i];
+            /*
+            // UP:
+            int d = 0;
+            if ( y > 0 ) {
+              const float *lp0 = labelp + result[i] * dim;
+              const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
+              float l1 = 0.0;
+              for ( int di=0; di<dim; di++ ) {
+                if ( *(lp0) > *(lp1) ) {
+                  l1 += ( *lp0 - *lp1 );
+                } else { 
+                  l1 += ( *lp1 - *lp0 );
+                }
+              }
+              energy += l1 * lambda;
+            }
+
+
+            // LEFT:
+            d = 1;
+            if ( x > 0 ) {
+              const float *lp0 = labelp + result[i] * dim;
+              const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
+              float l1 = 0.0;
+              for ( int di=0; di<dim; di++ ) {
+                if ( *(lp0) > *(lp1) ) {
+                  l1 += ( *lp0 - *lp1 );
+                } else { 
+                  l1 += ( *lp1 - *lp0 );
+                }
+              }
+              energy += l1 * lambda;
+            }
+            */
+            i++;
+            labelp += K * dim;
+          }
+        }
+        
+        printf( "Iteration %d: energy = %.5lf\n", iter, energy );
+      } // end of if verbose >= 1
+    }
+    
     
     // free the internally created buffer    
     if ( nullptr == msgBuf ) {

@@ -38,7 +38,7 @@ public:
   
   floating operator()( const floating* a, int dim )
   {
-    floating sum;
+    floating sum = 0.01;
     for ( int i=0; i<dim; i++ ) {
       sum += a[i] * coeff[i];
     }

@@ -143,7 +143,7 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 # TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
 
 # BP Test
-# ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
+ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
 # TARGET_LINK_LIBRARIES(matting OPENCV)
 
 # BP Test

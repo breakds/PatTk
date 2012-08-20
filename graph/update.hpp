@@ -9,6 +9,7 @@
 #include <string>
 #include "LLPack/utils/Environment.hpp"
 #include "LLPack/utils/extio.hpp"
+#include "LLPack/utils/SafeOP.hpp"
 #include "Graph.hpp"
 #include "../data/2d.hpp"
 #include "../data/features.hpp"
@@ -54,19 +55,22 @@ namespace PatTk
       // Assume all the pixels has candiadtes (stride 1 for patchmatch)
       // Note Zhouyuan use column-major in his output file
       int tmp = 0;
-      for ( int i=0; i<h*w; i++ ) {
-        FSCANF_CHECK( in, "%d", &tmp ); // Skip x for target patch
-        FSCANF_CHECK( in, "%d", &tmp ); // Skip y for target patch
-        for ( int k=0; k<K; k++ ) {
-          PatLoc loc;
-          loc.index = index;
-          FSCANF_CHECK( in, "%d", &tmp );
-          FSCANF_CHECK( in, "%f", &loc.x );
-          FSCANF_CHECK( in, "%f", &loc.y );
-          FSCANF_CHECK( in, "%f", &loc.dist );
-          FSCANF_CHECK( in, "%f", &loc.rotation );
-          FSCANF_CHECK( in, "%f", &loc.scale );
-          graph[i].push_back( loc );
+      for ( int j=0; j<w; j++ ) {
+        for ( int i=0; i<h; i++ ) {
+          FSCANF_CHECK( in, "%d", &tmp ); // Skip x for target patch
+          FSCANF_CHECK( in, "%d", &tmp ); // Skip y for target patch
+          for ( int k=0; k<K; k++ ) {
+            PatLoc loc;
+            loc.index = index;
+            FSCANF_CHECK( in, "%d", &tmp );
+            FSCANF_CHECK( in, "%f", &loc.x );
+            FSCANF_CHECK( in, "%f", &loc.y );
+            FSCANF_CHECK( in, "%f", &loc.dist );
+            FSCANF_CHECK( in, "%f", &loc.rotation );
+            FSCANF_CHECK( in, "%f", &loc.scale );
+            loc.dist *= 0.00001;
+            graph[i*w+j].push_back( loc );
+          }
         }
       }
       END_WITH( in );
@@ -89,7 +93,7 @@ namespace PatTk
   
       floating operator()( const floating* a, int dim )
       {
-        floating sum;
+        floating sum = 0.0;
         for ( int i=0; i<dim; i++ ) {
           sum += a[i] * coeff[i];
         }
@@ -119,7 +123,7 @@ namespace PatTk
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
 
     // Call nnmex externally
-    system( "./nnmex PatchMatch.conf" );
+    // system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -129,36 +133,46 @@ namespace PatTk
     // Old Graph:
     PatGraph graph( tarH, tarW );
     string oldpath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    if ( probeFile(oldpath) ) graph = std::move( PatGraph(oldpath) );
+    int candNum = K;
+    if ( probeFile(oldpath) ) {
+      graph = std::move( PatGraph(oldpath) );
+      candNum = K << 1;
+    };
     
     // Merge Graphs
     graph += graphNew;
+
+
+
+    for ( auto& ele : graph(0,55) ) {
+      ele.show();
+    }
     
     
     // Prepare data term ( height x width x K );
-    float D[tarH * tarW * (K+K) ];
+    float D[tarH * tarW * candNum ];
     float *Dp = D;
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
         // assume all candidate set is of size K * 2
-        for ( int k=0; k<(K<<1); k++ ) {
+        for ( int k=0; k<candNum; k++ ) {
           *(Dp++) = graph(i,j)[k].dist;
         }      
       }
     }
     
     // Prepare labels term ( height x width x K x dim ) (dim=5)
-    float label[tarH * tarW * (K+K) * 5];
+    float *label = new float[tarH * tarW * candNum * 6];
     float *labelp = label;
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
-        for ( int k=0; k<(K<<1); k++ ) {
-          const PatLoc& loc = graph(i,j)[k];
-          *(labelp++) = loc.index * 1000000.0;
-          *(labelp++) = loc.rotation * 50.0;
-          *(labelp++) = loc.scale * 100.0;
-          *(labelp++) = loc.y;
-          *(labelp++) = loc.x;
+        for ( int k=0; k<candNum; k++ ) {
+          *(labelp++) = graph(i,j)[k].index * 0.1;
+          *(labelp++) = sin(graph(i,j)[k].rotation) * 0.003;
+          *(labelp++) = cos(graph(i,j)[k].rotation) * 0.003;
+          *(labelp++) = graph(i,j)[k].scale * 0.001;
+          *(labelp++) = graph(i,j)[k].y * 0.00001;
+          *(labelp++) = graph(i,j)[k].x * 0.00001;
         }
       }
     }
@@ -170,9 +184,23 @@ namespace PatTk
     optimize::Options options;
     options.maxIter = 10;
     options.numHypo = 3;
+    options.verbose = 1;
     
     optimize::LoopyBP<RandProj<float>, optimize::FDT<float>, float>( D, label, lambda, 
-                                                                     tarH, tarW, (K<<1), 5,
+                                                                     tarH, tarW, candNum, 6,
                                                                      result, options );
+    for ( int i=0; i<tarH; i++ ) {
+      for ( int j=0; j<tarW; j++ ) {
+        printf( "(%d,%d)->(%.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f.\n", i, j, 
+                graph(i,j)[result[i*tarW+j]].y,
+                graph(i,j)[result[i*tarW+j]].x,
+                graph(i,j)[result[i*tarW+j]].scale,
+                graph(i,j)[result[i*tarW+j]].rotation,
+                graph(i,j)[result[i*tarW+j]].dist );
+        char ch;
+        scanf( "%c", &ch );
+      }
+    }
+    DeleteToNullWithTestArray( label );
   }
 };
