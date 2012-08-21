@@ -49,47 +49,50 @@ public:
 
 int main()
 {
-  // Generate A 100 x 100 image
-  int N = 100;
-  uchar img[N*N];
-  for ( int i=0; i<N; i++ ) {
+  // Generate An M x N image
+  int M = 100;
+  int N = 50;
+  uchar img[N*M];
+  for ( int i=0; i<M; i++ ) {
     for ( int j=0; j<N; j++ ) {
-      float st = N * sin( 3.14 / N * j ) * 0.7;
+      float st = M * sin( 3.14 / N * j ) * 0.7;
       if ( static_cast<float>(i) < st ) {
-        img[i*N+j] = rand() % 40 + 210;
+        //        img[i*N+j] = rand() % 40 + 210;
+        img[i*N+j] = 255;
       } else {
-        img[i*N+j] = rand() % 50;
+        //        img[i*N+j] = rand() % 50;
+        img[i*N+j] = 0;
       }
     }
   }
 
   // Preparing the candidate
-  uchar feature[N*N*2];
-  float labels[N*N*2*1];
-  for ( int i=0; i<N*N; i++ ) {
-    labels[i*2] = rand() % 200 + 50;
-    labels[i*2+1] = rand() % 20;
-    feature[i*2] = labels[i*2];
-    feature[i*2+1] = labels[i*2+1];
+  uchar feature[N*M*2];
+  float labels[N*M*2*1];
+  for ( int i=0; i<N*M; i++ ) {
+    labels[i*2] = 255; //rand() % 10 + 210;
+    labels[i*2+1] = 0; //rand() % 20;
+    feature[i*2] = static_cast<uchar>( labels[i*2] );
+    feature[i*2+1] = static_cast<uchar>( labels[i*2+1] );
   }
 
   optimize::Options options;
   options.maxIter = 10;
-  options.numHypo = 1;
+  options.numHypo = 3;
 
   float D[N*N*2];
-  for ( int i=0; i<N*N; i++ ) {
+  for ( int i=0; i<N*M; i++ ) {
     D[i*2] = (feature[i*2] - img[i]) * (feature[i*2] - img[i] );
     D[i*2+1] = (feature[i*2+1] - img[i]) * (feature[i*2+1] - img[i] );
   }
   
 
-  int result[N*N];
+  int result[M*N];
   
-  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 0.25, N, N, 2, 1, result, options );
+  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 1e-10, M, N, 2, 1, result, options );
   
-  uchar labeled[N*N];
-  for ( int i=0; i<N*N; i++ ) {
+  uchar labeled[M*N];
+  for ( int i=0; i<M*N; i++ ) {
     if ( result[i] == 0 ) {
       labeled[i] = 255;
     } else {
@@ -97,7 +100,7 @@ int main()
     }
   }
   
-  display( labeled, N, N );
+  display( labeled, M, N );
 
   return 0;
 }

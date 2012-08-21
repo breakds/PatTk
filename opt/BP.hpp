@@ -10,8 +10,12 @@
 #include <cassert>
 #include <cstring>
 #include <vector>
+#include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/SafeOP.hpp"
 #include "DT.hpp"
+#include "LLPack/utils/debug.hpp"
+
+
 
 namespace optimize
 {
@@ -41,6 +45,19 @@ namespace optimize
 
   namespace
   {
+    void SaveOutResult( const int *result, int n, const std::string& filename )
+    {
+      WITH_OPEN( out, filename.c_str(), "w" );
+      fwrite( result, sizeof(int), n, out );
+      END_WITH( out );
+    }
+    void LoadInResult( int *result, int n, const std::string& filename )
+    {
+      WITH_OPEN( in, filename.c_str(), "r" );
+      fread( result, sizeof(int), n, in );
+      END_WITH( in );
+    }
+
     template <typename floating=float>
     double UpdateResult( const floating* D, const floating* label, floating** msg, int* result, 
                          int K, int dim, int height, int width, floating lambda )
@@ -65,13 +82,6 @@ namespace optimize
             sum += msgp[dir][k];
           }
           
-          // Debug:
-          //          if ( sum - Dp[k] > 2.0 ) {
-            printf( "D: %.4f other: %.4f\n", Dp[k], sum-Dp[k] );
-            char ch;
-            scanf( "%c", &ch );
-            //          }
-
           if ( 0 == k ) {
             min = sum;
           } else if ( sum < min ) {
@@ -82,14 +92,13 @@ namespace optimize
         Dp += K;
         for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
       }
-      
+
       double energy = 0.0;
       int i = 0;
       const float *labelp = label;
       for ( int y=0; y<height; y++ ) {
         for ( int x=0; x<width; x++ ) {
-          energy += D[i];
-
+          energy += D[i*K+result[i]];
           // UP:
           int d = 0;
           if ( y > 0 ) {
@@ -131,6 +140,7 @@ namespace optimize
           labelp += K * dim;
         }
       }
+
       return energy;
     }
   }
@@ -165,6 +175,7 @@ namespace optimize
     const int begin[4] = {height-1,width-1,0,0};
     const int end[4] = {1,1,height-2,width-2};
     const int step[4] = {-1,-1,1,1};
+    const int order[4] = {2,0,3,1}; // DOWN, UP, RIGHT, LEFT
 
 
     // Functors
@@ -205,7 +216,8 @@ namespace optimize
     
     for ( int iter=0; iter<options.maxIter; iter++ ) {
       // Update 4 directions sequentially
-      for ( int dir=0; dir<4; dir++ ) {
+      for ( int dirID=0; dirID<4; dirID++ ) {
+        int dir = order[dirID];
         int opp = (dir+2) & 3;
         int scanBegin = begin[3-dir];
         int scanEnd = end[3-dir];
@@ -215,13 +227,13 @@ namespace optimize
           const floating *labelp = nullptr;
           int msgp = 0;
           if ( 0 == ( dir & 1 ) ) {
-            Dp = D + ( begin[dir] * width + scanBegin ) * K;
-            labelp = label + (begin[dir] * width + scanBegin ) * K * dim;
-            msgp = ( begin[dir] * width + scanBegin ) * K;
+            Dp = D + ( begin[dir] * width + scan ) * K;
+            labelp = label + (begin[dir] * width + scan ) * K * dim;
+            msgp = ( begin[dir] * width + scan ) * K;
           } else {
-            Dp = D + ( scanBegin * width + begin[dir] ) * K;
-            labelp = label + ( scanBegin * width + begin[dir] ) * K * dim;
-            msgp = ( scanBegin * width + begin[dir] ) * K;
+            Dp = D + ( scan * width + begin[dir] ) * K;
+            labelp = label + ( scan * width + begin[dir] ) * K * dim;
+            msgp = ( scan * width + begin[dir] ) * K;
           }
           
           int forward = step[dir];
@@ -288,7 +300,7 @@ namespace optimize
             } // end for hypo
             */
             
-            // Non Distance Transformation version
+            // Non Distance-Transformation version
             for ( int k=0; k<K; k++ ) {
               floating min = 0.0;
               for ( int k0=0; k0<K; k0++ ) {
@@ -305,16 +317,23 @@ namespace optimize
                 if ( 0 == k0 || value < min ) min = value;
               }
               msg[dir][msgout+k] = min * lambda;
-              // printf( "message: %.4f\n", msg[dir][msgout+k] );
-              // char ch;
-              // scanf( "%c", &ch );
+
+
+              // debugging:
+              //              if ( msg[dir][msgout+k] > 10.0 ) {
+                printf( "h[0]=%.5f\n", h[0] );
+                printf( "h[1]=%.5f\n", h[1] );
+                printf( "message: %.4f\n", msg[dir][msgout+k] );
+                char ch;
+                scanf( "%c", &ch );
+                //              }
             }
             
             Dp += incK[dir];
             labelp += incDim[dir];
             msgp += incK[dir];
-          } // end inner loop
-        } // end outer loop
+          } // end inner loop (i)
+        } // end outer loop (scan)
         double energy = UpdateResult<floating>( D, label, msg, result, K, dim, height, width, lambda );
 
         if ( 1 <= options.verbose ) {
@@ -325,9 +344,9 @@ namespace optimize
       } // end for dir
 
 
-
     }
-    
+
+
     
     // free the internally created buffer    
     if ( nullptr == msgBuf ) {

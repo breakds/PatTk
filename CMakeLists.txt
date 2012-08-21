@@ -106,7 +106,7 @@ endif(COMMAND cmake_policy)
 
 # LINKER_FLAGS
 # set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
-set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
+# set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
 
 
 # COMPILATION_FLAGS
@@ -144,10 +144,10 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # BP Test
 ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
-# TARGET_LINK_LIBRARIES(matting OPENCV)
+TARGET_LINK_LIBRARIES(matting OPENCV)
 
 # Graph Builder
 ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
-# TARGET_LINK_LIBRARIES(builder OPENCV)
+TARGET_LINK_LIBRARIES(builder OPENCV)
 
 
