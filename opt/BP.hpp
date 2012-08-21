@@ -38,6 +38,102 @@ namespace optimize
   };
 
   
+
+  namespace
+  {
+    template <typename floating=float>
+    double UpdateResult( const floating* D, const floating* label, floating** msg, int* result, 
+                         int K, int dim, int height, int width, floating lambda )
+    {
+
+      // constants
+      const int inc[4] = { -width, -1, width, 1 };
+      const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
+      
+
+      // Update result
+      const int area = height * width;
+      const floating *Dp = D;
+      floating *msgp[4];
+      for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
+      for ( int i=0; i<area; i++ ) {
+        result[i] = 0;
+        floating min = 0;
+        for ( int k=0; k<K; k++ ) {
+          floating sum = Dp[k];
+          for ( int dir=0; dir<4; dir++ ) {
+            sum += msgp[dir][k];
+          }
+          
+          // Debug:
+          //          if ( sum - Dp[k] > 2.0 ) {
+            printf( "D: %.4f other: %.4f\n", Dp[k], sum-Dp[k] );
+            char ch;
+            scanf( "%c", &ch );
+            //          }
+
+          if ( 0 == k ) {
+            min = sum;
+          } else if ( sum < min ) {
+            min = sum;
+            result[i] = k;
+          }
+        }
+        Dp += K;
+        for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
+      }
+      
+      double energy = 0.0;
+      int i = 0;
+      const float *labelp = label;
+      for ( int y=0; y<height; y++ ) {
+        for ( int x=0; x<width; x++ ) {
+          energy += D[i];
+
+          // UP:
+          int d = 0;
+          if ( y > 0 ) {
+            const float *lp0 = labelp + result[i] * dim;
+            const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
+            float l1 = 0.0;
+            for ( int di=0; di<dim; di++ ) {
+              if ( *(lp0) > *(lp1) ) {
+                l1 += ( *lp0 - *lp1 );
+              } else { 
+                l1 += ( *lp1 - *lp0 );
+              }
+              lp0++;
+              lp1++;
+            }
+            energy += l1 * lambda;
+          }
+
+
+          // LEFT:
+          d = 1;
+          if ( x > 0 ) {
+            const float *lp0 = labelp + result[i] * dim;
+            const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
+            float l1 = 0.0;
+            for ( int di=0; di<dim; di++ ) {
+              if ( *(lp0) > *(lp1) ) {
+                l1 += ( *lp0 - *lp1 );
+              } else { 
+                l1 += ( *lp1 - *lp0 );
+              }
+              lp0++;
+              lp1++;
+            }
+            energy += l1 * lambda;
+          }
+            
+          i++;
+          labelp += K * dim;
+        }
+      }
+      return energy;
+    }
+  }
   
   
   /*
@@ -64,7 +160,6 @@ namespace optimize
     // static const int LEFT = 1;
     // static const int DOWN = 2;
     // static const int RIGHT = 3;
-    const int inc[4] = { -width, -1, width, 1 };
     const int incK[4] = {-width*K,-K,width*K,K};
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
     const int begin[4] = {height-1,width-1,0,0};
@@ -104,6 +199,9 @@ namespace optimize
     vector<int> match;
     match.resize(K);
     
+
+    // Initialize Result
+    memset( result, 0, sizeof( height * width ) );
     
     for ( int iter=0; iter<options.maxIter; iter++ ) {
       // Update 4 directions sequentially
@@ -207,6 +305,9 @@ namespace optimize
                 if ( 0 == k0 || value < min ) min = value;
               }
               msg[dir][msgout+k] = min * lambda;
+              // printf( "message: %.4f\n", msg[dir][msgout+k] );
+              // char ch;
+              // scanf( "%c", &ch );
             }
             
             Dp += incK[dir];
@@ -214,97 +315,17 @@ namespace optimize
             msgp += incK[dir];
           } // end inner loop
         } // end outer loop
+        double energy = UpdateResult<floating>( D, label, msg, result, K, dim, height, width, lambda );
+
+        if ( 1 <= options.verbose ) {
+          // Energy Function Value
+          printf( "Iteration %d: energy = %.5lf\n", iter, energy );
+        }
+
       } // end for dir
 
 
-      printf( "D(0,1)=%.4f\n", D[1] );
-      
 
-      // Energy Function Value
-      if ( 1 <= options.verbose ) {
-        // Update result
-        const floating *Dp = D;
-        floating *msgp[4];
-        for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
-        for ( int i=0; i<area; i++ ) {
-          result[i] = 0;
-          floating min = 0;
-          for ( int k=0; k<K; k++ ) {
-            floating sum = Dp[k];
-            // if ( 333 == i ) {
-            printf( "k=%d ", k );
-            printf( "D=%.4f ", sum );
-            // }
-            for ( int dir=0; dir<4; dir++ ) {
-              sum += msgp[dir][k];
-            }
-            // if ( 333 == i ) {
-            printf( "sum=%.4f\n", sum );
-            char ch;
-            scanf( "%c", &ch );
-            // }
-            if ( 0 == k ) {
-              min = sum;
-            } else if ( sum < min ) {
-              min = sum;
-              result[i] = k;
-            }
-          }
-          Dp += K;
-          for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
-        }
-        
-        double energy = 0.0;
-        int i = 0;
-        const float *labelp = label;
-        for ( int y=0; y<height; y++ ) {
-          for ( int x=0; x<width; x++ ) {
-            energy += D[i];
-
-            // UP:
-            int d = 0;
-            if ( y > 0 ) {
-              const float *lp0 = labelp + result[i] * dim;
-              const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-              float l1 = 0.0;
-              for ( int di=0; di<dim; di++ ) {
-                if ( *(lp0) > *(lp1) ) {
-                  l1 += ( *lp0 - *lp1 );
-                } else { 
-                  l1 += ( *lp1 - *lp0 );
-                }
-                lp0++;
-                lp1++;
-              }
-              energy += l1 * lambda;
-            }
-
-
-            // LEFT:
-            d = 1;
-            if ( x > 0 ) {
-              const float *lp0 = labelp + result[i] * dim;
-              const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-              float l1 = 0.0;
-              for ( int di=0; di<dim; di++ ) {
-                if ( *(lp0) > *(lp1) ) {
-                  l1 += ( *lp0 - *lp1 );
-                } else { 
-                  l1 += ( *lp1 - *lp0 );
-                }
-                lp0++;
-                lp1++;
-              }
-              energy += l1 * lambda;
-            }
-            
-            i++;
-            labelp += K * dim;
-          }
-        }
-        
-        printf( "Iteration %d: energy = %.5lf\n", iter, energy );
-      } // end of if verbose >= 1
     }
     
     

@@ -1,5 +1,5 @@
 /*********************************************************************************
- * File: matting.hpp
+ * File: matting.cpp
  * Description: UnitTest for Distance Transform Loopy Belief Propagation
  * by BreakDS, @ University of Wisconsin-Madison, Fri Aug 17 17:58:10 CDT 2012
  *********************************************************************************/
@@ -67,10 +67,10 @@ int main()
   uchar feature[N*N*2];
   float labels[N*N*2*1];
   for ( int i=0; i<N*N; i++ ) {
-    feature[i*2 + (i&1)] = 200;
-    feature[i*2 + (1-(i&1))] = 50;
-    labels[i*2 + (i&1)] = 255;
-    labels[i*2 + (1-(i&1))] = 0;
+    labels[i*2] = rand() % 200 + 50;
+    labels[i*2+1] = rand() % 20;
+    feature[i*2] = labels[i*2];
+    feature[i*2+1] = labels[i*2+1];
   }
 
   optimize::Options options;
@@ -90,7 +90,11 @@ int main()
   
   uchar labeled[N*N];
   for ( int i=0; i<N*N; i++ ) {
-    labeled[i] = static_cast<uchar>( labels[i*2+result[i]] );
+    if ( result[i] == 0 ) {
+      labeled[i] = 255;
+    } else {
+      labeled[i] = 0;
+    }
   }
   
   display( labeled, N, N );

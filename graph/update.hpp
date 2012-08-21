@@ -123,7 +123,7 @@ namespace PatTk
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     
     // Call nnmex externally
-    // system( "./nnmex PatchMatch.conf" );
+    //    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -156,7 +156,7 @@ namespace PatTk
       for ( int j=0; j<tarW; j++ ) {
         // assume all candidate set is of size K * 2
         for ( int k=0; k<candNum; k++ ) {
-          *(Dp++) = graph(i,j)[k].dist;
+          *(Dp++) = sqrt( graph(i,j)[k].dist );
         }      
       }
     }
