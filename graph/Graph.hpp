@@ -86,7 +86,7 @@ namespace PatTk
     const PatGraph& operator=( PatGraph&& other )
     {
       rows = other.rows;
-      cols = other.rows;
+      cols = other.cols;
       pool.swap( other.pool );
       pos.swap( other.pos );
       return (*this);

@@ -1,6 +1,6 @@
 /*********************************************************************************
  * File: BP.hpp
- * Description: Distance Transform based Belief Propagation for Ising Model
+ * Description: Distance Transform based Loopy Belief Propagation for Ising Model
  * by BreakDS, @ University of Wisconsin-Madison, Thu Aug 16 23:23:48 CDT 2012
  *********************************************************************************/
 
@@ -14,8 +14,6 @@
 #include "LLPack/utils/SafeOP.hpp"
 #include "DT.hpp"
 #include "LLPack/utils/debug.hpp"
-
-
 
 namespace optimize
 {
@@ -56,6 +54,25 @@ namespace optimize
       WITH_OPEN( in, filename.c_str(), "r" );
       fread( result, sizeof(int), n, in );
       END_WITH( in );
+    }
+
+    template <typename floating=float>
+    inline void NormalizeMessages( floating ** msg, int height, int width, int K )
+    {
+      const int area = height * width;
+      for ( int dir=0; dir <4; dir ++ ) {
+        floating *msgp = msg[dir];
+        for ( int i=0; i<area; i++ ) {
+          floating sum = 0.0;
+          for ( int k=0; k<K; k++ ) {
+            sum += msgp[k];
+          }
+          sum /= K;
+          for ( int k=0; k<K; k++ ) {
+            *(msgp++) -= sum;
+          }
+        }
+      }
     }
 
     template <typename floating=float>
@@ -173,16 +190,16 @@ namespace optimize
     const int incK[4] = {-width*K,-K,width*K,K};
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
     const int begin[4] = {height-1,width-1,0,0};
-    const int end[4] = {1,1,height-2,width-2};
+    const int end[4] = {0,0,height-1,width-1};
     const int step[4] = {-1,-1,1,1};
     const int order[4] = {2,0,3,1}; // DOWN, UP, RIGHT, LEFT
 
+    // debugging:
+    //    debugger::Recorder<true> rec( "debug.dat" );
 
     // Functors
     RandHash hash;
     DistTrans dtrans;
-
-    
 
     floating *buf = msgBuf; // msg stores messages for each pixel, 4 * height * width * K
     if ( nullptr == buf ) {
@@ -219,10 +236,9 @@ namespace optimize
       for ( int dirID=0; dirID<4; dirID++ ) {
         int dir = order[dirID];
         int opp = (dir+2) & 3;
-        int scanBegin = begin[3-dir];
-        int scanEnd = end[3-dir];
-        int movement = step[3-dir];
-        for ( int scan=scanBegin; scan!=scanEnd; scan+=movement ) { // outer loop
+        int scanBegin = 0;
+        int scanEnd = ( 0 == ( dir & 1 ) ) ? width : height;
+        for ( int scan=scanBegin; scan<scanEnd; scan++ ) { // outer loop
           const floating *Dp = nullptr;
           const floating *labelp = nullptr;
           int msgp = 0;
@@ -261,7 +277,6 @@ namespace optimize
                   h[k] += msg[j][msgp+k];
                 }
               }
-              h[k] /= lambda;
             }
 
             /* // Fast Distance Transformation Version
@@ -304,7 +319,7 @@ namespace optimize
             for ( int k=0; k<K; k++ ) {
               floating min = 0.0;
               for ( int k0=0; k0<K; k0++ ) {
-                floating value = h[k0];
+                floating value = 0.0;
                 const floating *lp0 = labelp + k0 * dim;
                 const floating *lp1 = labelp + incDim[dir] + dim * k;
                 for ( int d=0; d<dim; d++ ) {
@@ -314,19 +329,11 @@ namespace optimize
                     value += (lp1[d] - lp0[d]);
                   }
                 }
+                value *= lambda;
+                value += h[k0];
                 if ( 0 == k0 || value < min ) min = value;
               }
-              msg[dir][msgout+k] = min * lambda;
-
-
-              // debugging:
-              //              if ( msg[dir][msgout+k] > 10.0 ) {
-                printf( "h[0]=%.5f\n", h[0] );
-                printf( "h[1]=%.5f\n", h[1] );
-                printf( "message: %.4f\n", msg[dir][msgout+k] );
-                char ch;
-                scanf( "%c", &ch );
-                //              }
+              msg[dir][msgout+k] = min;
             }
             
             Dp += incK[dir];
@@ -334,20 +341,24 @@ namespace optimize
             msgp += incK[dir];
           } // end inner loop (i)
         } // end outer loop (scan)
+
+
+        
         double energy = UpdateResult<floating>( D, label, msg, result, K, dim, height, width, lambda );
+        
 
         if ( 1 <= options.verbose ) {
           // Energy Function Value
           printf( "Iteration %d: energy = %.5lf\n", iter, energy );
         }
 
+        NormalizeMessages( msg, height, width, K );
+        
+
+        
       } // end for dir
-
-
     }
 
-
-    
     // free the internally created buffer    
     if ( nullptr == msgBuf ) {
       DeleteToNullWithTestArray( buf );

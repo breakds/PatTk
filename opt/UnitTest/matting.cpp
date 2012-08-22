@@ -50,50 +50,59 @@ public:
 int main()
 {
   // Generate An M x N image
-  int M = 100;
-  int N = 50;
+  int M = 80;
+  int N = 80;
   uchar img[N*M];
+
+  
+
   for ( int i=0; i<M; i++ ) {
     for ( int j=0; j<N; j++ ) {
       float st = M * sin( 3.14 / N * j ) * 0.7;
       if ( static_cast<float>(i) < st ) {
-        //        img[i*N+j] = rand() % 40 + 210;
-        img[i*N+j] = 255;
+        img[i*N+j] = rand() % 40 + 210;
       } else {
-        //        img[i*N+j] = rand() % 50;
-        img[i*N+j] = 0;
+        img[i*N+j] = rand() % 50;
       }
     }
   }
 
+
+  display( img, M, N );
+
   // Preparing the candidate
-  uchar feature[N*M*2];
-  float labels[N*M*2*1];
+  int K = 4;
+  uchar feature[N*M*K];
+  float labels[N*M*K*1];
   for ( int i=0; i<N*M; i++ ) {
-    labels[i*2] = 255; //rand() % 10 + 210;
-    labels[i*2+1] = 0; //rand() % 20;
-    feature[i*2] = static_cast<uchar>( labels[i*2] );
-    feature[i*2+1] = static_cast<uchar>( labels[i*2+1] );
+    labels[i*K] = rand() % 200 + 50;
+    labels[i*K+1] = rand() % 20;
+    labels[i*K+2] = labels[i*K];
+    labels[i*K+3] = labels[i*K+1];
+    for ( int k=0; k<K; k++ ) {
+      feature[i*K+k] = static_cast<uchar>( labels[i*K+k] );
+    }
   }
 
   optimize::Options options;
   options.maxIter = 10;
   options.numHypo = 3;
 
-  float D[N*N*2];
+  float D[N*N*K];
   for ( int i=0; i<N*M; i++ ) {
-    D[i*2] = (feature[i*2] - img[i]) * (feature[i*2] - img[i] );
-    D[i*2+1] = (feature[i*2+1] - img[i]) * (feature[i*2+1] - img[i] );
+    for ( int k=0; k<K; k++ ) {
+      D[i*K+k] = (feature[i*K+k] - img[i]) * (feature[i*K+k] - img[i] );
+    }
   }
   
 
   int result[M*N];
   
-  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 1e-10, M, N, 2, 1, result, options );
-  
+  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 1.0, M, N, K, 1, result, options );
+
   uchar labeled[M*N];
   for ( int i=0; i<M*N; i++ ) {
-    if ( result[i] == 0 ) {
+    if ( 0 == ( result[i] & 1 ) ) {
       labeled[i] = 255;
     } else {
       labeled[i] = 0;

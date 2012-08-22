@@ -123,7 +123,7 @@ namespace PatTk
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     
     // Call nnmex externally
-    // system( "./nnmex PatchMatch.conf" );
+    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -141,10 +141,9 @@ namespace PatTk
     
     // Merge Graphs
     graph += graphNew;
-    
 
     // debugging:
-    for ( auto& ele : graph(0,5) ) {
+    for ( auto& ele : graph(238,0) ) {
       ele.show();
     }
     
@@ -161,12 +160,7 @@ namespace PatTk
       }
     }
 
-    // debugging:
-    for ( int i=0; i<candNum; i++ ) {
-      printf( "dist: %.5f\n", D[(0*tarW+5) * candNum + i] );
-    }
-    
-    // Prepare labels term ( height x width x K x dim ) (dim=5)
+    // Prepare labels term ( height x width x K x dim ) (dim=6)
     float *label = new float[tarH * tarW * candNum * 6];
     float *labelp = label;
     for ( int i=0; i<tarH; i++ ) {
@@ -178,16 +172,19 @@ namespace PatTk
           *(labelp++) = graph(i,j)[k].scale * 10.0;
           *(labelp++) = graph(i,j)[k].y;
           *(labelp++) = graph(i,j)[k].x;
+          if ( i == 238 && j == 0 && k == 0 ) {
+            printf( "y: %.4f\n", graph(i,j)[k].y );
+          }
         }
       }
     }
-    
+
     // Prepare the result array
     int result[area];
 
     // Loopy BP
     optimize::Options options;
-    options.maxIter = 10;
+    options.maxIter = 20;
     options.numHypo = 3;
     options.verbose = 1;
 
@@ -196,7 +193,8 @@ namespace PatTk
     optimize::LoopyBP<RandProj<float>, optimize::FDT<float>, float>( D, label, lambda, 
                                                                      tarH, tarW, candNum, 6,
                                                                      result, options );
-    
+
+
     // for ( int i=0; i<tarH; i++ ) {
     //   for ( int j=0; j<tarW; j++ ) {
     //     printf( "(%d,%d)->(%d | %.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
@@ -216,6 +214,9 @@ namespace PatTk
     // Save candidates
     // string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     // graph.write( savepath );
+
+    
+    
     
     DeleteToNullWithTestArray( label );
   }
