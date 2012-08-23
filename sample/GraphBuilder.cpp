@@ -27,7 +27,7 @@ int main( int argc, char **argv )
   std::vector<std::string> imgList = std::move( path::FFFL( "", env["files"], "" ) );
   auto album = std::move( cvAlbumGen<HoGCell,int,false>::gen( path::FFFL( env["folder"], env["files"], ".png" ) ) );
   
-  UpdateGraph( imgList, album, 0, 1 );
+  UpdateGraph( imgList, album, 0, 4 );
   return 0;
                           
 }

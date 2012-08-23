@@ -194,7 +194,8 @@ namespace PatTk
                                                                      tarH, tarW, candNum, 6,
                                                                      result, options );
 
-
+    
+    
     // for ( int i=0; i<tarH; i++ ) {
     //   for ( int j=0; j<tarW; j++ ) {
     //     printf( "(%d,%d)->(%d | %.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
@@ -209,11 +210,13 @@ namespace PatTk
     //     scanf( "%c", &ch );
     //   }
     // }
+
+    
     
 
     // Save candidates
-    // string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    // graph.write( savepath );
+    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    graph.write( savepath );
 
     
     
