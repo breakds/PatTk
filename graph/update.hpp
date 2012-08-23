@@ -10,6 +10,7 @@
 #include "LLPack/utils/Environment.hpp"
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/SafeOP.hpp"
+#include "LLPack/utils/time.hpp"
 #include "Graph.hpp"
 #include "../data/2d.hpp"
 #include "../data/features.hpp"
@@ -189,10 +190,12 @@ namespace PatTk
     options.verbose = 1;
 
     printf( "candNum = %d\n", candNum );
-    
+
+    timer::tic();
     optimize::LoopyBP<RandProj<float>, optimize::FDT<float>, float>( D, label, lambda, 
                                                                      tarH, tarW, candNum, 6,
                                                                      result, options );
+    printf( "time elapsed: %.2lf sec\n", timer::utoc() );
 
     
     

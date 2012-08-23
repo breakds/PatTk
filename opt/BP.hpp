@@ -13,7 +13,6 @@
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/SafeOP.hpp"
 #include "DT.hpp"
-#include "LLPack/utils/debug.hpp"
 
 namespace optimize
 {
@@ -194,9 +193,7 @@ namespace optimize
     const int step[4] = {-1,-1,1,1};
     const int order[4] = {2,0,3,1}; // DOWN, UP, RIGHT, LEFT
 
-    // debugging:
-    //    debugger::Recorder<true> rec( "debug.dat" );
-
+    
     // Functors
     RandHash hash;
     DistTrans dtrans;
@@ -279,7 +276,8 @@ namespace optimize
               }
             }
 
-            /* // Fast Distance Transformation Version
+            // Fast Distance Transformation Version
+            /*
             for ( int hypo=0; hypo<options.numHypo; hypo++ ) {
               // Hypothesis Generation
               hash.shuffle(dim);
@@ -302,7 +300,7 @@ namespace optimize
               for ( int k=0; k<K; k++ ) {
                 const floating *lp0 = labelp + match[k] * dim;
                 const floating *lp1 = labelp + incDim[dir] + dim * k;
-                floating message = h[match[k]];
+                floating message = 0.0;
                 for ( int d=0; d<dim; d++ ) {
                   if ( lp0[d] > lp1[d] ) {
                     message += (lp0[d] - lp1[d]);
@@ -310,6 +308,8 @@ namespace optimize
                     message += (lp1[d] - lp0[d]);
                   }
                 }
+                message *= lambda;
+                message += h[match[k]] ;
                 if ( 0 == hypo || message < msg[dir][msgout+k] ) msg[dir][msgout+k] = message;
               } // end for k
             } // end for hypo
@@ -335,6 +335,7 @@ namespace optimize
               }
               msg[dir][msgout+k] = min;
             }
+            
             
             Dp += incK[dir];
             labelp += incDim[dir];
