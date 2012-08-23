@@ -143,7 +143,7 @@ namespace PatTk
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     
     // Call nnmex externally
-    //    system( "./nnmex PatchMatch.conf" );
+    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -215,31 +215,44 @@ namespace PatTk
     printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
     
 
-    for ( int i=0; i<tarH; i++ ) {
-      for ( int j=0; j<tarW; j++ ) {
-        printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
-                graph(i,j)[result[i*tarW+j]].index,
-                graph(i,j)[result[i*tarW+j]].y,
-                graph(i,j)[result[i*tarW+j]].x,
-                graph(i,j)[result[i*tarW+j]].scale,
-                graph(i,j)[result[i*tarW+j]].rotation,
-                graph(i,j)[result[i*tarW+j]].dist,
-                result[i*tarW+j] );
-        char ch;
-        scanf( "%c", &ch );
-      }
-    }
+    // for ( int i=0; i<tarH; i++ ) {
+    //   for ( int j=0; j<tarW; j++ ) {
+    //     printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
+    //             graph(i,j)[result[i*tarW+j]].index,
+    //             graph(i,j)[result[i*tarW+j]].y,
+    //             graph(i,j)[result[i*tarW+j]].x,
+    //             graph(i,j)[result[i*tarW+j]].scale,
+    //             graph(i,j)[result[i*tarW+j]].rotation,
+    //             graph(i,j)[result[i*tarW+j]].dist,
+    //             result[i*tarW+j] );
+    //     char ch;
+    //     scanf( "%c", &ch );
+    //   }
+    // }
     
     
 
     // eliminate the bottom candidates
     for ( int i=0; i<area; i++ ) {
-      
+      heap<float,int> ranker( K );
+      for ( int k=0; k<candNum; k++ ) {
+        float key = 0.0;
+        for ( int d=0; d<4; d++ ) {
+          key += msg[(area*d+i)*K+k];
+        }
+        ranker.add( key, k );
+      }
+      // vector<PatLoc> tmp;
+      // tmp.reserve( K );
+      // for ( int j=1; j<=K; j++ ) {
+      //   tmp.push_back( graph(i)[ranker[j]] );
+      // }
+      //      graph[i].swap( tmp );
     }
 
     // Save candidates
-    //    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    //    graph.write( savepath );
+    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    graph.write( savepath );
 
     
     
