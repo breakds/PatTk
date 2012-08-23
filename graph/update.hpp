@@ -11,6 +11,7 @@
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/SafeOP.hpp"
 #include "LLPack/utils/time.hpp"
+#include "LLPack/algorithms/heap.hpp"
 #include "Graph.hpp"
 #include "../data/2d.hpp"
 #include "../data/features.hpp"
@@ -64,8 +65,11 @@ namespace PatTk
             PatLoc loc;
             loc.index = index;
             FSCANF_CHECK( in, "%d", &tmp );
-            FSCANF_CHECK( in, "%f", &loc.x );
-            FSCANF_CHECK( in, "%f", &loc.y );
+            float fTmp = 0;
+            FSCANF_CHECK( in, "%f", &fTmp );
+            loc.x = static_cast<int>( fTmp );
+            FSCANF_CHECK( in, "%f", &fTmp );
+            loc.y = static_cast<int>( fTmp );
             FSCANF_CHECK( in, "%f", &loc.dist );
             if ( 480000.0 <= loc.dist ) loc.dist = 480000.0f; // set an upperbound for dist
             FSCANF_CHECK( in, "%f", &loc.rotation );
@@ -104,27 +108,42 @@ namespace PatTk
 
   }
 
+  template <typename valueType=float>
+  class FakeLabelDist : public optimize::AbstractDistMetric<valueType>
+  {
+  public:
+    inline valueType operator()( const valueType *a, const valueType *b, int dim )
+    {
+      valueType tmp;
+      tmp = ( a[0] > b[0] ) ? ( a[0] - b[0] ) : ( b[0] - a[0] );
+      if ( tmp > 1.0 ) return static_cast<valueType>( 2000.0 );
+
+      valueType sum = 0;
+      for ( int i=1; i<dim; i++ ) {
+        sum += ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] );
+      }
+      return sum;
+    }
+  };
+
 
   
   void UpdateGraph( const std::vector<std::string> &imgList, // filenames for all the images
-                    Album<HoGCell,int,false> &album,
-                    int targetID, // image id of the target
-                    int referenceID ) // image id of the reference
+                    const int tarH, // width of the target
+                    const int tarW, // height of the target
+                    const int targetID, // image id of the target
+                    const int referenceID ) // image id of the reference
   {
-    assert( album.size() == static_cast<int>( imgList.size() ) );
-    
     // Constants
     static const float lambda = 2.0;
     static const int K = env["graph-degree"];
-    int tarH = album(targetID).rows;
-    int tarW = album(targetID).cols;
     int area = tarH * tarW;
     
     // Generate the configuration file
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     
     // Call nnmex externally
-    system( "./nnmex PatchMatch.conf" );
+    //    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -167,15 +186,12 @@ namespace PatTk
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
         for ( int k=0; k<candNum; k++ ) {
-          *(labelp++) = graph(i,j)[k].index * 1500.0;
+          *(labelp++) = graph(i,j)[k].index;
           *(labelp++) = sin(graph(i,j)[k].rotation) * 30.0;
           *(labelp++) = cos(graph(i,j)[k].rotation) * 30.0;
           *(labelp++) = graph(i,j)[k].scale * 10.0;
           *(labelp++) = graph(i,j)[k].y;
           *(labelp++) = graph(i,j)[k].x;
-          if ( i == 238 && j == 0 && k == 0 ) {
-            printf( "y: %.4f\n", graph(i,j)[k].y );
-          }
         }
       }
     }
@@ -192,38 +208,43 @@ namespace PatTk
     printf( "candNum = %d\n", candNum );
 
     timer::tic();
-    optimize::LoopyBP<RandProj<float>, optimize::FDT<float>, float>( D, label, lambda, 
-                                                                     tarH, tarW, candNum, 6,
-                                                                     result, options );
-    printf( "time elapsed: %.2lf sec\n", timer::utoc() );
+    float *msg = new float[tarH*tarW*K*4];
+    optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
+                                                    tarH, tarW, candNum, 6,
+                                                    result, options, msg );
+    printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+    
 
+    for ( int i=0; i<tarH; i++ ) {
+      for ( int j=0; j<tarW; j++ ) {
+        printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
+                graph(i,j)[result[i*tarW+j]].index,
+                graph(i,j)[result[i*tarW+j]].y,
+                graph(i,j)[result[i*tarW+j]].x,
+                graph(i,j)[result[i*tarW+j]].scale,
+                graph(i,j)[result[i*tarW+j]].rotation,
+                graph(i,j)[result[i*tarW+j]].dist,
+                result[i*tarW+j] );
+        char ch;
+        scanf( "%c", &ch );
+      }
+    }
     
     
-    // for ( int i=0; i<tarH; i++ ) {
-    //   for ( int j=0; j<tarW; j++ ) {
-    //     printf( "(%d,%d)->(%d | %.2f,%.2f) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
-    //             graph(i,j)[result[i*tarW+j]].index,
-    //             graph(i,j)[result[i*tarW+j]].y,
-    //             graph(i,j)[result[i*tarW+j]].x,
-    //             graph(i,j)[result[i*tarW+j]].scale,
-    //             graph(i,j)[result[i*tarW+j]].rotation,
-    //             graph(i,j)[result[i*tarW+j]].dist,
-    //             result[i*tarW+j] );
-    //     char ch;
-    //     scanf( "%c", &ch );
-    //   }
-    // }
 
-    
-    
+    // eliminate the bottom candidates
+    for ( int i=0; i<area; i++ ) {
+      
+    }
 
     // Save candidates
-    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    graph.write( savepath );
+    //    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    //    graph.write( savepath );
 
     
     
     
     DeleteToNullWithTestArray( label );
+    DeleteToNullWithTestArray( msg );
   }
 };

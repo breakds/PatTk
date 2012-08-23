@@ -24,10 +24,23 @@ int main( int argc, char **argv )
   env.parse( argv[1] );
   env.Summary();
   
-  std::vector<std::string> imgList = std::move( path::FFFL( "", env["files"], "" ) );
-  auto album = std::move( cvAlbumGen<HoGCell,int,false>::gen( path::FFFL( env["folder"], env["files"], ".png" ) ) );
-  
-  UpdateGraph( imgList, album, 0, 1 );
+  std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
+                                                                 env["list-file"].c_str() ) ) );
+
+  int tar = 0;
+  int ref = 0;
+
+  int tarH = 0;
+  int tarW = 0;
+  {
+    cv::Mat img = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[tar].c_str() ) );
+    if ( img.empty() ) {
+      Error( "Cannot open %s.", strf( "%s/%s.png", env["dataset"].c_str(), imgList[tar].c_str() ).c_str() );
+      exit( -1 );
+    }
+    tarH = img.rows;
+    tarW = img.cols;
+  }
+  UpdateGraph( imgList, tarH, tarW, tar, ref );
   return 0;
-                          
 }

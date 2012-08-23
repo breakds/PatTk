@@ -28,6 +28,14 @@ namespace optimize
     virtual floating operator()( const floating* a, int dim) = 0;
   };
 
+  // Abstract Distance Metric Functor
+  template <typename valueType=float>
+  class AbstractDistMetric
+  {
+  public:
+    virtual valueType operator()( const valueType* a, const valueType* b, int dim ) = 0;
+  };
+
 
   // Optimization Options
   struct Options
@@ -74,9 +82,9 @@ namespace optimize
       }
     }
 
-    template <typename floating=float>
+    template <typename DistFunc, typename floating=float>
     double UpdateResult( const floating* D, const floating* label, floating** msg, int* result, 
-                         int K, int dim, int height, int width, floating lambda )
+                         int K, int dim, int height, int width, floating lambda, DistFunc &dist )
     {
 
       // constants
@@ -120,17 +128,7 @@ namespace optimize
           if ( y > 0 ) {
             const float *lp0 = labelp + result[i] * dim;
             const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-            float l1 = 0.0;
-            for ( int di=0; di<dim; di++ ) {
-              if ( *(lp0) > *(lp1) ) {
-                l1 += ( *lp0 - *lp1 );
-              } else { 
-                l1 += ( *lp1 - *lp0 );
-              }
-              lp0++;
-              lp1++;
-            }
-            energy += l1 * lambda;
+            energy += dist( lp0, lp1, dim ) * lambda;
           }
 
 
@@ -139,17 +137,7 @@ namespace optimize
           if ( x > 0 ) {
             const float *lp0 = labelp + result[i] * dim;
             const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-            float l1 = 0.0;
-            for ( int di=0; di<dim; di++ ) {
-              if ( *(lp0) > *(lp1) ) {
-                l1 += ( *lp0 - *lp1 );
-              } else { 
-                l1 += ( *lp1 - *lp0 );
-              }
-              lp0++;
-              lp1++;
-            }
-            energy += l1 * lambda;
+            energy += dist( lp0, lp1, dim ) * lambda;
           }
             
           i++;
@@ -171,15 +159,15 @@ namespace optimize
    * msg[dir] is a ( height * width * K ) 3-D matrix = message from dir
    * result is a height * width matrix = the selected indices for each pixel
    */
-  template <typename RandHash, typename DistTrans, typename floating=float>
+  template <typename DistFunc, typename floating=float>
   void LoopyBP( const floating* D, const floating *label, const floating lambda,
                 int height, int width, int K, int dim,
                 int* result, Options options, floating* msgBuf = nullptr )
   {
-    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value,
-                   "DistTrans is not derived from AbstractDT." );
-    static_assert( std::is_base_of<AbstractRandHash<floating>,RandHash>::value,
-                   "RandHash is not derived from AbastractRandHash." );
+    //    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value,
+    //                   "DistTrans is not derived from AbstractDT." );
+    //    static_assert( std::is_base_of<AbstractRandHash<floating>,RandHash>::value,
+    //                   "RandHash is not derived from AbastractRandHash." );
                    
     // constants:
     // static const int UP = 0;
@@ -195,9 +183,8 @@ namespace optimize
 
     
     // Functors
-    RandHash hash;
-    DistTrans dtrans;
-
+    DistFunc dist;
+    
     floating *buf = msgBuf; // msg stores messages for each pixel, 4 * height * width * K
     if ( nullptr == buf ) {
       // Message buffer is not provided externally
@@ -319,18 +306,9 @@ namespace optimize
             for ( int k=0; k<K; k++ ) {
               floating min = 0.0;
               for ( int k0=0; k0<K; k0++ ) {
-                floating value = 0.0;
                 const floating *lp0 = labelp + k0 * dim;
                 const floating *lp1 = labelp + incDim[dir] + dim * k;
-                for ( int d=0; d<dim; d++ ) {
-                  if( lp0[d] > lp1[d] ) {
-                    value += (lp0[d] - lp1[d]);
-                  } else {
-                    value += (lp1[d] - lp0[d]);
-                  }
-                }
-                value *= lambda;
-                value += h[k0];
+                floating value = dist( lp0, lp1, dim ) * lambda + h[k0];
                 if ( 0 == k0 || value < min ) min = value;
               }
               msg[dir][msgout+k] = min;
@@ -345,7 +323,7 @@ namespace optimize
 
 
         
-        double energy = UpdateResult<floating>( D, label, msg, result, K, dim, height, width, lambda );
+        double energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
         
 
         if ( 1 <= options.verbose ) {
