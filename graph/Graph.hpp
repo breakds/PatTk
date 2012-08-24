@@ -22,7 +22,7 @@ namespace PatTk
     int y;
     int x;
     float scale, rotation, dist;
-    PatLoc( int index_, float y_, float x_, float scale_, float rotation_, float dist_ )
+    PatLoc( int index_, int y_, int x_, float scale_, float rotation_, float dist_ )
       : index(index_), y(y_), x(x_), scale(scale_), rotation(rotation_), dist(dist_) {}
 
     inline PatLoc( FILE *in )

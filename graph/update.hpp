@@ -59,17 +59,20 @@ namespace PatTk
       int tmp = 0;
       for ( int j=0; j<w; j++ ) {
         for ( int i=0; i<h; i++ ) {
-          FSCANF_CHECK( in, "%d", &tmp ); // Skip x for target patch
-          FSCANF_CHECK( in, "%d", &tmp ); // Skip y for target patch
+          int x, y;
+          FSCANF_CHECK( in, "%d", &x ); // Skip x for target patch
+          FSCANF_CHECK( in, "%d", &y ); // Skip y for target patch
           for ( int k=0; k<K; k++ ) {
             PatLoc loc;
             loc.index = index;
             FSCANF_CHECK( in, "%d", &tmp );
+            
             float fTmp = 0;
             FSCANF_CHECK( in, "%f", &fTmp );
             loc.x = static_cast<int>( fTmp );
             FSCANF_CHECK( in, "%f", &fTmp );
             loc.y = static_cast<int>( fTmp );
+
             FSCANF_CHECK( in, "%f", &loc.dist );
             if ( 480000.0 <= loc.dist ) loc.dist = 480000.0f; // set an upperbound for dist
             FSCANF_CHECK( in, "%f", &loc.rotation );
@@ -158,14 +161,17 @@ namespace PatTk
       graph = std::move( PatGraph(oldpath) );
       candNum = K << 1;
     };
+
+
+    
+    
     
     // Merge Graphs
     graph += graphNew;
 
-    // debugging:
-    for ( auto& ele : graph(238,0) ) {
-      ele.show();
-    }
+
+
+
     
     
     // Prepare data term ( height x width x K );
@@ -201,14 +207,14 @@ namespace PatTk
 
     // Loopy BP
     optimize::Options options;
-    options.maxIter = 20;
+    options.maxIter = 10;
     options.numHypo = 3;
     options.verbose = 1;
 
     printf( "candNum = %d\n", candNum );
 
     timer::tic();
-    float *msg = new float[tarH*tarW*K*4];
+    float *msg = new float[tarH*tarW*candNum*4];
     optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
                                                     tarH, tarW, candNum, 6,
                                                     result, options, msg );
@@ -242,18 +248,19 @@ namespace PatTk
         }
         ranker.add( key, k );
       }
-      // vector<PatLoc> tmp;
-      // tmp.reserve( K );
-      // for ( int j=1; j<=K; j++ ) {
-      //   tmp.push_back( graph(i)[ranker[j]] );
-      // }
-      //      graph[i].swap( tmp );
+      vector<PatLoc> tmp;
+      tmp.reserve( K );
+      for ( int j=0; j<K; j++ ) {
+        tmp.push_back( graph(i)[ranker[j]] );
+      }
+      graph[i].swap( tmp );
     }
+ 
 
     // Save candidates
     string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     graph.write( savepath );
-
+    
     
     
     
