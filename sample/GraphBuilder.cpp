@@ -40,7 +40,7 @@ int main( int argc, char **argv )
     tarH = img.rows;
     tarW = img.cols;
   }
-  for ( int ref = 0; ref < 367; ref++ ) {
+  for ( int ref = 77; ref<78; ref++ ) {
     UpdateGraph( imgList, tarH, tarW, tar, ref );
     WITH_OPEN( out, "status.txt", "w" );
     fprintf( out, "%d/%d\n", ref, 367 );

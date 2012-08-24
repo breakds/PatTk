@@ -221,20 +221,24 @@ namespace PatTk
     printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
     
 
-    // for ( int i=0; i<tarH; i++ ) {
-    //   for ( int j=0; j<tarW; j++ ) {
-    //     printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
-    //             graph(i,j)[result[i*tarW+j]].index,
-    //             graph(i,j)[result[i*tarW+j]].y,
-    //             graph(i,j)[result[i*tarW+j]].x,
-    //             graph(i,j)[result[i*tarW+j]].scale,
-    //             graph(i,j)[result[i*tarW+j]].rotation,
-    //             graph(i,j)[result[i*tarW+j]].dist,
-    //             result[i*tarW+j] );
-    //     char ch;
-    //     scanf( "%c", &ch );
-    //   }
-    // }
+    for ( int i=0; i<tarH; i++ ) {
+      for ( int j=0; j<tarW; j++ ) {
+        printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
+                graph(i,j)[result[i*tarW+j]].index,
+                graph(i,j)[result[i*tarW+j]].y,
+                graph(i,j)[result[i*tarW+j]].x,
+                graph(i,j)[result[i*tarW+j]].scale,
+                graph(i,j)[result[i*tarW+j]].rotation,
+                graph(i,j)[result[i*tarW+j]].dist,
+                result[i*tarW+j] );
+        for ( int k=0; k<candNum; k++ ) {
+          graph(i,j)[k].show();
+          printf( "----------------------------------------\n" );
+        }
+        char ch;
+        scanf( "%c", &ch );
+      }
+    }
     
     
 
@@ -258,8 +262,8 @@ namespace PatTk
  
 
     // Save candidates
-    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    graph.write( savepath );
+    // string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    // graph.write( savepath );
     
     
     
