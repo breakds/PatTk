@@ -27,8 +27,7 @@ int main( int argc, char **argv )
   std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
                                                                  env["list-file"].c_str() ) ) );
 
-  int tar = 0;
-  int ref = 0;
+  int tar = 394;
 
   int tarH = 0;
   int tarW = 0;
@@ -41,6 +40,12 @@ int main( int argc, char **argv )
     tarH = img.rows;
     tarW = img.cols;
   }
-  UpdateGraph( imgList, tarH, tarW, tar, ref );
+  for ( int ref = 0; ref < 367; ref++ ) {
+    UpdateGraph( imgList, tarH, tarW, tar, ref );
+    WITH_OPEN( out, "status.txt", "w" );
+    fprintf( out, "%d/%d\n", ref, 367 );
+    END_WITH( out );
+  }
+  
   return 0;
 }
