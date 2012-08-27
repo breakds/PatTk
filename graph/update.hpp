@@ -17,6 +17,10 @@
 #include "../data/features.hpp"
 #include "../opt/BP.hpp"
 
+
+// Temporary Constants
+#define PATCH_SIDE 17
+
 using namespace EnvironmentVariable;
 
 namespace PatTk
@@ -114,16 +118,46 @@ namespace PatTk
   template <typename valueType=float>
   class FakeLabelDist : public optimize::AbstractDistMetric<valueType>
   {
+  private:
+    valueType coeff[6];
   public:
+    FakeLabelDist() 
+    {
+      coeff[0] = 0.0;
+      coeff[1] = 30.0;
+      coeff[2] = 30.0;
+      coeff[3] = 10.0;
+      coeff[4] = 1.0;
+      coeff[5] = 1.0;
+    }
     inline valueType operator()( const valueType *a, const valueType *b, int dim )
     {
       valueType tmp;
+
+      // [0] = image index
       tmp = ( a[0] > b[0] ) ? ( a[0] - b[0] ) : ( b[0] - a[0] );
       if ( tmp > 1.0 ) return static_cast<valueType>( 2000.0 );
 
+      // [4],[5] = spatial distance
+      tmp = ( a[4] > b[4] ) ? ( a[4] - b[4] ) : ( b[4] - a[4] );
+      tmp += ( a[5] > b[5] ) ? ( a[5] - b[5] ) : ( b[5] - a[5] );
+      if ( tmp > PATCH_SIDE ) {
+        return static_cast<valueType>( 2000.0 );
+      }
+
+
+      // [1],[2] = spatial distance
+      tmp = ( a[1] > b[1] ) ? ( a[1] - b[1] ) : ( b[1] - a[1] );
+      tmp += ( a[2] > b[2] ) ? ( a[2] - b[2] ) : ( b[2] - a[2] );
+      if ( tmp > 1.0 ) {
+        return static_cast<valueType>( 2000.0 );
+      }
+      
+      
+      
       valueType sum = 0;
       for ( int i=1; i<dim; i++ ) {
-        sum += ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] );
+        sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
       }
       return sum;
     }
@@ -193,9 +227,9 @@ namespace PatTk
       for ( int j=0; j<tarW; j++ ) {
         for ( int k=0; k<candNum; k++ ) {
           *(labelp++) = graph(i,j)[k].index;
-          *(labelp++) = sin(graph(i,j)[k].rotation) * 30.0;
-          *(labelp++) = cos(graph(i,j)[k].rotation) * 30.0;
-          *(labelp++) = graph(i,j)[k].scale * 10.0;
+          *(labelp++) = sin(graph(i,j)[k].rotation);
+          *(labelp++) = cos(graph(i,j)[k].rotation);
+          *(labelp++) = graph(i,j)[k].scale;
           *(labelp++) = graph(i,j)[k].y;
           *(labelp++) = graph(i,j)[k].x;
         }
