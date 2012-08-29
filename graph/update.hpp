@@ -36,12 +36,12 @@ namespace PatTk
       fprintf( out, "(target %s)\n", target.c_str() );
       fprintf( out, "(files %s)\n", reference.c_str() );
       fprintf( out, "(algorithm rotscale)\n" );
-      fprintf( out, "(patch-w 17)\n" );
-      fprintf( out, "(nn-iters -1)\n" );
+      fprintf( out, "(patch-w 9)\n" );
+      fprintf( out, "(nn-iters 10)\n" );
       fprintf( out, "(rs-max -1)\n" );
       fprintf( out, "(rs-min -1)\n" );
       fprintf( out, "(rs-ratio -1)\n" );
-      fprintf( out, "(rs-iters -1)\n" );
+      fprintf( out, "(rs-iters 5)\n" );
       fprintf( out, "(cores 6)\n" );
       fprintf( out, "(bmask null)\n" );
       fprintf( out, "(window-h -1)\n" );
@@ -130,33 +130,52 @@ namespace PatTk
       coeff[4] = 1.0;
       coeff[5] = 1.0;
     }
-    inline valueType operator()( const valueType *a, const valueType *b, int dim )
+    inline valueType operator()( const valueType *a, const valueType *b,
+                                 int __attribute__((__unused__)) dim,
+                                 int direction=-1 )
     {
       valueType tmp;
-
+      
       // [0] = image index
       tmp = ( a[0] > b[0] ) ? ( a[0] - b[0] ) : ( b[0] - a[0] );
-      if ( tmp > 1.0 ) return static_cast<valueType>( 2000.0 );
+      if ( tmp > 1.0 ) return static_cast<valueType>( 150000.0 );
 
-      // [4],[5] = spatial distance
-      tmp = ( a[4] > b[4] ) ? ( a[4] - b[4] ) : ( b[4] - a[4] );
-      tmp += ( a[5] > b[5] ) ? ( a[5] - b[5] ) : ( b[5] - a[5] );
-      if ( tmp > PATCH_SIDE ) {
-        return static_cast<valueType>( 2000.0 );
-      }
-
-
-      // [1],[2] = spatial distance
+      // [1], [2] = dy, dx (rotation representation)
       tmp = ( a[1] > b[1] ) ? ( a[1] - b[1] ) : ( b[1] - a[1] );
       tmp += ( a[2] > b[2] ) ? ( a[2] - b[2] ) : ( b[2] - a[2] );
       if ( tmp > 1.0 ) {
-        return static_cast<valueType>( 2000.0 );
+        return static_cast<valueType>( 150000.0 );
+      }
+
+      
+      // [4],[5] = spatial distance
+      // Should be compensated by the rotation (dy,dx)
+      // Not that dy = b[1] dx = b[2]
+      valueType ay(a[4]), ax(a[5]);
+      if ( 0 == direction ) {
+        ay += b[2];
+        ax -= b[1];
+      } else if ( 1 == direction ) {
+        ay += b[1];
+        ax -= b[2];
+      } else if ( 2 == direction ) {
+        ay += b[2];
+        ax += b[1];
+      } else if ( 3 == direction ) {
+        ay -= b[1];
+        ax += b[2];
       }
       
+      tmp = ( ay > b[4] ) ? ( ay - b[4] ) : ( b[4] - ay );
+      tmp += ( ax > b[5] ) ? ( ax - b[5] ) : ( b[5] - ax );
+      if ( tmp > PATCH_SIDE ) {
+        return static_cast<valueType>( 150000.0 );
+      }
       
-      
-      valueType sum = 0;
-      for ( int i=1; i<dim; i++ ) {
+      // [1],[2] = spatial distance
+
+      valueType sum = tmp * coeff[4];
+      for ( int i=1; i<4; i++ ) {
         sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
       }
       return sum;
@@ -184,18 +203,18 @@ namespace PatTk
     
     
     // New Graph:
-    PatGraph graphNew = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
-                                               tarH, tarW, referenceID ) );
+    PatGraph graph = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
+                                            tarH, tarW, referenceID ) );
     
     // Old Graph:
-    PatGraph graph( tarH, tarW );
+    PatGraph graphNew( tarH, tarW );
     string oldpath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     int candNum = K;
     if ( probeFile(oldpath) ) {
-      graph = std::move( PatGraph(oldpath) );
+      graphNew = std::move( PatGraph(oldpath) );
       candNum = K << 1;
     };
-
+    
 
     
     
@@ -239,6 +258,30 @@ namespace PatTk
     // Prepare the result array
     int result[area];
 
+
+    // debugging
+    /*
+    int lastRes[area];
+    if ( 1 < env["verbose"] ) {
+      string path = strf( "%s/%s", env["graph-dir"].c_str(), env["debug-input"].c_str() ); 
+      PatGraph resGraph( path );
+      for ( int i=0; i<area; i++ ) {
+        bool flag = false;
+        for ( int k=0; k<candNum; k++ ) {
+          if ( graph(i)[k] == resGraph(i)[0] ) {
+            flag = true;
+            lastRes[i] = k;
+          }
+        }
+        if ( !flag ) {
+          Error( "Debugging: Missing picked candidates from last run.\n" );
+          exit(-1);
+        }
+      }
+      memcpy( result, lastRes, sizeof(int) * area );
+    }
+    */
+    
     // Loopy BP
     optimize::Options options;
     options.maxIter = 10;
@@ -253,26 +296,36 @@ namespace PatTk
                                                     tarH, tarW, candNum, 6,
                                                     result, options, msg );
     printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+
+
+
+    // debugging
+    /*
+    if ( 0 < env["verbose"] ) {
+      PatGraph resGraph( graph.rows, graph.cols );
+      for ( int i=0; i<area; i++ ) {
+        resGraph[i].push_back( graph(i)[result[i]] );
+      }
+      string path = strf( "%s/%s", env["graph-dir"].c_str(), env["debug-output"].c_str() ); 
+      resGraph.write( path );
+    }
+    */
     
 
-    for ( int i=0; i<tarH; i++ ) {
-      for ( int j=0; j<tarW; j++ ) {
-        printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
-                graph(i,j)[result[i*tarW+j]].index,
-                graph(i,j)[result[i*tarW+j]].y,
-                graph(i,j)[result[i*tarW+j]].x,
-                graph(i,j)[result[i*tarW+j]].scale,
-                graph(i,j)[result[i*tarW+j]].rotation,
-                graph(i,j)[result[i*tarW+j]].dist,
-                result[i*tarW+j] );
-        for ( int k=0; k<candNum; k++ ) {
-          graph(i,j)[k].show();
-          printf( "----------------------------------------\n" );
-        }
-        char ch;
-        scanf( "%c", &ch );
-      }
-    }
+    // for ( int i=0; i<tarH; i++ ) {
+    //   for ( int j=0; j<tarW; j++ ) {
+    //     printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
+    //             graph(i,j)[result[i*tarW+j]].index,
+    //             graph(i,j)[result[i*tarW+j]].y,
+    //             graph(i,j)[result[i*tarW+j]].x,
+    //             graph(i,j)[result[i*tarW+j]].scale,
+    //             graph(i,j)[result[i*tarW+j]].rotation,
+    //             graph(i,j)[result[i*tarW+j]].dist,
+    //             result[i*tarW+j] );
+    //     char ch;
+    //     scanf( "%c", &ch );
+    //   }
+    // }
     
     
 
@@ -280,9 +333,9 @@ namespace PatTk
     for ( int i=0; i<area; i++ ) {
       heap<float,int> ranker( K );
       for ( int k=0; k<candNum; k++ ) {
-        float key = 0.0;
+        float key = D[i*candNum+k];
         for ( int d=0; d<4; d++ ) {
-          key += msg[(area*d+i)*K+k];
+          key += msg[(area*d+i)*candNum+k];
         }
         ranker.add( key, k );
       }
@@ -296,13 +349,13 @@ namespace PatTk
  
 
     // Save candidates
-    // string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
-    // graph.write( savepath );
+    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    graph.write( savepath );
     
     
     
     
-    DeleteToNullWithTestArray( label );
-    DeleteToNullWithTestArray( msg );
+    // DeleteToNullWithTestArray( label );
+    // DeleteToNullWithTestArray( msg );
   }
 };

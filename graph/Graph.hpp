@@ -70,10 +70,22 @@ namespace PatTk
       fread( &dist, sizeof(float), 1, in );
     }
 
+    inline bool operator==( const PatLoc &other ) const
+    {
+      if ( index != other.index ) return false;
+      if ( scale - other.scale > 1e-5 ) return false;
+      if ( rotation - other.rotation > 1e-5 ) return false;
+      if ( y - other.y > 1e-5 ) return false;
+      if ( x - other.x > 1e-5 ) return false;
+      if ( dist - other.dist > 1e-5 ) return false;
+      return true;
+    }
+
     // For debugging:
     void show() const
     {
-      printf( "y:%d, x:%d, scale: %.2f, rotation: %.2f, dist: %.4f\n", y, x, scale, rotation, dist );
+      printf( "[id=%4d], y:%d, x:%d, scale: %.2f, rotation: %.2f, dist: %.4f\n",
+              index, y, x, scale, rotation, dist );
     }
   };
   

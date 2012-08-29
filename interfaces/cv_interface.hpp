@@ -13,6 +13,9 @@
 #include "../data/2d.hpp"
 #include "../data/features.hpp"
 #include "opencv2/opencv.hpp"
+#include "../graph/Graph.hpp"
+
+#define _USE_MATH_DEFINES
 
 using namespace EnvironmentVariable;
 
@@ -49,6 +52,23 @@ namespace PatTk
       int i = 0;
       for ( auto it = lab.begin<cv::Vec3b>(), end = lab.end<cv::Vec3b>(); it != end; it ++ ) {
         img.setCell( i, LabCell( (*it)[0], (*it)[1], (*it)[2] ) );
+        i++;
+      }
+      return img;
+    }
+  };
+
+  /// BGRCell Specialization
+  template <typename valueType, bool lite>
+  class cvFeatGen<BGRCell, valueType, lite>
+  {
+  public:
+    static Image<BGRCell, valueType, lite> gen( const cv::Mat& raw )
+    {
+      Image<BGRCell, valueType, lite> img( raw.rows, raw.cols );
+      int i=0;
+      for ( auto it = raw.begin<cv::Vec3b>(), end = raw.end<cv::Vec3b>(); it != end; it++ ) {
+        img.setCell( i, BGRCell( (*it)[0], (*it)[1], (*it)[2] ) );
         i++;
       }
       return img;
@@ -216,7 +236,7 @@ namespace PatTk
       icons.clear();
       patches.clear();
     }
-    
+
     void push( const patchType& patch )
     {
       cv::Mat tmp = cv::imread( patch.parent.fullpath );
@@ -241,10 +261,13 @@ namespace PatTk
       patches.push_back( patch );
     }
 
+
+    
     void setCallback( std::function<void(const int)> cb ) {
       callback = cb;
     }
 
+    // ( my, mx ) represents the position of the last mouse click.
     void display( const int my = -1, const int mx = -1 )
     {
       if ( 0 == icons.size() ) {
@@ -261,8 +284,8 @@ namespace PatTk
       int x = options.margin;
       for ( uint i=0; i<icons.size(); i++ ) {
         put( icons[i], y, x, canvas, options.zoom );
-        // highlight
         if ( -1 != my && -1 != mx ) {
+          // highlight
           if ( y <=  my && my < y + icons[0].rows * options.zoom &&
                x <= mx && mx < x + icons[0].cols * options.zoom ) {
             callback( i );
@@ -290,6 +313,157 @@ namespace PatTk
     }
 
   };
+
+
+  // Specialization for PatLoc
+  template <>
+  class IconList<PatLoc>
+  {
+  private:
+    vector<cv::Mat> icons;
+    std::function<void(const int)> callback;
+  public:
+    vector<PatLoc> patches;
+    std::string window;
+    struct Options
+    {
+      int margin;
+      int cols;
+      int colSep;
+      int rowSep;
+      int zoom;
+      cv::Scalar background;
+    } options;
+    
+  private:
+    IconList();
+
+    static void MouseCallback( int event, int x, int y, int __attribute__((__unused__)) flags, void *param )
+    {
+      if ( event == CV_EVENT_LBUTTONDOWN ) {
+        IconList *ptr = (IconList*) param;
+        ptr->display( y, x );
+      }
+    }
+
+  public:
+    IconList( const std::string& win ) : window(win)
+    {
+      options.margin = 5;
+      options.cols = 40;
+      options.colSep = 5;
+      options.rowSep = 5;
+      options.zoom = 1;
+      options.background = cv::Scalar( 0, 0, 0 );
+      callback = [](const int index){ printf("%d clicked.\n", index ); };
+    }
+
+    ~IconList()
+    {
+      close();
+    }
+
+    void clear()
+    {
+      icons.clear();
+      patches.clear();
+    }
+
+
+    void push( const std::vector<std::string>& imgList, const PatLoc& loc, const int height, const int width )
+    {
+      cv::Mat tmp = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[loc.index].c_str() ) );
+      if ( tmp.empty() ) {
+        Error( "IconList::push() - failed to load image %s.", imgList[loc.index].c_str() );
+        exit( -1 );
+      }
+      if ( CV_8UC3 != tmp.type() ) {
+        Error( "IconList::push() - image is not of type CV_8UC3." );
+        exit( -1 );
+      }
+      auto img = cvFeatGen<BGRCell,int,false>::gen( tmp );
+      img.SetPatchParameter( height, width, 1 );
+
+      double theta = -loc.rotation / M_PI * 180.0;
+      double dy = - 0.5 * ( height - 1 );
+      double dx = - 0.5 * ( width - 1 );
+      double cosine = cos( -loc.rotation );
+      double sine = sin( -loc.rotation );
+      double y = loc.y + ( height - 1 ) * 0.5 + dx * sine + dy * cosine;
+      double x = loc.x + ( width - 1 ) * 0.5 + dx * cosine - dy * sine;
+
+      typename Image<BGRCell,int,false>::Patch patch = img.Spawn( y, x, 1.0 / loc.scale,
+                                                                  theta );
+      icons.push_back( cv::Mat( height, width, CV_8UC3 ) );
+      cv::Mat& icon = icons.back();
+      int i = 0;
+      for ( int dy=0; dy<patch.parent.GetPatchHeight(); dy++ ) {
+        for ( int dx=0; dx<patch.parent.GetPatchWidth(); dx++ ) {
+          for ( int k=0; k<3; k++ ) {
+            icon.at<cv::Vec3b>( dy, dx )[k] = static_cast<uchar>( patch[i++] );
+          }
+        }
+      }
+      patches.push_back( loc );
+    }
+    
+
+
+    
+    void setCallback( std::function<void(const int)> cb ) {
+      callback = cb;
+    }
+
+    // ( my, mx ) represents the position of the last mouse click.
+    void display( const int my = -1, const int mx = -1 )
+    {
+      if ( 0 == icons.size() ) {
+        Info( "IconList::display() - nothing to show." );
+        return ;
+      }
+      int width = options.margin * 2 + options.colSep * ( options.cols - 1 )
+        + icons[0].cols * options.zoom * options.cols;
+      int rows = ( icons.size() - 1 ) / options.cols + 1;
+      int height = options.margin * 2 + options.rowSep * ( rows - 1 ) + icons[0].rows * options.zoom * rows;
+      cv::Mat canvas( height, width, CV_8UC3, options.background );
+
+      int y = options.margin;
+      int x = options.margin;
+      for ( uint i=0; i<icons.size(); i++ ) {
+        put( icons[i], y, x, canvas, options.zoom );
+        if ( -1 != my && -1 != mx ) {
+          // highlight
+          if ( y <=  my && my < y + icons[0].rows * options.zoom &&
+               x <= mx && mx < x + icons[0].cols * options.zoom ) {
+            callback( i );
+            rectangle( canvas,
+                       cv::Point( x-2, y-2 ),
+                       cv::Point( x + icons[0].cols * options.zoom + 1, y + icons[0].rows * options.zoom + 1 ),
+                       cv::Scalar( 0, 255, 0 ) ) ;
+          }
+        }
+        if ( 0 == (i+1) % options.cols ) {
+          y += options.rowSep + icons[0].rows * options.zoom;
+          x = options.margin;
+        } else {
+          x += options.colSep + icons[0].cols * options.zoom;
+        }
+      }
+      cv::imshow( window, canvas );
+      cv::setMouseCallback( window, MouseCallback, this );
+    }
+
+    void close()
+    {
+      cv::destroyWindow( window );
+      cv::waitKey(1);
+    }
+
+  };
+
+
+
+
 
 
 };

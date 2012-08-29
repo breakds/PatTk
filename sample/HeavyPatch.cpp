@@ -29,7 +29,7 @@ int main( int argc, char **argv )
 
     // Set the parameter for patches
     // in this case, will be 5 x 5 patch with a cell stride of 4
-    img.SetPatchParameter( 3, 3, 1 );
+    img.SetPatchParameter( 5, 5, 4 );
 
     auto patch = img.Spawn( 3, 24, 1, 0 );
 

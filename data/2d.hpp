@@ -556,13 +556,23 @@ namespace PatTk
       int x0 = static_cast<int>(x);
       int y1 = y0 + 1;
       int x1 = x0 + 1;
-      if ( y1 == this->rows ) y1 = y0;
-      if ( y0 == -1 ) y0 = y1;
-      if ( x1 == this->cols ) x1 = x0;
-      if ( x0 == -1 ) x0 = x1;
-      
-      double frac_y = y - y0;
-      double frac_x = x - x0;
+      double frac_y(0.0);
+      if ( y1 >= this->rows ) {
+        y1 = y0 = this->rows - 1;
+      } else if ( y0 < 0 ) {
+        y1 = y0 = 0;
+      } else {
+        frac_y = y - y0;
+      }
+      double frac_x(0.0);
+      if ( x1 >= this->cols ) {
+        x1 = x0 = this->cols - 1;
+      } else if ( x0 < 0 ) {
+        x1 = x0 = 0;
+      } else {
+        frac_x = x - x0;
+      }
+
       double left = (*this)(y0,x0)(i) * (1.0 - frac_y) + (*this)(y1,x0)(i) * frac_y;
       double right = (*this)(y0,x1)(i) * (1.0 - frac_y) + (*this)(y1,x1)(i) * frac_y;
       return left * (1.0 - frac_x) + right * frac_x;

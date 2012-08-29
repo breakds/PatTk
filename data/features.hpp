@@ -301,6 +301,72 @@ namespace PatTk
   };
 
 
+    // Container for an CIE L*a*b* cell (raw Lab color feature)
+  class BGRCell : public AbstractCell<unsigned char>
+  {
+  public:
+    static const bool RotationSensitive = false;
+  private:
+    unsigned char bgr[3];
+  public:
+    BGRCell() : AbstractCell(3) {}
+    BGRCell( const unsigned char b, const unsigned char g, const unsigned char r ) : AbstractCell(3)
+    {
+      bgr[0] = b; // 0 for luminance channel
+      bgr[1] = g; // 1 for "a" channel
+      bgr[2] = r; // 2 for "b" channel
+    }
+
+    // copy constructor
+    BGRCell( const BGRCell& other ) : AbstractCell(3)
+    {
+      bgr[0] = other.bgr[0];
+      bgr[1] = other.bgr[1];
+      bgr[2] = other.bgr[2];
+    }
+
+    // move constructor
+    BGRCell( BGRCell&& other ) : AbstractCell(3)
+    {
+      bgr[0] = other.bgr[0];
+      bgr[1] = other.bgr[1];
+      bgr[2] = other.bgr[2];
+    }
+
+    // move assignment
+    const BGRCell& operator=( BGRCell&& other )
+    {
+      bgr[0] = other.bgr[0];
+      bgr[1] = other.bgr[1];
+      bgr[2] = other.bgr[2];
+      return (*this);
+    }
+    
+    // copy assignment
+    const BGRCell& operator=( BGRCell& other )
+    {
+      bgr[0] = other.bgr[0];
+      bgr[1] = other.bgr[1];
+      bgr[2] = other.bgr[2];
+      return (*this);
+    }
+
+    
+    inline unsigned char& operator[]( const int index )
+    {
+      assert( index < length );
+      return bgr[index];
+    }
+
+    inline const unsigned char& operator()( const int index ) const
+    {
+      assert( index < length );
+      return bgr[index];
+    }
+  };
+
+
+
 
   // +-------------------------------------------------------------------------------
   // | Integral Operations for Image

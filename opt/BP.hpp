@@ -33,7 +33,7 @@ namespace optimize
   class AbstractDistMetric
   {
   public:
-    virtual valueType operator()( const valueType* a, const valueType* b, int dim ) = 0;
+    virtual valueType operator()( const valueType* a, const valueType* b, int dim, int direction ) = 0;
   };
 
 
@@ -97,6 +97,7 @@ namespace optimize
       const floating *Dp = D;
       floating *msgp[4];
       for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
+
       for ( int i=0; i<area; i++ ) {
         result[i] = 0;
         floating min = 0;
@@ -117,6 +118,7 @@ namespace optimize
         for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
       }
 
+
       double energy = 0.0;
       int i = 0;
       const float *labelp = label;
@@ -128,7 +130,7 @@ namespace optimize
           if ( y > 0 ) {
             const float *lp0 = labelp + result[i] * dim;
             const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-            energy += dist( lp0, lp1, dim ) * lambda;
+            energy += dist( lp0, lp1, dim, d ) * lambda;
           }
 
 
@@ -137,9 +139,9 @@ namespace optimize
           if ( x > 0 ) {
             const float *lp0 = labelp + result[i] * dim;
             const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-            energy += dist( lp0, lp1, dim ) * lambda;
+            energy += dist( lp0, lp1, dim, d ) * lambda;
           }
-            
+          
           i++;
           labelp += K * dim;
         }
@@ -168,6 +170,8 @@ namespace optimize
     //                   "DistTrans is not derived from AbstractDT." );
     //    static_assert( std::is_base_of<AbstractRandHash<floating>,RandHash>::value,
     //                   "RandHash is not derived from AbastractRandHash." );
+    static_assert( std::is_base_of<AbstractDistMetric<floating>,DistFunc>::value,
+                   "DistFunc is not derived from AbstractDistMetric." );
                    
     // constants:
     // static const int UP = 0;
@@ -308,7 +312,7 @@ namespace optimize
               for ( int k0=0; k0<K; k0++ ) {
                 const floating *lp0 = labelp + k0 * dim;
                 const floating *lp1 = labelp + incDim[dir] + dim * k;
-                floating value = dist( lp0, lp1, dim ) * lambda + h[k0];
+                floating value = dist( lp0, lp1, dim, dir ) * lambda + h[k0];
                 if ( 0 == k0 || value < min ) min = value;
               }
               msg[dir][msgout+k] = min;
