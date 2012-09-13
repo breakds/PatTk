@@ -1,7 +1,7 @@
 # created from template OpenCV included c++ project
 #   by BreakDS 
 #   Mar 23 2012 @ Univeristy of Wisconsin-Madison
-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 
 # Ask CMake to search for current c/c++ compiler
 set(CMAKE_CXX_COMPILER_INIT "c++")
@@ -104,9 +104,15 @@ endif(COMMAND cmake_policy)
 # Whether build as shared libraries by default
 # SET(BUILD_SHARED_LIBS ON)
 
-# LINKER_FLAGS
-# set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
-# set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
+# Compile CUDA related libraries
+find_package("CUDA" 4.0 REQUIRED)
+set(CUDA_NVCC_FLAGS "-arch=sm_20 -g -G")
+
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+cuda_add_library(cuda_opt SHARED opt/BP_CUDA.cu)
+
+
+
 
 
 # COMPILATION_FLAGS
@@ -116,6 +122,10 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -O3 -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g  -D_GLIBCXX_DEBUG")
 set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
+
+# LINKER_FLAGS
+# set( CMAKE_EXE_LINKER_FLAGS "-lXext -lXft -lfontconfig -lXinerama -lpthread -ldl -lm -lX11" )
+# set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_highgui -lopencv_imgproc" )
 
 # PatchShift
 # ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
@@ -144,18 +154,18 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 # BP Test
 # ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
-# TARGET_LINK_LIBRARIES(matting OPENCV)
+# TARGET_LINK_LIBRARIES(matting OPENCV cuda_opt)
 
 # IconList Test
 # ADD_EXECUTABLE(IconList interfaces/UnitTest/IconList.cpp)
 # TARGET_LINK_LIBRARIES(IconList OPENCV)
 
 # Stiching
-ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
-TARGET_LINK_LIBRARIES(Stitching OPENCV)
+# ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
+# TARGET_LINK_LIBRARIES(Stitching OPENCV)
 
 # Graph Builder
 ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
-TARGET_LINK_LIBRARIES(builder OPENCV)
+TARGET_LINK_LIBRARIES(builder OPENCV cuda_opt)
 
 

@@ -162,9 +162,9 @@ namespace optimize
    * result is a height * width matrix = the selected indices for each pixel
    */
   template <typename DistFunc, typename floating=float>
-  void LoopyBP( const floating* D, const floating *label, const floating lambda,
-                int height, int width, int K, int dim,
-                int* result, Options options, floating* msgBuf = nullptr )
+  double LoopyBP( const floating* D, const floating *label, const floating lambda,
+                  int height, int width, int K, int dim,
+                  int* result, Options options, floating* msgBuf = nullptr )
   {
     //    static_assert( std::is_base_of<AbstractDT<floating>,DistTrans>::value,
     //                   "DistTrans is not derived from AbstractDT." );
@@ -218,7 +218,7 @@ namespace optimize
 
     // Initialize Result
     memset( result, 0, sizeof( height * width ) );
-    
+    double energy = 0.0;
     for ( int iter=0; iter<options.maxIter; iter++ ) {
       // Update 4 directions sequentially
       for ( int dirID=0; dirID<4; dirID++ ) {
@@ -250,8 +250,8 @@ namespace optimize
              * q_{a,i} = feature of i-th candidates for a-th pixel
              * l_{a,i } = labels of i-th candidates for a-th pixel
              * N(a) = neighbor of a
-             * m_{a->b}(j) = min_{i} lambda * ||l_{b,j}-l_{a,i}|| + ||q_{a,i}-f_a||^2 + message(N(a)/b)
-             *             = lambda * min_{i} ||b[j] - a[i]|| + 1/lambda * (D(i) + message(N(a)/b))
+             * m_{a->b}(j) = min_{i} lambda * ||l_{b,j}-l_{a,i}|| + ||q_{a,i}-f_a||^2 + message(N(a)/b)(i)
+             *             = lambda * min_{i} ||b[j] - a[i]|| + 1/lambda * (D(i) + message(N(a)/b))(i)
              *             = lambda * min_{i} ||b[j] - a[i]|| + h[i] / lambda
              */
             int msgout = msgp + incK[dir];
@@ -325,9 +325,16 @@ namespace optimize
           } // end inner loop (i)
         } // end outer loop (scan)
 
-
+        // debugging:
+        // WITH_OPEN( out, "debug.dat", "w" );
+        // fwrite( buf, sizeof(float), area * K * 4, out );
+        // END_WITH( out );
+        // char ch;
+        // scanf( "%c", &ch );
+        // end debugging
         
-        double energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
+        
+        energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
         
 
         if ( 1 <= options.verbose ) {
@@ -346,5 +353,7 @@ namespace optimize
     if ( nullptr == msgBuf ) {
       DeleteToNullWithTestArray( buf );
     }
+
+    return energy;
   }
 };

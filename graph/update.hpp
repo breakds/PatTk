@@ -16,10 +16,13 @@
 #include "../data/2d.hpp"
 #include "../data/features.hpp"
 #include "../opt/BP.hpp"
+#include "../opt/BP_CUDA.h"
 
 
 // Temporary Constants
 #define PATCH_SIDE 17
+
+#define ENABLE_CUDA 1
 
 using namespace EnvironmentVariable;
 
@@ -184,7 +187,7 @@ namespace PatTk
 
 
   
-  void UpdateGraph( const std::vector<std::string> &imgList, // filenames for all the images
+  double UpdateGraph( const std::vector<std::string> &imgList, // filenames for all the images
                     const int tarH, // width of the target
                     const int tarW, // height of the target
                     const int targetID, // image id of the target
@@ -199,7 +202,7 @@ namespace PatTk
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     
     // Call nnmex externally
-    system( "./nnmex PatchMatch.conf" );
+    // system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -207,11 +210,11 @@ namespace PatTk
                                             tarH, tarW, referenceID ) );
     
     // Old Graph:
-    PatGraph graphNew( tarH, tarW );
+    PatGraph graphOld( tarH, tarW );
     string oldpath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     int candNum = K;
     if ( probeFile(oldpath) ) {
-      graphNew = std::move( PatGraph(oldpath) );
+      graphOld = std::move( PatGraph(oldpath) );
       candNum = K << 1;
     };
     
@@ -220,7 +223,7 @@ namespace PatTk
     
     
     // Merge Graphs
-    graph += graphNew;
+    graph += graphOld;
 
 
 
@@ -281,23 +284,39 @@ namespace PatTk
       memcpy( result, lastRes, sizeof(int) * area );
     }
     */
-    
+    printf( "candNum = %d\n", candNum );
+
+
+
+
+#ifndef ENABLE_CUDA
     // Loopy BP
     optimize::Options options;
     options.maxIter = 10;
     options.numHypo = 3;
     options.verbose = 1;
 
-    printf( "candNum = %d\n", candNum );
-
     timer::tic();
     float *msg = new float[tarH*tarW*candNum*4];
-    optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
-                                                    tarH, tarW, candNum, 6,
-                                                    result, options, msg );
+    double energy = optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
+                                                                    tarH, tarW, candNum, 6,
+                                                                    result, options, msg );
     printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+    
+#else
+    // Loopy BP Cuda Version
+    optimize_cuda::Options options;
+    options.maxIter = 1;
+    options.verbose = 1;
+    options.lambda = lambda;
 
-
+    timer::tic();
+    float *msg = new float[tarH&tarW*candNum*4];
+    double energy = optimize_cuda::LoopyBP( D, label, tarH, tarW, candNum, 6, result, options, msg );
+    printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+#endif
+    
+    
 
     // debugging
     /*
@@ -346,16 +365,19 @@ namespace PatTk
       }
       graph[i].swap( tmp );
     }
- 
+    
 
     // Save candidates
     string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     graph.write( savepath );
+
     
     
     
     
-    // DeleteToNullWithTestArray( label );
-    // DeleteToNullWithTestArray( msg );
+    DeleteToNullWithTestArray( label );
+    DeleteToNullWithTestArray( msg );
+
+    return energy;
   }
 };

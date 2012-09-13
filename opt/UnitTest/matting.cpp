@@ -5,6 +5,7 @@
  *********************************************************************************/
 #include <cstdio>
 #include "../BP.hpp"
+#include "../BP_CUDA.h"
 #include "opencv2/opencv.hpp"
 
 
@@ -83,10 +84,11 @@ int main()
       feature[i*K+k] = static_cast<uchar>( labels[i*K+k] );
     }
   }
-
-  optimize::Options options;
+  
+  optimize_cuda::Options options;
   options.maxIter = 10;
-  options.numHypo = 3;
+  // options.numHypo = 3;
+  options.lambda = 1.0;
 
   float D[N*N*K];
   for ( int i=0; i<N*M; i++ ) {
@@ -98,7 +100,8 @@ int main()
 
   int result[M*N];
   
-  optimize::LoopyBP<RandProj<float>,optimize::FDT<float>,float>( D, labels, 1.0, M, N, K, 1, result, options );
+  // optimize::LoopyBP<optimize::FDT<float>,float>( D, labels, 1.0, M, N, K, 1, result, options );
+  optimize_cuda::LoopyBP_CUDA_float( D, labels, M, N, K, 1, result, options );
 
   uchar labeled[M*N];
   for ( int i=0; i<M*N; i++ ) {
