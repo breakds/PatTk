@@ -325,17 +325,9 @@ namespace optimize
           } // end inner loop (i)
         } // end outer loop (scan)
 
-        // debugging:
-        // WITH_OPEN( out, "debug.dat", "w" );
-        // fwrite( buf, sizeof(float), area * K * 4, out );
-        // END_WITH( out );
-        // char ch;
-        // scanf( "%c", &ch );
-        // end debugging
-        
-        
         energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
-        
+
+
 
         if ( 1 <= options.verbose ) {
           // Energy Function Value
@@ -343,8 +335,14 @@ namespace optimize
         }
 
         NormalizeMessages( msg, height, width, K );
-        
 
+        // debugging:
+        // WITH_OPEN( out, "debug.dat", "w" );
+        // fwrite( buf, sizeof(float), area * K * 4, out );
+        // END_WITH( out );
+        // char ch;
+        // scanf( "%c", &ch );
+        // end debugging
         
       } // end for dir
     }

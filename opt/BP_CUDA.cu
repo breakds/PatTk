@@ -40,7 +40,7 @@ namespace optimize_cuda
       
     // [4],[5] = spatial distance
     // Should be compensated by the rotation (dy,dx)
-    // Not that dy = b[1] dx = b[2]
+    // Note that dy = b[1] dx = b[2] by definition
     float ay(a[4]), ax(a[5]);
     if ( 0 == direction ) {
       ay += b[2];
@@ -63,7 +63,7 @@ namespace optimize_cuda
     }
       
     // [1],[2] = spatial distance
-
+    
     float sum = tmp * coeff[4];
     for ( int i=1; i<4; i++ ) {
       sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
@@ -79,8 +79,8 @@ namespace optimize_cuda
   {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if ( idx < agentNum ) {
-      float avg = 0.0f;
       for ( int dir=0; dir<4; dir++ ) {
+        float avg = 0.0f;
         for ( int k=0; k<K; k++ ) {
           avg += msg[ ( dir * agentNum + idx ) * K + k ];
         }
@@ -91,6 +91,8 @@ namespace optimize_cuda
       }
     }
   }
+
+  
   
   __global__ void UpdateResult_float_agent( const int agentNum, const float *D, const float *label,
                                             const float* msg,
@@ -291,16 +293,13 @@ namespace optimize_cuda
       //      float *h = buf_h + idx * K;
       float *Dp = D + begins[idx] * K;
       float *labelp = label + begins[idx] * K * dim;
-
-      for ( int i=begins[idx]; i!=ends[idx]; i+=inc, Dp+=incK, labelp+=incDim  ) {
+      
+      for ( int i=begins[idx]; i!=ends[idx]; i+=inc, Dp+=incK, labelp+=incDim ) {
         for ( int k=0; k<K; k++ ) {
-          if ( i * K + k > 320 * K ) {
-            printf( "%d\n", i*K+k );
-          }
-          buf_h[i*K+k] = Dp[k];
+          buf_h[idx*K+k] = Dp[k];
           for ( int j=0; j<4; j++ ) {
             if ( j != opp ) {
-              buf_h[i*K+k] += msg[ j * area * K + i * K + incK ];
+              buf_h[idx*K+k] += msg[ j * area * K + i * K + k ];
             }
           }
         }
@@ -310,7 +309,7 @@ namespace optimize_cuda
           for ( int k0=0; k0<K; k0++ ) {
             const float *lp0 = labelp + k0 * dim;
             const float *lp1 = labelp + incDim + dim * k;
-            float value = dist( lp0, lp1, dim, dir ) * lambda + buf_h[ i * K + k0 ];
+            float value = dist( lp0, lp1, dim, dir ) * lambda + buf_h[ idx * K + k0 ];
             if ( 0 == k0 || value < min ) min = value;
           }
           msg[ dir * area * K + ( i + inc ) * K + k ] = min;
@@ -394,12 +393,33 @@ namespace optimize_cuda
 
         // fill in begins and ends
         int agentNum = ( 0 == ( dir & 1 ) ) ? width : height;
-        int range = ( 0 == ( dir & 1 ) ) ? height * width : width;
-        int stride = ( 0 == ( dir & 1 ) ) ? 1 : width;
-        for ( int scan=0; scan<agentNum; scan++ ) {
-          begins[scan] = scan * stride;
-          ends[scan] = begins[scan] + range;
+        
+        if ( 0 == dir ) {
+          // UP:
+          for ( int scan=0; scan<agentNum; scan++ ) {
+            begins[scan] = scan + width * ( height - 1 );
+            ends[scan] = scan;
+          }
+        } else if ( 1 == dir ) {
+          // LEFT:
+          for ( int scan=0; scan<agentNum; scan++ ) {
+            begins[scan] = width * scan + width - 1;
+            ends[scan] = width * scan;
+          }
+        } else if ( 2 == dir ) {
+          // DOWN:
+          for ( int scan=0; scan<agentNum; scan++ ) {
+            begins[scan] = scan;
+            ends[scan] = scan + width * ( height - 1 );
+          }
+        } else if ( 3 == dir ) {
+          // RIGHT:
+          for ( int scan=0; scan<agentNum; scan++ ) {
+            begins[scan] = scan * width;
+            ends[scan] = scan * width + width - 1;
+          }
         }
+        
         cudaMemcpy( devBegins, begins, sizeof(int) * agentNum, cudaMemcpyHostToDevice );
         cudaMemcpy( devEnds, ends, sizeof(int) * agentNum, cudaMemcpyHostToDevice );
 
@@ -412,28 +432,6 @@ namespace optimize_cuda
                                                             devBufH );
 
         
-        // debugging:
-        float *tmpMsg = new float[area * K * 4];
-        HANDLE_ERROR( cudaMemcpy( tmpMsg, devMsg, sizeof(float) * area * K * 4, cudaMemcpyDeviceToHost ) );
-        float *loadMsg = new float[area * K * 4];
-        FILE *in = fopen( "debug.dat", "r" );
-        fread( loadMsg, sizeof(float), area * K * 4, in );
-        fclose( in );
-        for ( int l=0; l<area*K*4; l++ ) {
-          if ( fabsf( tmpMsg[l] - loadMsg[l] ) > 1e-5 ) {
-            printf( "%d: load(%.5f) vs gen(%.5f)\n", l, loadMsg[l], tmpMsg[l] );
-            char ch;
-            scanf( "%c", &ch );
-          }
-        }
-        delete[] loadMsg;
-        delete[] tmpMsg;
-        printf( "debugging done\n" );
-        exit( -1 );
-        // end debugging
-
-
-        
         UpdateResult_float_agent<<<(width*height)/32+1,32>>>( width * height,
                                                               devD,
                                                               devLabel,
@@ -444,46 +442,26 @@ namespace optimize_cuda
                                                               options.lambda );
 
 
+
+
         cudaMemcpy( result, devResult, sizeof(int) * width * height, cudaMemcpyDeviceToHost );
-        
+
         energy = UpdateEnergy( D, label, height, width, K, dim, options.lambda, result );
         
         NormalizeMessages_float_agent<<<(width*height)/32+1,32>>>( width * height,
                                                                    devMsg,
                                                                    K );
 
-        
-        
-        /*
-            __global__ void LoopyBP_agent_float( int agentNum, // number of agents needes
-                                       float *D,
-                                       float *label,
-                                       float* msg[4],
-                                       int *begins,
-                                       int *ends,
-                                       int K,
-                                       float lambda,
-                                       int dim,
-                                       int dir,
-                                       int inc,
-                                       int incK,
-                                       int incDim,
-                                       int area,
-                                       float *buf_h )
-
-        */
-
 
         if ( 1 <= options.verbose ) {
           printf( "Iteration %d: energy = %.5lf\n", iter, energy );
         }
 
+        
+
       } // end for dir
     }
 
-    for ( int i=0; i<10; i++ ) {
-      printf( "result[%d] = %d\n", i, result[i] );
-    }
     return energy;
   }
 };

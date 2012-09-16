@@ -105,8 +105,11 @@ endif(COMMAND cmake_policy)
 # SET(BUILD_SHARED_LIBS ON)
 
 # Compile CUDA related libraries
-find_package("CUDA" 4.0 REQUIRED)
-set(CUDA_NVCC_FLAGS "-arch=sm_20 -g -G")
+set(CUDA_TOOLKIT_ROOT_DIR "/s/cuda-4.2.9/") # Force it to search for CUDA 4.2.9
+find_package("CUDA" 4.2 REQUIRED)
+MESSAGE(STATUS "CUDA VERISON: ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR}" )
+MESSAGE(STATUS "NVCC VERISON: ${CUDA_NVCC_EXECUTABLE}" )
+set(CUDA_NVCC_FLAGS "-arch=sm_20")
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 cuda_add_library(cuda_opt SHARED opt/BP_CUDA.cu)

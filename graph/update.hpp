@@ -19,6 +19,7 @@
 #include "../opt/BP_CUDA.h"
 
 
+
 // Temporary Constants
 #define PATCH_SIDE 17
 
@@ -306,7 +307,7 @@ namespace PatTk
 #else
     // Loopy BP Cuda Version
     optimize_cuda::Options options;
-    options.maxIter = 1;
+    options.maxIter = 10;
     options.verbose = 1;
     options.lambda = lambda;
 
