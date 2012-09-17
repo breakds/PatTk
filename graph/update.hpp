@@ -23,7 +23,7 @@
 // Temporary Constants
 #define PATCH_SIDE 17
 
-#define ENABLE_CUDA 1
+// #define ENABLE_CUDA 1
 
 using namespace EnvironmentVariable;
 

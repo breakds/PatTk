@@ -16,7 +16,7 @@
 
 namespace optimize_cuda
 {
-
+  /*
   __host__ __device__ inline float dist( const float *a, const float *b,
                                 int __attribute__((__unused__)) dim,
                                 int direction = -1 )
@@ -65,9 +65,72 @@ namespace optimize_cuda
     // [1],[2] = spatial distance
     
     float sum = tmp * coeff[4];
+    
     for ( int i=1; i<4; i++ ) {
       sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
     }
+    return sum;
+  }
+  */
+  
+
+  __host__ __device__ inline float dist( const float a0, const float a1,
+                                         const float a2, const float a3,
+                                         const float a4, const float a5,
+                                         const float b0, const float b1,
+                                         const float b2, const float b3,
+                                         const float b4, const float b5,
+                                         int __attribute__((__unused__)) dim,
+                                         int direction = -1 )
+  {
+    const float coeff[6] = { 0.0, 30.0, 30.0, 10.0, 1.0, 1.0 };
+    float tmp;
+
+    // [0] = image index
+    tmp = fabsf( b0 - a0 );
+    if ( tmp > 1.0 ) return 150000.0;
+
+    // [1], [2] = dy, dx (rotation representation)
+    tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
+    if ( tmp > 1.0 ) {
+      return 150000.0;
+    }
+
+      
+    // [4],[5] = spatial distance
+    // Should be compensated by the rotation (dy,dx)
+    // Note that dy = b1 dx = b2 by definition
+    /*
+    float ay(a4), ax(a5);
+    if ( 0 == direction ) {
+      ay += b2;
+      ax -= b1;
+    } else if ( 1 == direction ) {
+      ay += b1;
+      ax -= b2;
+    } else if ( 2 == direction ) {
+      ay += b2;
+      ax += b1;
+    } else if ( 3 == direction ) {
+      ay -= b1;
+      ax += b2;
+    }
+    */
+      
+    tmp = fabsf( a4 - b4 ) + fabsf( a5 - b5 );
+    if ( tmp > PATCH_SIDE ) {
+      return 150000.0;
+    }
+      
+    // [1],[2] = spatial distance
+    
+    float sum = tmp * coeff[4];
+
+    sum += fabsf( b1 - a1 ) * coeff[1];
+    sum += fabsf( b2 - a2 ) * coeff[2];
+    sum += fabsf( b3 - a3 ) * coeff[3];
+
+
     return sum;
   }
 
@@ -79,15 +142,13 @@ namespace optimize_cuda
   {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if ( idx < agentNum ) {
-      for ( int dir=0; dir<4; dir++ ) {
-        float avg = 0.0f;
-        for ( int k=0; k<K; k++ ) {
-          avg += msg[ ( dir * agentNum + idx ) * K + k ];
-        }
-        avg /= K;
-        for ( int k=0; k<K; k++ ) {
-          msg[ ( dir * agentNum + idx ) * K + k ] -= avg;
-        }
+      float avg = 0.0f;
+      for ( int k=0; k<K; k++ ) {
+        avg += msg[ idx * K + k ];
+      }
+      avg /= K;
+      for ( int k=0; k<K; k++ ) {
+        msg[ idx * K + k ] -= avg;
       }
     }
   }
@@ -99,7 +160,7 @@ namespace optimize_cuda
                                             int *result, int K, int dim, float lambda )
   {
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
-
+    
     if ( idx < agentNum ) {
       result[idx] = 0;
       float min = 0.0f;
@@ -121,108 +182,6 @@ namespace optimize_cuda
 
   
 
-  /*
-  double UpdateResult( const float* D, const float* label, float** msg, int* result, 
-                       int K, int dim, int height, int width, float lambda )
-                       {
-  
-    // constants
-    const int inc[4] = { -width, -1, width, 1 };
-    const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
-
-
-    // Update result
-    const int area = height * width;
-    const float *Dp = D;
-    float *msgp[4];
-    for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir];
-
-    for ( int i=0; i<area; i++ ) {
-      result[i] = 0;
-      float min = 0;
-      for ( int k=0; k<K; k++ ) {
-        float sum = Dp[k];
-        for ( int dir=0; dir<4; dir++ ) {
-          sum += msgp[dir][k];
-        }
-
-        if ( 0 == k ) {
-          min = sum;
-        } else if ( sum < min ) {
-          min = sum;
-          result[i] = k;
-        }
-      }
-      Dp += K;
-      for ( int dir=0; dir<4; dir++ ) msgp[dir] += K;
-    }
-
-
-    double energy = 0.0;
-    int i = 0;
-    const float *labelp = label;
-    for ( int y=0; y<height; y++ ) {
-      for ( int x=0; x<width; x++ ) {
-        energy += D[i*K+result[i]];
-        // UP:
-        int d = 0;
-        if ( y > 0 ) {
-          const float *lp0 = labelp + result[i] * dim;
-          const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-          energy += dist( lp0, lp1, dim, d ) * lambda;
-        }
-
-
-        // LEFT:
-        d = 1;
-        if ( x > 0 ) {
-          const float *lp0 = labelp + result[i] * dim;
-          const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-          energy += dist( lp0, lp1, dim, d ) * lambda;
-        }
-
-        i++;
-        labelp += K * dim;
-      }
-    }
-
-    return energy;
-  }
-  */
-
-  // Kernel Function for updating the result (agentNum = # pixels)
-  /*
-    __global__ void UpdateResult_agent_float( int agentNum,
-    float *D,
-    float *msg[4],
-    int K,
-    int *result  )
-    {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if ( idx < agentNum ) {
-    float *Dp = D + idx * K;
-    float *msgp[4];
-    for ( int dir=0; dir<4; dir++ ) msgp[dir] = msg[dir] + idx * K;
-    result[idx] = 0;
-    floating min = 0;
-    for ( int k=0; k<K; k++ ) {
-    floating sum = Dp[k];
-    for ( int dir=0; dir<4; dir++ ) {
-    sum += msgp[dir][k];
-    }
-
-    if ( 0 == K ) {
-    min = sum;
-    } else if ( sum < min ) {
-    min = sum;
-    result[idx] = k;
-    }
-    }
-    }
-    }
-  */
-
-  
   double UpdateEnergy( const float *D, const float *label, int height, int width, int K,
                        int dim, float lambda, int *result )
   {
@@ -230,7 +189,7 @@ namespace optimize_cuda
     // constants
     const int inc[4] = { -width, -1, width, 1 };
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
-
+    
     
     double energy = 0.0;
     int i = 0;
@@ -244,7 +203,10 @@ namespace optimize_cuda
         if ( y > 0 ) {
           const float *lp0 = labelp + result[i] * dim;
           const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-          energy += dist( lp0, lp1, dim, d ) * lambda;
+          // energy += dist( lp0, lp1, dim, d ) * lambda;
+          energy += dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+                          lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+                          dim, d ) * lambda;
         }
         
 
@@ -253,7 +215,10 @@ namespace optimize_cuda
         if ( x > 0 ) {
           const float *lp0 = labelp + result[i] * dim;
           const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
-          energy += dist( lp0, lp1, dim, d ) * lambda;
+          // energy += dist( lp0, lp1, dim, d ) * lambda;
+          energy += dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+                          lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+                          dim, d ) * lambda;
         }
 
         i++;
@@ -264,7 +229,6 @@ namespace optimize_cuda
     return energy;
   }
 
-  
 
 
 
@@ -282,35 +246,48 @@ namespace optimize_cuda
                                        int inc,
                                        int incK,
                                        int incDim,
-                                       int area,
-                                       float *buf_h )
+                                       int area )
   {
     
+    extern __shared__ float buf[];
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if ( idx < agentNum ) {
+      float *h = buf;
+      // float *l0 = buf + blockDim.x * K + threadIdx.x * dim;
+      // float *l1 = buf + blockDim.x * ( K + dim ) + threadIdx.x * dim;
       // agent initialization
       int opp = (dir+2) & 3;
       //      float *h = buf_h + idx * K;
       float *Dp = D + begins[idx] * K;
       float *labelp = label + begins[idx] * K * dim;
       
+#pragma unroll 5
       for ( int i=begins[idx]; i!=ends[idx]; i+=inc, Dp+=incK, labelp+=incDim ) {
         for ( int k=0; k<K; k++ ) {
-          buf_h[idx*K+k] = Dp[k];
+          h[ k * blockDim.x + threadIdx.x ] = Dp[k];
+          // h[threadIdx.x*K+k] = Dp[k];
           for ( int j=0; j<4; j++ ) {
             if ( j != opp ) {
-              buf_h[idx*K+k] += msg[ j * area * K + i * K + k ];
+              h[ k * blockDim.x + threadIdx.x ] += msg[ j * area * K + i * K + k ];
             }
           }
         }
-        
+
         for ( int k=0; k<K; k++ ) {
-          float min = 0.0;
-          for ( int k0=0; k0<K; k0++ ) {
-            const float *lp0 = labelp + k0 * dim;
-            const float *lp1 = labelp + incDim + dim * k;
-            float value = dist( lp0, lp1, dim, dir ) * lambda + buf_h[ idx * K + k0 ];
-            if ( 0 == k0 || value < min ) min = value;
+          const float *lp0 = labelp;
+          const float *lp1 = labelp + incDim + dim * k;
+          //          float min = dist( l0, l1, dim, dir ) * lambda + h[ threadIdx.x ];
+          float min = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+                            lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+                            dim, dir ) * lambda + h[ threadIdx.x ];
+          
+          for ( int k0=1; k0<K; k0++ ) {
+            lp0 += dim;
+            // float value = dist( lp0, lp1, dim, dir ) * lambda + h[ k0 * blockDim.x + threadIdx.x ];
+            float value = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+                                lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+                                dim, dir ) * lambda + h[ k0 * blockDim.x + threadIdx.x ];
+            if ( value < min ) min = value;
           }
           msg[ dir * area * K + ( i + inc ) * K + k ] = min;
         }
@@ -422,14 +399,20 @@ namespace optimize_cuda
         
         cudaMemcpy( devBegins, begins, sizeof(int) * agentNum, cudaMemcpyHostToDevice );
         cudaMemcpy( devEnds, ends, sizeof(int) * agentNum, cudaMemcpyHostToDevice );
-
+        
         // Call Kernel Function 1
-        LoopyBP_agent_float<<<(agentNum/32)+1,32>>>( agentNum, devD, devLabel,
-                                                            devMsg, devBegins, devEnds,
-                                                            K, options.lambda, dim, dir, inc[dir],
-                                                            incK[dir], incDim[dir],
-                                                            area,
-                                                            devBufH );
+        int blockSize = 4;
+        int shMemSizePerBlock= blockSize * K * sizeof(float);
+        LoopyBP_agent_float<<<(agentNum/blockSize)+1,blockSize, shMemSizePerBlock>>>( agentNum, 
+                                                                                      devD, devLabel,
+                                                                                      devMsg, 
+                                                                                      devBegins, 
+                                                                                      devEnds,
+                                                                                      K, 
+                                                                                      options.lambda, 
+                                                                                      dim, dir, inc[dir],
+                                                                                      incK[dir], incDim[dir],
+                                                                                      area );
 
         
         UpdateResult_float_agent<<<(width*height)/32+1,32>>>( width * height,
@@ -448,20 +431,19 @@ namespace optimize_cuda
 
         energy = UpdateEnergy( D, label, height, width, K, dim, options.lambda, result );
         
-        NormalizeMessages_float_agent<<<(width*height)/32+1,32>>>( width * height,
-                                                                   devMsg,
-                                                                   K );
+        NormalizeMessages_float_agent<<<(width*height*4)/blockSize+1,blockSize>>>( width * height * 4,
+                                                                                   devMsg,
+                                                                                   K );
 
 
         if ( 1 <= options.verbose ) {
           printf( "Iteration %d: energy = %.5lf\n", iter, energy );
         }
-
+        
         
 
       } // end for dir
     }
-
     return energy;
   }
 };
