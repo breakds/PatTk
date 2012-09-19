@@ -4,7 +4,6 @@
  * by BreakDS, @ University of Wisconsin-Madison, Fri Aug 31 15:25:19 CDT 2012
  *********************************************************************************/
 
-
 #include "BP_CUDA.h"
 #include <cuda.h>
 #include "../utils/cuda_aux.hpp"
@@ -14,8 +13,13 @@
 // Temporary Constants
 #define PATCH_SIDE 17
 
+__device__ __constant__ int g_inc[4];
+__device__ __constant__ int g_distMaxIdx;
+  
+
 namespace optimize_cuda
 {
+
   /*
   __host__ __device__ inline float dist( const float *a, const float *b,
                                 int __attribute__((__unused__)) dim,
@@ -100,8 +104,9 @@ namespace optimize_cuda
     // [4],[5] = spatial distance
     // Should be compensated by the rotation (dy,dx)
     // Note that dy = b1 dx = b2 by definition
-    /*
+
     float ay(a4), ax(a5);
+
     if ( 0 == direction ) {
       ay += b2;
       ax -= b1;
@@ -115,9 +120,11 @@ namespace optimize_cuda
       ay -= b1;
       ax += b2;
     }
-    */
+    
+    
+    
       
-    tmp = fabsf( a4 - b4 ) + fabsf( a5 - b5 );
+    tmp = fabsf( ay - b4 ) + fabsf( ax - b5 );
     if ( tmp > PATCH_SIDE ) {
       return 150000.0;
     }
@@ -130,10 +137,10 @@ namespace optimize_cuda
     sum += fabsf( b2 - a2 ) * coeff[2];
     sum += fabsf( b3 - a3 ) * coeff[3];
 
-
+    
     return sum;
   }
-
+  
 
 
   __global__ void NormalizeMessages_float_agent( const int agentNum,
@@ -155,7 +162,7 @@ namespace optimize_cuda
 
   
   
-  __global__ void UpdateResult_float_agent( const int agentNum, const float *D, const float *label,
+  __global__ void UpdateResult_float_agent( const int agentNum, const float *D,
                                             const float* msg,
                                             int *result, int K, int dim, float lambda )
   {
@@ -229,14 +236,11 @@ namespace optimize_cuda
     return energy;
   }
 
-
-
-
   // Kernel Function for loopy belief propagation (agentNum = width/height)
   __global__ void LoopyBP_agent_float( int agentNum, // number of agents needes
                                        float *D,
-                                       float *label,
                                        float* msg,
+                                       float* distance,
                                        int *begins,
                                        int *ends,
                                        int K,
@@ -259,13 +263,12 @@ namespace optimize_cuda
       int opp = (dir+2) & 3;
       //      float *h = buf_h + idx * K;
       float *Dp = D + begins[idx] * K;
-      float *labelp = label + begins[idx] * K * dim;
       
 #pragma unroll 5
-      for ( int i=begins[idx]; i!=ends[idx]; i+=inc, Dp+=incK, labelp+=incDim ) {
+      for ( int i=begins[idx]; i!=ends[idx]; i+=inc, Dp+=incK ) {
+
         for ( int k=0; k<K; k++ ) {
           h[ k * blockDim.x + threadIdx.x ] = Dp[k];
-          // h[threadIdx.x*K+k] = Dp[k];
           for ( int j=0; j<4; j++ ) {
             if ( j != opp ) {
               h[ k * blockDim.x + threadIdx.x ] += msg[ j * area * K + i * K + k ];
@@ -274,19 +277,19 @@ namespace optimize_cuda
         }
 
         for ( int k=0; k<K; k++ ) {
-          const float *lp0 = labelp;
-          const float *lp1 = labelp + incDim + dim * k;
           //          float min = dist( l0, l1, dim, dir ) * lambda + h[ threadIdx.x ];
-          float min = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
-                            lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
-                            dim, dir ) * lambda + h[ threadIdx.x ];
+          float min = distance[ ( k * 4 + dir ) * area  + i ] * lambda + h[ threadIdx.x ];
+          // float min = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+          //                   lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+          //                   dim, dir ) * lambda + h[ threadIdx.x ];
           
           for ( int k0=1; k0<K; k0++ ) {
-            lp0 += dim;
             // float value = dist( lp0, lp1, dim, dir ) * lambda + h[ k0 * blockDim.x + threadIdx.x ];
-            float value = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
-                                lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
-                                dim, dir ) * lambda + h[ k0 * blockDim.x + threadIdx.x ];
+            float value = distance[ ( ( k0 * K + k ) * 4 + dir ) * area  + i ] * lambda +
+              h[ k0 * blockDim.x + threadIdx.x];
+            // float value = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+            //                     lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+            //                     dim, dir ) * lambda + h[ k0 * blockDim.x + threadIdx.x ];
             if ( value < min ) min = value;
           }
           msg[ dir * area * K + ( i + inc ) * K + k ] = min;
@@ -294,6 +297,38 @@ namespace optimize_cuda
       } // end for i
     }
   }
+
+
+  __global__ void Precomputing_agent_float( int area,
+                                            float *label,
+                                            float *distance,
+                                            int dim,
+                                            int K )
+  {
+    int pixel = blockDim.x * blockIdx.x + threadIdx.x;
+    if ( pixel < area ) {
+      int dir = blockIdx.y;
+      // int k0 = threadIdx.y;
+      // int k1 = threadIdx.z;
+      
+      int idx = ( ( threadIdx.y * K + threadIdx.z ) * 4 + dir ) * area + pixel;
+      // overflow checking
+      if ( pixel + g_inc[dir] < 0 || pixel + g_inc[dir] >= area ) {
+        return ;
+      }
+      
+      float *lp0 = label + ( pixel * K + threadIdx.y ) * dim;
+      float *lp1 = label + ( ( pixel + g_inc[dir] ) * K + threadIdx.z ) * dim;
+      
+      distance[idx] = dist( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
+                            lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
+                            dim, dir );
+    }
+  }
+
+
+
+
   
   
   double LoopyBP( const float *D, // The distance term for each pixel, h x w
@@ -307,6 +342,7 @@ namespace optimize_cuda
                   Options options, float* msgBuf )
   {
     const int inc[4] = { -width, -1, width, 1 };
+    HANDLE_ERROR( cudaMemcpyToSymbol( "g_inc", inc, sizeof(int) * 4, 0, cudaMemcpyHostToDevice ) );
     const int incK[4] = {-width*K,-K,width*K,K};
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
     const int order[4] = {2,0,3,1}; // DOWN, UP, RIGHT, LEFT
@@ -351,14 +387,34 @@ namespace optimize_cuda
     cudaMalloc( (void**) &devBegins, sizeof(int) * longer );
     cudaMalloc( (void**) &devEnds, sizeof(int) * longer );
 
-    // h buffer
-    float *devBufH = NULL;
-    HANDLE_ERROR( cudaMalloc( (void**) &devBufH, sizeof(float) * longer * K ) );
-  
     // Result
     int *devResult = NULL;
     cudaMalloc( (void**) &devResult, sizeof(int) * area * K );
 
+
+
+    // Intermediate Distance Calculation
+
+    float *devDistance = NULL;
+    HANDLE_ERROR( cudaMalloc( (void**) &devDistance, sizeof(float) * K * K * 4 * area ) );
+
+    int distMaxIdx = K * K * 4 * area;
+    HANDLE_ERROR( cudaMemcpyToSymbol( "g_distMaxIdx", &distMaxIdx, sizeof(int), 0, cudaMemcpyHostToDevice ) );
+    dim3 precompute_grid( ( area + 1 ) / 8, 4 );
+    dim3 precompute_block( 8, K, K );
+    
+
+
+    // uint kernelTime;
+    // cutCreateTimer(&kernelTime);
+    // cutResetTimer(kernelTime);
+    Precomputing_agent_float<<<precompute_grid, precompute_block>>>( area,
+                                                                     devLabel,
+                                                                     devDistance,
+                                                                     dim,
+                                                                     K );
+    HANDLE_ERROR( cudaDeviceSynchronize() );
+    
 
 
 
@@ -401,11 +457,12 @@ namespace optimize_cuda
         cudaMemcpy( devEnds, ends, sizeof(int) * agentNum, cudaMemcpyHostToDevice );
         
         // Call Kernel Function 1
-        int blockSize = 4;
+        int blockSize = 8;
         int shMemSizePerBlock= blockSize * K * sizeof(float);
         LoopyBP_agent_float<<<(agentNum/blockSize)+1,blockSize, shMemSizePerBlock>>>( agentNum, 
-                                                                                      devD, devLabel,
-                                                                                      devMsg, 
+                                                                                      devD,
+                                                                                      devMsg,
+                                                                                      devDistance,
                                                                                       devBegins, 
                                                                                       devEnds,
                                                                                       K, 
@@ -413,17 +470,16 @@ namespace optimize_cuda
                                                                                       dim, dir, inc[dir],
                                                                                       incK[dir], incDim[dir],
                                                                                       area );
-
+        HANDLE_ERROR( cudaDeviceSynchronize() );
         
         UpdateResult_float_agent<<<(width*height)/32+1,32>>>( width * height,
                                                               devD,
-                                                              devLabel,
                                                               devMsg,
                                                               devResult,
                                                               K,
                                                               dim,
                                                               options.lambda );
-
+        HANDLE_ERROR( cudaDeviceSynchronize() );
 
 
 
@@ -434,7 +490,7 @@ namespace optimize_cuda
         NormalizeMessages_float_agent<<<(width*height*4)/blockSize+1,blockSize>>>( width * height * 4,
                                                                                    devMsg,
                                                                                    K );
-
+        HANDLE_ERROR( cudaDeviceSynchronize() );
 
         if ( 1 <= options.verbose ) {
           printf( "Iteration %d: energy = %.5lf\n", iter, energy );
@@ -443,7 +499,19 @@ namespace optimize_cuda
         
 
       } // end for dir
+      
     }
+
+    // Free Cuda Memory
+    if ( devD ) cudaFree( devD );
+    if ( devLabel ) cudaFree( devLabel );
+    if ( devMsg ) cudaFree( devMsg );
+    if ( devBegins ) cudaFree( devBegins );
+    if ( devEnds ) cudaFree( devEnds );
+    if ( devResult ) cudaFree( devResult );
+    if ( devDistance ) cudaFree( devDistance );
+    
+    
     return energy;
   }
 };

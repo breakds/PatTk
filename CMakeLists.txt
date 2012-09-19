@@ -42,7 +42,7 @@ if ("${HOSTNAME}" MATCHES "emperor.cs.wisc.edu")
 
   # CUDA SDK 4.2
   set(CUDA_TOOLKIT_ROOT_DIR "/s/cuda-4.2.9/") # Force it to search for CUDA 4.2.9
-  find_package("CUDA" 4.2 REQUIRED)
+  find_package("CUDA" 4.0 REQUIRED)
   set(CUDA_NVCC_FLAGS "-arch=sm_20")
 endif ("${HOSTNAME}" MATCHES "emperor.cs.wisc.edu")
 
