@@ -295,7 +295,7 @@ namespace PatTk
     optimize::Options options;
     options.maxIter = 10;
     options.numHypo = 3;
-    options.verbose = 1;
+    options.verbose = 0;
 
     timer::tic();
     float *msg = new float[tarH*tarW*candNum*4];
@@ -308,7 +308,7 @@ namespace PatTk
     // Loopy BP Cuda Version
     optimize_cuda::Options options;
     options.maxIter = 10;
-    options.verbose = 1;
+    options.verbose = 0;
     options.lambda = lambda;
 
     timer::tic();
