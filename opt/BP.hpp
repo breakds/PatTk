@@ -325,12 +325,12 @@ namespace optimize
           } // end inner loop (i)
         } // end outer loop (scan)
 
-        energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
 
 
 
         if ( 1 <= options.verbose ) {
           // Energy Function Value
+          energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
           printf( "Iteration %d: energy = %.5lf\n", iter, energy );
         }
 
@@ -346,6 +346,9 @@ namespace optimize
         
       } // end for dir
     }
+
+    energy = UpdateResult<DistFunc, floating>( D, label, msg, result, K, dim, height, width, lambda, dist );
+    printf( "Final energy = %.5lf\n", energy );
 
     // free the internally created buffer    
     if ( nullptr == msgBuf ) {
