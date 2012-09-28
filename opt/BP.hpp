@@ -336,14 +336,6 @@ namespace optimize
 
         NormalizeMessages( msg, height, width, K );
 
-        // debugging:
-        // WITH_OPEN( out, "debug.dat", "w" );
-        // fwrite( buf, sizeof(float), area * K * 4, out );
-        // END_WITH( out );
-        // char ch;
-        // scanf( "%c", &ch );
-        // end debugging
-        
       } // end for dir
     }
 

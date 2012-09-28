@@ -40,7 +40,8 @@ int main( int argc, char **argv )
     tarH = img.rows;
     tarW = img.cols;
   }
-  for ( int ref=0; ref<1; ref++ ) {
+
+  for ( int ref=391; ref<392; ref++ ) {
     double energy = UpdateGraph( imgList, tarH, tarW, tar, ref );
     WITH_OPEN( out, "status.txt", "a" );
     fprintf( out, "%d: %.4lf\n", ref, energy );

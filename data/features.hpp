@@ -131,7 +131,7 @@ namespace PatTk
         remainder -= a[i];
         index[i] = i;
       }
-
+      
       // Sort
       for ( int i=0; i<bins-1; i++ ) {
         for ( int j=i+1; j<bins; j++ ) {

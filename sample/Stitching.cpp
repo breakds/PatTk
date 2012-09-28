@@ -1,161 +1,132 @@
 /*********************************************************************************
- * File: Stiching.hpp
- * Description: Unit Test for update.hpp
- * by BreakDS, University of Wisconsin Madison, Mon Aug 27 15:59:06 CDT 2012
+ * File: Stitching.hpp
+ * Description: Visualize the stitching of graph builder
+ * by BreakDS, @ University of Wisconsin-Madison, Thu Sep 27 16:05:29 CDT 2012
  *********************************************************************************/
 
-
-#include "opencv2/opencv.hpp"
+#include <vector>
+#include <string>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/Environment.hpp"
+#include "LLPack/algorithms/sort.hpp"
 #include "../interfaces/cv_interface.hpp"
-#include "../graph/update.hpp"
-#include <string>
-#include <vector>
-#include <cmath>
+#include "../graph/Graph.hpp"
 
-using namespace EnvironmentVariable;
 using namespace PatTk;
+using namespace EnvironmentVariable;
 
-
-void drawBox( cv::Mat& canvas, const PatLoc& loc, int side )
+Image<BGRCell,int,false>::Patch Loc2Patch( const Image<BGRCell,int,false> &img,
+                                           const PatLoc& candidate )
 {
-  float dy = sin( loc.rotation ) * side;
-  float dx = cos( loc.rotation ) * side;
+  static int radius = env["patch-w"] >> 1;
+
+  double ang = - candidate.rotation;
+  double cosa = cos( ang ) * candidate.scale;
+  double sina = sin( ang ) * candidate.scale;
   
-  cv::line( canvas,
-            cv::Point( loc.x, loc.y ),
-            cv::Point( loc.x + dx, loc.y - dy ),
-            cv::Scalar( 0, 255, 0 ) );
+  double y1 = ( -radius * cosa - radius * sina + ( candidate.y + radius ) );
+  double x1 = ( radius * sina - radius * cosa + ( candidate.x + radius ) );
 
-  cv::line( canvas,
-            cv::Point( loc.x + dx, loc.y - dy),
-            cv::Point( loc.x + dx + dy, loc.y - dy + dx ),
-            cv::Scalar( 0, 255, 0 ) );
-
-  cv::line( canvas,
-            cv::Point( loc.x + dx + dy, loc.y - dy + dx ),
-            cv::Point( loc.x + dy, loc.y + dx ),
-            cv::Scalar( 0, 255, 0 ) );
-
-  cv::line( canvas,
-            cv::Point( loc.x + dy, loc.y + dx ),
-            cv::Point( loc.x, loc.y ),
-            cv::Scalar( 0, 255, 0 ) );
+  return img.Spawn( y1, x1, 1.0 / candidate.scale, ang / M_PI * 180.0 );
 }
-
-
+                           
 
 int main( int argc, char **argv )
 {
-  InitializeEnvironment( argc, argv, true );
-  
-  std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
-                                                                 env["list-file"].c_str() ) ) );
-  int tar = env["target"];
-  int ref = env["source"];
-
-
-  cv::Mat mat = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[tar].c_str() ) );
-  if ( mat.empty() ) {
-    Error( "Cannot open %s.", strf( "%s/%s.png", env["dataset"].c_str(), imgList[tar].c_str() ).c_str() );
+  if ( argc < 2 ) {
+    Error( "Missing configuration file in options." );
     exit( -1 );
   }
-  int tarH = mat.rows;
-  int tarW = mat.cols;
 
+  env.parse( argv[1] );
+  env.Summary();
+
+  std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
+                                                                 env["list-file"].c_str() ) ) );
   
-  UpdateGraph( imgList, tarH, tarW, tar, ref );
-  string path = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[tar].c_str() );
-  PatGraph graph( path );
+  PatGraph graph( env["graph-file"] );
 
-
-  // Interactive Interfaces:
-  cv::Mat canvas = mat.clone();
-  cv::imshow( "show", canvas );
-  int curX = 0;
-  int curY = 0;
-  char key;
-  IconList<PatLoc> list( "patches" );
-  list.options.zoom = 3;
-
-  
-  // Press ESC to terminate
-  while ( 27 != ( key = cv::waitKey(30) ) ) {
-
-    bool changed = false;
-
-    // Smaller Step
-    if ( 97 == key ) {
-      // Left
-      if ( curX > 0 ) {
-        curX--;
+  // Stitching with blending
+  int counts[graph.rows][graph.cols];
+  float values[graph.rows][graph.cols][3];
+  for ( int i=0; i<graph.rows; i++ ) {
+    for ( int j=0; j<graph.cols; j++ ) {
+      counts[i][j] = 0;
+      for ( int k=0; k<3; k++ ) {
+        values[i][j][3] = 0;
       }
-      changed = true;
-    } else if ( 100 == key ) {
-      // Right
-      if ( curX < mat.cols - 1) {
-        curX++;
-      }
-      changed = true;
-    } else if (  115 == key ) {
-      // Down
-      if ( curY < mat.rows - 1 ) {
-        curY++;
-      }
-      changed = true;
-    } else if ( 119 == key ) {
-      // Up
-      if ( curY > 0 ) {
-        curY--;
-      }
-      changed = true;
-    }
-    
-    // Larger Step
-    if ( 65 == key ) {
-      // Left
-      if ( curX - 10 >= 0 ) {
-        curX-=10;
-      }
-      changed = true;
-    } else if ( 68 == key ) {
-      // Right
-      if ( curX + 10 < mat.cols ) {
-        curX+=10;
-      }
-      changed = true;
-    } else if (  83 == key ) {
-      // Down
-      if ( curY + 10 < mat.rows ) {
-        curY+=10;
-      }
-      changed = true;
-    } else if ( 87 == key ) {
-      // Up
-      if ( curY - 10 >= 0 ) {
-        curY-=10;
-      }
-      changed = true;
-    }
-    
-    if ( changed ) {
-      canvas = mat.clone();
-      PatLoc loc( tar, curY, curX, 1.0, 0.0, 0.0 );
-      drawBox( canvas, loc, env["patch-side"] );
-      cv::imshow( "show", canvas );
-            
-      list.clear();
-      list.push( imgList, loc, env["patch-side"], env["patch-side"] );
-      for ( auto& ele : graph( curY, curX ) ) {
-        list.push( imgList, ele, env["patch-side"], env["patch-side"] );
-      }
-      list.setCallback( [&]( const int index ){ printf( "target:(%d,%d) - ", curY, curX );
-          graph(curY,curX)[index-1].show(); } );
-      list.display();
     }
   }
 
 
+  vector<int> imageIDs;
+  imageIDs.resize( graph.rows * graph.cols );
+  for ( int i=0; i<graph.rows*graph.cols; i++ ) {
+    imageIDs[i] = graph(i)[0].index;
+  }
+  // vector<int> sorted = std::move( sorting::index_sort( imageIDs ) );
+
+
+
+  Image<BGRCell, int, false> image;
+  
+  int currentImgID = -1;
+  // for ( auto& i : sorted ) {
+  for ( int i=0; i<graph.rows*graph.cols; i++ ) {
+    int y = i / graph.cols;
+    int x = i % graph.cols;
+    if ( graph(i)[0].index != currentImgID ) {
+      currentImgID = graph(i)[0].index;
+      cv::Mat raw = cv::imread( strf( "%s/%s_L.png", env["dataset"].c_str(),
+                                      imgList[currentImgID].c_str() ) );
+      if ( raw.empty() ) {
+        Error( "cannot open image %s/%s.png", env["dataset"].c_str(),
+               imgList[currentImgID].c_str() );
+        return -1;
+      }
+      image = std::move( cvFeatGen<BGRCell, int, false>::gen( raw ) );
+      image.SetPatchParameter( env["patch-w"], env["patch-w"] );
+    }
+
+    
+    Image<BGRCell, int, false>::Patch candPatch= Loc2Patch( image, graph(i)[0] );
+
+    int k = 0;
+    for ( int dy=0; dy<env["patch-w"]; dy++ ) {
+      for ( int dx=0; dx<env["patch-w"]; dx++ ) {
+        if ( y + dy < graph.rows && x + dx < graph.cols ) {
+          counts[y+dy][x+dx]++;
+          for ( int ch=0; ch<3; ch++ ) {
+            values[y+dy][x+dx][ch] += candPatch[k];
+            k++;
+          }
+        } else {
+          k += 3;
+        }
+
+      }
+    }
+  }
+
+
+  cv::Mat result( graph.rows, graph.cols, CV_8UC3 );
+
+  for ( int i=0; i<graph.rows; i++ ) {
+    for ( int j=0; j<graph.cols; j++ ) {
+      for ( int k=0; k<3; k++ ) {
+        result.at<cv::Vec3b>(i,j)[k] = static_cast<uchar>( values[i][j][k] / counts[i][j] );
+      }
+    }
+  }
+
+  cv::imwrite( "tmp.png", result );
+
+  imshow( "result", result );
+
+  while ( cv::waitKey(30) != 27 );
+
+
+  
   return 0;
+  
 }

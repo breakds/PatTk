@@ -1,3 +1,4 @@
+
 # created from template OpenCV included c++ project
 #   by BreakDS 
 #   Mar 23 2012 @ Univeristy of Wisconsin-Madison
@@ -143,5 +144,9 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 # Graph Builder
 ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
 TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
+
+# Stitching Result
+ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
+TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
 
 

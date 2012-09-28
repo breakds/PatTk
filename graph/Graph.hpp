@@ -114,7 +114,7 @@ namespace PatTk
       for ( int i=0; i<h; i++ ) pos[i] = i * w;
     }
     
-    PatGraph( std::string &filename )
+    PatGraph( const std::string &filename )
     {
       WITH_OPEN( in, filename.c_str(), "r" );
       fread( &rows, sizeof(int), 1, in );

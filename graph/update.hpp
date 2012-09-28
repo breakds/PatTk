@@ -25,6 +25,8 @@
 
 #define ENABLE_CUDA 1
 
+#define OPTIMIZE 1
+
 using namespace EnvironmentVariable;
 
 namespace PatTk
@@ -54,6 +56,15 @@ namespace PatTk
       fprintf( out, "(ann-window null)\n" );
       fprintf( out, "(ann-winsize null)\n" );
       fprintf( out, "(scalerange 2)\n" );
+      END_WITH( out );
+    }
+
+    void GenConfTemp( int targetID, int refID )
+    {
+      system( "cp -f PatchMatch.conf.template PatchMatch.conf" );
+      WITH_OPEN( out, "PatchMatch.conf", "a" );
+      fprintf( out, "(target %d)\n", targetID );
+      fprintf( out, "(source %d)\n", refID );
       END_WITH( out );
     }
 
@@ -157,7 +168,7 @@ namespace PatTk
       // Not that dy = b[1] dx = b[2]
       valueType ay(a[4]), ax(a[5]);
       if ( 0 == direction ) {
-        ay += b[2];
+        ay -= b[2];
         ax -= b[1];
       } else if ( 1 == direction ) {
         ay += b[1];
@@ -195,21 +206,26 @@ namespace PatTk
                     const int referenceID ) // image id of the reference
   {
     // Constants
-    static const float lambda = 2.0;
+    static const float lambda = 15.00;
     static const int K = env["graph-degree"];
     int area = tarH * tarW;
     
     // Generate the configuration file
     GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
+    // GenConfTemp( targetID, referenceID );
     
     // Call nnmex externally
-    // system( "./nnmex PatchMatch.conf" );
+    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
     PatGraph graph = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
                                             tarH, tarW, referenceID ) );
+
+    // string mappingPath = "./mapping.dat";
+    // PatGraph graph( mappingPath );
     
+      
     // Old Graph:
     PatGraph graphOld( tarH, tarW );
     string oldpath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
@@ -263,28 +279,6 @@ namespace PatTk
     int result[area];
 
 
-    // debugging
-    /*
-    int lastRes[area];
-    if ( 1 < env["verbose"] ) {
-      string path = strf( "%s/%s", env["graph-dir"].c_str(), env["debug-input"].c_str() ); 
-      PatGraph resGraph( path );
-      for ( int i=0; i<area; i++ ) {
-        bool flag = false;
-        for ( int k=0; k<candNum; k++ ) {
-          if ( graph(i)[k] == resGraph(i)[0] ) {
-            flag = true;
-            lastRes[i] = k;
-          }
-        }
-        if ( !flag ) {
-          Error( "Debugging: Missing picked candidates from last run.\n" );
-          exit(-1);
-        }
-      }
-      memcpy( result, lastRes, sizeof(int) * area );
-    }
-    */
     printf( "candNum = %d\n", candNum );
 
 
@@ -350,8 +344,9 @@ namespace PatTk
     
 
     // eliminate the bottom candidates
+    int keep = 1;
     for ( int i=0; i<area; i++ ) {
-      heap<float,int> ranker( K );
+      heap<float,int> ranker( keep );
       for ( int k=0; k<candNum; k++ ) {
         float key = D[i*candNum+k];
         for ( int d=0; d<4; d++ ) {
@@ -361,8 +356,12 @@ namespace PatTk
       }
       vector<PatLoc> tmp;
       tmp.reserve( K );
-      for ( int j=0; j<K; j++ ) {
+      for ( int j=0; j<keep; j++ ) {
+#if 1 == OPTIMIZE
         tmp.push_back( graph(i)[ranker[j]] );
+#else
+        tmp.push_back( graph(i)[0] );
+#endif
       }
       graph[i].swap( tmp );
     }
