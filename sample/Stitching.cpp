@@ -64,20 +64,20 @@ int main( int argc, char **argv )
   for ( int i=0; i<graph.rows*graph.cols; i++ ) {
     imageIDs[i] = graph(i)[0].index;
   }
-  // vector<int> sorted = std::move( sorting::index_sort( imageIDs ) );
+  vector<int> sorted = std::move( sorting::index_sort( imageIDs ) );
 
 
 
   Image<BGRCell, int, false> image;
   
   int currentImgID = -1;
-  // for ( auto& i : sorted ) {
-  for ( int i=0; i<graph.rows*graph.cols; i++ ) {
+  for ( auto& i : sorted ) {
+  // for ( int i=0; i<graph.rows*graph.cols; i++ ) {
     int y = i / graph.cols;
     int x = i % graph.cols;
     if ( graph(i)[0].index != currentImgID ) {
       currentImgID = graph(i)[0].index;
-      cv::Mat raw = cv::imread( strf( "%s/%s_L.png", env["dataset"].c_str(),
+      cv::Mat raw = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(),
                                       imgList[currentImgID].c_str() ) );
       if ( raw.empty() ) {
         Error( "cannot open image %s/%s.png", env["dataset"].c_str(),

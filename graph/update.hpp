@@ -344,7 +344,7 @@ namespace PatTk
     
 
     // eliminate the bottom candidates
-    int keep = 1;
+    int keep = K;
     for ( int i=0; i<area; i++ ) {
       heap<float,int> ranker( keep );
       for ( int k=0; k<candNum; k++ ) {
