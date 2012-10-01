@@ -77,7 +77,7 @@ int main( int argc, char **argv )
     int x = i % graph.cols;
     if ( graph(i)[0].index != currentImgID ) {
       currentImgID = graph(i)[0].index;
-      cv::Mat raw = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(),
+      cv::Mat raw = cv::imread( strf( "%s/%s_L.png", env["dataset"].c_str(),
                                       imgList[currentImgID].c_str() ) );
       if ( raw.empty() ) {
         Error( "cannot open image %s/%s.png", env["dataset"].c_str(),

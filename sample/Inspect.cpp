@@ -15,6 +15,31 @@
 using namespace PatTk;
 using namespace EnvironmentVariable;
 
+cv::Mat vappend( const cv::Mat img0, cv::Mat img1 )
+{
+  if ( img0.cols != img1.cols ) {
+    Error( "vappend(): dimension mismatch." );
+    exit( -1 );
+  }
+  cv::Mat result( img0.rows + img1.rows, img0.cols, CV_8UC3 );
+  img0.copyTo( result( cv::Rect( 0, 0, img0.cols, img0.rows ) ) );
+  img1.copyTo( result( cv::Rect( 0, img0.rows, img1.cols, img1.rows ) ) );
+  return result;
+}
+
+cv::Mat happend( const cv::Mat img0, cv::Mat img1 )
+{
+  if ( img0.rows != img1.rows ) {
+    Error( "happend(): dimension mismatch." );
+    exit( -1 );
+  }
+  cv::Mat result( img0.rows, img0.cols + img1.cols, CV_8UC3 );
+  img0.copyTo( result( cv::Rect( 0, 0, img0.cols, img0.rows ) ) );
+  img1.copyTo( result( cv::Rect( img0.cols, 0, img1.cols, img1.rows ) ) );
+  return result;
+}
+
+
 int main( int argc, char **argv )
 {
   if ( argc < 2 ) {
@@ -39,8 +64,8 @@ int main( int argc, char **argv )
     for ( int j=0; j<graph.cols; j++ ) {
 
       // fill index image;
-      uchar b_channel = graph(i,j)[0].index % 255;
-      uchar g_channel = graph(i,j)[0].index / 255;
+      uchar b_channel = graph(i,j)[0].index * 10 % 255;
+      uchar g_channel = graph(i,j)[0].index * 10 / 255;
       idxImg.at<cv::Vec3b>( i, j )[0] = b_channel;
       idxImg.at<cv::Vec3b>( i, j )[1] = g_channel;
       idxImg.at<cv::Vec3b>( i, j )[2] = 0;
@@ -69,15 +94,20 @@ int main( int argc, char **argv )
     }
   }
 
-  imshow( "Index", idxImg );
 
-  imshow( "Scale", sclImg );
+  /*
+   * | index | location |
+   * | scale | rotation |
+   */
+  cv::Mat result = happend( vappend( idxImg, sclImg ), vappend( locImg, rotImg ) );
 
-  imshow( "Location", locImg );
+  cv::imshow( "Result", result );
 
-  imshow( "Rotation", rotImg );
+  cv::imwrite( env["output"], result );
   
   while ( cv::waitKey(30) != 27 );
+
+  
   
   return 0;
   

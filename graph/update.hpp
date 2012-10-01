@@ -43,7 +43,7 @@ namespace PatTk
       fprintf( out, "(files %s)\n", reference.c_str() );
       fprintf( out, "(algorithm rotscale)\n" );
       fprintf( out, "(patch-w 9)\n" );
-      fprintf( out, "(nn-iters 10)\n" );
+      fprintf( out, "(nn-iters 5)\n" );
       fprintf( out, "(rs-max -1)\n" );
       fprintf( out, "(rs-min -1)\n" );
       fprintf( out, "(rs-ratio -1)\n" );
@@ -211,19 +211,19 @@ namespace PatTk
     int area = tarH * tarW;
     
     // Generate the configuration file
-    GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
-    // GenConfTemp( targetID, referenceID );
+    // GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
+    GenConfTemp( targetID, referenceID );
     
     // Call nnmex externally
     system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
-    PatGraph graph = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
-                                            tarH, tarW, referenceID ) );
-
-    // string mappingPath = "./mapping.dat";
-    // PatGraph graph( mappingPath );
+    // PatGraph graph = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
+    // tarH, tarW, referenceID ) );
+    
+    string mappingPath = "./mapping.dat";
+    PatGraph graph( mappingPath );
     
       
     // Old Graph:
@@ -311,6 +311,14 @@ namespace PatTk
     printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
 #endif
     
+
+    // Save Optimization Result
+    PatGraph resGraph( graph.rows, graph.cols );
+    for ( int i=0; i<area; i++ ) {
+      resGraph[i].push_back( graph(i)[result[i]] );
+    }
+    string savepath = strf( "%s/%s.res", env["graph-dir"].c_str(), imgList[referenceID].c_str() );
+    resGraph.write( savepath );
     
 
     // eliminate the bottom candidates
@@ -333,21 +341,14 @@ namespace PatTk
     }
 
     // Save temporary candidates mapping
-    string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
+    savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     graph.write( savepath );
 
     
 
-    // Save Optimization Result
-    PatGraph resGraph( graph.rows, graph.cols );
-    for ( int i=0; i<area; i++ ) {
-      resGraph[i].push_back( graph(i)[result[i]] );
-    }
-    savepath = strf( "%s/%s.res", env["graph-dir"].c_str(), imgList[referenceID].c_str() );
-    resGraph.write( savepath );
-    
 
     
+
     
     
     
