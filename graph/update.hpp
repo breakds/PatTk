@@ -206,7 +206,7 @@ namespace PatTk
                     const int referenceID ) // image id of the reference
   {
     // Constants
-    static const float lambda = 15.00;
+    static const float lambda = 2.00;
     static const int K = env["graph-degree"];
     int area = tarH * tarW;
     
@@ -313,38 +313,8 @@ namespace PatTk
     
     
 
-    // debugging
-    /*
-    if ( 0 < env["verbose"] ) {
-      PatGraph resGraph( graph.rows, graph.cols );
-      for ( int i=0; i<area; i++ ) {
-        resGraph[i].push_back( graph(i)[result[i]] );
-      }
-      string path = strf( "%s/%s", env["graph-dir"].c_str(), env["debug-output"].c_str() ); 
-      resGraph.write( path );
-    }
-    */
-    
-
-    // for ( int i=0; i<tarH; i++ ) {
-    //   for ( int j=0; j<tarW; j++ ) {
-    //     printf( "(%d,%d)->(%d | %d,%d) with scale %.2f, rotation %.2f, dist=%.4f -> picked = %d.\n", i, j,
-    //             graph(i,j)[result[i*tarW+j]].index,
-    //             graph(i,j)[result[i*tarW+j]].y,
-    //             graph(i,j)[result[i*tarW+j]].x,
-    //             graph(i,j)[result[i*tarW+j]].scale,
-    //             graph(i,j)[result[i*tarW+j]].rotation,
-    //             graph(i,j)[result[i*tarW+j]].dist,
-    //             result[i*tarW+j] );
-    //     char ch;
-    //     scanf( "%c", &ch );
-    //   }
-    // }
-    
-    
-
     // eliminate the bottom candidates
-    int keep = K;
+    int keep = 5;
     for ( int i=0; i<area; i++ ) {
       heap<float,int> ranker( keep );
       for ( int k=0; k<candNum; k++ ) {
@@ -357,19 +327,25 @@ namespace PatTk
       vector<PatLoc> tmp;
       tmp.reserve( K );
       for ( int j=0; j<keep; j++ ) {
-#if 1 == OPTIMIZE
         tmp.push_back( graph(i)[ranker[j]] );
-#else
-        tmp.push_back( graph(i)[0] );
-#endif
       }
       graph[i].swap( tmp );
     }
-    
 
-    // Save candidates
+    // Save temporary candidates mapping
     string savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     graph.write( savepath );
+
+    
+
+    // Save Optimization Result
+    PatGraph resGraph( graph.rows, graph.cols );
+    for ( int i=0; i<area; i++ ) {
+      resGraph[i].push_back( graph(i)[result[i]] );
+    }
+    savepath = strf( "%s/%s.res", env["graph-dir"].c_str(), imgList[referenceID].c_str() );
+    resGraph.write( savepath );
+    
 
     
     

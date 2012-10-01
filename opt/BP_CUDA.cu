@@ -9,9 +9,8 @@
 #include "../utils/cuda_aux.hpp"
 
 
-__device__ __constant__ int g_inc[4];
-__device__ __constant__ float g_coeff[6];
-__device__ int g_patch_side;
+
+
 
 int host_patch_side;
 
@@ -19,6 +18,10 @@ int host_patch_side;
 
 namespace optimize_cuda
 {
+
+  __constant__ int g_inc[4];
+  __constant__ float g_coeff[6];
+  __constant__ int g_patch_side;
 
   
   // This function calculate the distance between vector
@@ -368,14 +371,14 @@ namespace optimize_cuda
     
     
     const float coeff[6] = { 0.0, 30.0, 30.0, 10.0, 1.0, 1.0 };
-    HANDLE_ERROR( cudaMemcpyToSymbol( "g_coeff", &coeff, sizeof(float) * 6, 0, cudaMemcpyHostToDevice ) );    
+    HANDLE_ERROR( cudaMemcpyToSymbol( optimize_cuda::g_coeff, &coeff, sizeof(float) * 6, 0, cudaMemcpyHostToDevice ) );    
 
     int patchSide = 17;
-    HANDLE_ERROR( cudaMemcpyToSymbol( "g_patch_side", &patchSide, sizeof(int), 0, cudaMemcpyHostToDevice ) );
+    HANDLE_ERROR( cudaMemcpyToSymbol( optimize_cuda::g_patch_side, &patchSide, sizeof(int), 0, cudaMemcpyHostToDevice ) );
     host_patch_side = patchSide;
 
     const int inc[4] = { -width, -1, width, 1 };
-    HANDLE_ERROR( cudaMemcpyToSymbol( "g_inc", inc, sizeof(int) * 4, 0, cudaMemcpyHostToDevice ) );
+    HANDLE_ERROR( cudaMemcpyToSymbol( optimize_cuda::g_inc, inc, sizeof(int) * 4, 0, cudaMemcpyHostToDevice ) );
 
     const int incK[4] = {-width*K,-K,width*K,K};
     const int order[4] = {2,0,3,1}; // DOWN, UP, RIGHT, LEFT

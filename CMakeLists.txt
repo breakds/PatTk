@@ -149,4 +149,8 @@ TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
 ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
 TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
 
+# Validation of Spatial Consistency
+ADD_EXECUTABLE(Inspect sample/Inspect.cpp)
+TARGET_LINK_LIBRARIES(Inspect ${OPENCV})
+
 
