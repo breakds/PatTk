@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <string>
+#include <list>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/Environment.hpp"
 #include "LLPack/algorithms/sort.hpp"
@@ -14,12 +15,13 @@
 
 using namespace PatTk;
 using namespace EnvironmentVariable;
+using std::list;
 
 Image<BGRCell,int,false>::Patch Loc2Patch( const Image<BGRCell,int,false> &img,
                                            const PatLoc& candidate )
 {
   static int radius = env["patch-w"] >> 1;
-
+  
   double ang = - candidate.rotation;
   double cosa = cos( ang ) * candidate.scale;
   double sina = sin( ang ) * candidate.scale;
@@ -67,8 +69,25 @@ int main( int argc, char **argv )
     for ( int i=0; i<graph.rows*graph.cols; i++ ) {
       imageIDs[i] = graph(i)[0].index;
     }
-    vector<int> sorted = std::move( sorting::index_sort( imageIDs ) );
+    
 
+    
+
+
+    vector< list<int> > indexed( imgList.size() );
+    for ( int i=0; i<graph.rows * graph.cols; i++ ) {
+      indexed[graph(i)[0].index].push_back( i );
+    }
+
+    vector<int> sorted( graph.cols * graph.rows, 0 );
+
+    for ( int i=0, j=0; i < static_cast<int>(imgList.size()); i++ ) {
+      for ( auto iter=indexed[i].begin(); iter != indexed[i].end(); iter++ ) {
+        sorted[j++] = *iter;
+      }
+    }
+    
+    
 
 
     Image<BGRCell, int, false> image;
@@ -105,7 +124,6 @@ int main( int argc, char **argv )
           } else {
             k += 3;
           }
-
         }
       }
     }

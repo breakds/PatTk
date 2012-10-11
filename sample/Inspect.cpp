@@ -62,17 +62,20 @@ int main( int argc, char **argv )
 
   for ( int i=0; i<graph.rows; i++ ) {
     for ( int j=0; j<graph.cols; j++ ) {
-
+      
+      float transform[6];
+      graph(i,j)[0].GetTransform( transform, i, j );
+      
       // fill index image;
-      uchar b_channel = graph(i,j)[0].index * 10 % 255;
-      uchar g_channel = graph(i,j)[0].index * 10 / 255;
+      uchar b_channel = ( graph(i,j)[0].index % 25 ) * 10;
+      uchar g_channel = ( graph(i,j)[0].index / 25 ) * 10;
       idxImg.at<cv::Vec3b>( i, j )[0] = b_channel;
       idxImg.at<cv::Vec3b>( i, j )[1] = g_channel;
       idxImg.at<cv::Vec3b>( i, j )[2] = 0;
 
       // fill location image;
-      b_channel = static_cast<uchar>( graph(i,j)[0].y / static_cast<double>( graph.rows ) * 255.0 );
-      g_channel = static_cast<uchar>( graph(i,j)[0].x / static_cast<double>( graph.cols ) * 255.0 );
+      b_channel = static_cast<uchar>( transform[4] / static_cast<double>( graph.rows ) * 255.0 );
+      g_channel = static_cast<uchar>( transform[5] / static_cast<double>( graph.cols ) * 255.0 );
       locImg.at<cv::Vec3b>( i, j )[0] = b_channel;
       locImg.at<cv::Vec3b>( i, j )[1] = g_channel;
       locImg.at<cv::Vec3b>( i, j )[2] = 0;
@@ -85,10 +88,9 @@ int main( int argc, char **argv )
       sclImg.at<cv::Vec3b>( i, j )[2] = b_channel;
 
       // fill rotation image;
-      b_channel = static_cast<uchar>( ( sin( graph(i,j)[0].rotation ) + 1.0 ) / 2.0 * 255.0 );
-      g_channel = static_cast<uchar>( ( cos( graph(i,j)[0].rotation ) + 1.0 ) / 2.0 * 255.0 );
+      b_channel = static_cast<uchar>( graph(i,j)[0].rotation / M_PI * 0.5 * 255 );
       rotImg.at<cv::Vec3b>( i, j )[0] = b_channel;
-      rotImg.at<cv::Vec3b>( i, j )[1] = g_channel;
+      rotImg.at<cv::Vec3b>( i, j )[1] = 0;
       rotImg.at<cv::Vec3b>( i, j )[2] = 0;
       
     }

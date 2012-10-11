@@ -145,9 +145,62 @@ namespace PatTk
       coeff[4] = 1.0;
       coeff[5] = 1.0;
     }
+    
+
+    // inline valueType operator()( const valueType *a, const valueType *b,
+    //                              int __attribute__((__unused__)) dim,
+    //                              int direction=-1 )
+    // {
+    //   valueType tmp;
+      
+    //   // [0] = image index
+    //   tmp = ( a[0] > b[0] ) ? ( a[0] - b[0] ) : ( b[0] - a[0] );
+    //   if ( tmp > 1.0 ) return static_cast<valueType>( 150000.0 );
+
+    //   // [1], [2] = dy, dx (rotation representation)
+    //   tmp = ( a[1] > b[1] ) ? ( a[1] - b[1] ) : ( b[1] - a[1] );
+    //   tmp += ( a[2] > b[2] ) ? ( a[2] - b[2] ) : ( b[2] - a[2] );
+    //   if ( tmp > 1.0 ) {
+    //     return static_cast<valueType>( 150000.0 );
+    //   }
+
+      
+    //   // [4],[5] = spatial distance
+    //   // Should be compensated by the rotation (dy,dx)
+    //   // Not that dy = b[1] dx = b[2]
+    //   valueType ay(a[4]), ax(a[5]);
+    //   if ( 0 == direction ) {
+    //     ay -= b[2];
+    //     ax -= b[1];
+    //   } else if ( 1 == direction ) {
+    //     ay += b[1];
+    //     ax -= b[2];
+    //   } else if ( 2 == direction ) {
+    //     ay += b[2];
+    //     ax += b[1];
+    //   } else if ( 3 == direction ) {
+    //     ay -= b[1];
+    //     ax += b[2];
+    //   }
+      
+    //   tmp = ( ay > b[4] ) ? ( ay - b[4] ) : ( b[4] - ay );
+    //   tmp += ( ax > b[5] ) ? ( ax - b[5] ) : ( b[5] - ax );
+    //   if ( tmp > PATCH_SIDE ) {
+    //     return static_cast<valueType>( 150000.0 );
+    //   }
+      
+    //   // [1],[2] = spatial distance
+
+    //   valueType sum = tmp * coeff[4];
+    //   for ( int i=1; i<4; i++ ) {
+    //     sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
+    //   }
+    //   return sum;
+    // }
+
     inline valueType operator()( const valueType *a, const valueType *b,
                                  int __attribute__((__unused__)) dim,
-                                 int direction=-1 )
+                                 int __attribute__((__unused__)) direction=-1 )
     {
       valueType tmp;
       
@@ -158,47 +211,68 @@ namespace PatTk
       // [1], [2] = dy, dx (rotation representation)
       tmp = ( a[1] > b[1] ) ? ( a[1] - b[1] ) : ( b[1] - a[1] );
       tmp += ( a[2] > b[2] ) ? ( a[2] - b[2] ) : ( b[2] - a[2] );
-      if ( tmp > 1.0 ) {
+      if ( tmp > 1.5 ) {
         return static_cast<valueType>( 150000.0 );
       }
 
-      
-      // [4],[5] = spatial distance
-      // Should be compensated by the rotation (dy,dx)
-      // Not that dy = b[1] dx = b[2]
-      valueType ay(a[4]), ax(a[5]);
-      if ( 0 == direction ) {
-        ay -= b[2];
-        ax -= b[1];
-      } else if ( 1 == direction ) {
-        ay += b[1];
-        ax -= b[2];
-      } else if ( 2 == direction ) {
-        ay += b[2];
-        ax += b[1];
-      } else if ( 3 == direction ) {
-        ay -= b[1];
-        ax += b[2];
-      }
-      
-      tmp = ( ay > b[4] ) ? ( ay - b[4] ) : ( b[4] - ay );
-      tmp += ( ax > b[5] ) ? ( ax - b[5] ) : ( b[5] - ax );
-      if ( tmp > PATCH_SIDE ) {
-        return static_cast<valueType>( 150000.0 );
-      }
-      
-      // [1],[2] = spatial distance
+      tmp = 0.0f;
+          
+      tmp += fabsf( b[1] - a[1] ) * coeff[1];
+      tmp += fabsf( b[2] - a[2] ) * coeff[2];
+      tmp += fabsf( b[4] - a[4] ) * coeff[4];
+      tmp += fabsf( b[5] - a[5] ) * coeff[5];
 
-      valueType sum = tmp * coeff[4];
-      for ( int i=1; i<4; i++ ) {
-        sum += ( ( a[i] > b[i] ) ? ( a[i] - b[i] ) : ( b[i] - a[i] ) ) * coeff[i];
-      }
-      return sum;
+      return tmp;
     }
+    
   };
 
 
+  void BuildArrays( float* &D, float* &label, const PatGraph &graph, int candNum )
+  {
+    int tarH = graph.rows;
+    int tarW = graph.cols;
+
+    DeleteToNullWithTestArray( D );
+    D = new float[ tarH * tarW * candNum ];
+    float *Dp = D;
+    for ( int i=0; i<tarH; i++ ) {
+      for ( int j=0; j<tarW; j++ ) {
+        // assume all candidate set is of size K * 2
+        for ( int k=0; k<candNum; k++ ) {
+          *(Dp++) = sqrt( graph(i,j)[k].dist );
+        }      
+      }
+    }
+
+    DeleteToNullWithTestArray( label );
+    label = new float[tarH * tarW * candNum * 6];
+    float *labelp = label;
+    for ( int i=0; i<tarH; i++ ) {
+      for ( int j=0; j<tarW; j++ ) {
+        for ( int k=0; k<candNum; k++ ) {
+          graph(i,j)[k].GetTransform( labelp, i, j );
+          labelp += 6;
+          // *(labelp++) = graph(i,j)[k].index;
+          // *(labelp++) = sin(graph(i,j)[k].rotation);
+          // *(labelp++) = cos(graph(i,j)[k].rotation);
+          // *(labelp++) = graph(i,j)[k].scale;
+          // *(labelp++) = graph(i,j)[k].y;
+          // *(labelp++) = graph(i,j)[k].x;
+        }
+      }
+    }
+  }
+
   
+  // int Enrichment( PatGraph &graph, int* result, int origCandNum )
+  // {
+  //   // Get Enrichment graph
+  //   PatGraph enrichment( graph.rows, graph.cols );
+    
+
+  // }
+
   double UpdateGraph( const std::vector<std::string> &imgList, // filenames for all the images
                     const int tarH, // width of the target
                     const int tarW, // height of the target
@@ -215,7 +289,7 @@ namespace PatTk
     GenConfTemp( targetID, referenceID );
     
     // Call nnmex externally
-    system( "./nnmex PatchMatch.conf" );
+    // system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -248,32 +322,13 @@ namespace PatTk
     
     
     // Prepare data term ( height x width x K );
-    float D[tarH * tarW * candNum ];
-    float *Dp = D;
-    for ( int i=0; i<tarH; i++ ) {
-      for ( int j=0; j<tarW; j++ ) {
-        // assume all candidate set is of size K * 2
-        for ( int k=0; k<candNum; k++ ) {
-          *(Dp++) = sqrt( graph(i,j)[k].dist );
-        }      
-      }
-    }
-
+    float *D = nullptr;
+    
     // Prepare labels term ( height x width x K x dim ) (dim=6)
-    float *label = new float[tarH * tarW * candNum * 6];
-    float *labelp = label;
-    for ( int i=0; i<tarH; i++ ) {
-      for ( int j=0; j<tarW; j++ ) {
-        for ( int k=0; k<candNum; k++ ) {
-          *(labelp++) = graph(i,j)[k].index;
-          *(labelp++) = sin(graph(i,j)[k].rotation);
-          *(labelp++) = cos(graph(i,j)[k].rotation);
-          *(labelp++) = graph(i,j)[k].scale;
-          *(labelp++) = graph(i,j)[k].y;
-          *(labelp++) = graph(i,j)[k].x;
-        }
-      }
-    }
+    float *label = nullptr;
+    BuildArrays( D, label, graph, candNum );
+
+
 
     // Prepare the result array
     int result[area];

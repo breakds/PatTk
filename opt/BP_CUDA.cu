@@ -27,13 +27,139 @@ namespace optimize_cuda
   // This function calculate the distance between vector
   // ( a0, ..., a5 ) and ( b0, ..., b5 )
   // direction should be specified
+
+  // __device__ inline float dist_device( const float a0, const float a1,
+  //                                      const float a2, const float a3,
+  //                                      const float a4, const float a5,
+  //                                      const float b0, const float b1,
+  //                                      const float b2, const float b3,
+  //                                      const float b4, const float b5,
+  //                                      int direction )
+  // {
+  //   float tmp;
+
+  //   // [0] = image index
+  //   tmp = fabsf( b0 - a0 );
+  //   if ( tmp > 0.5 ) return 150000.0;
+
+  //   // [1], [2] = dy, dx (rotation representation)
+  //   tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
+  //   if ( tmp > 1.0 ) {
+  //     return 150000.0;
+  //   }
+
+      
+  //   // [4],[5] = spatial distance
+  //   // Should be compensated by the rotation (dy,dx)
+  //   // Note that dy = b1 dx = b2 by definition
+
+  //   float ay(a4), ax(a5);
+    
+  //   if ( 0 == direction ) {
+  //     ay -= b2;
+  //     ax -= b1;
+  //   } else if ( 1 == direction ) {
+  //     ay += b1;
+  //     ax -= b2;
+  //   } else if ( 2 == direction ) {
+  //     ay += b2;
+  //     ax += b1;
+  //   } else if ( 3 == direction ) {
+  //     ay -= b1;
+  //     ax += b2;
+  //   }
+    
+    
+    
+      
+  //   tmp = fabsf( ay - b4 ) + fabsf( ax - b5 );
+  //   if ( tmp > g_patch_side ) {
+  //     return 150000.0;
+  //   }
+      
+  //   // [1],[2] = spatial distance
+    
+  //   float sum = tmp * g_coeff[4];
+
+  //   sum += fabsf( b1 - a1 ) * g_coeff[1];
+  //   sum += fabsf( b2 - a2 ) * g_coeff[2];
+  //   sum += fabsf( b3 - a3 ) * g_coeff[3];
+
+    
+  //   return sum;
+  // }
+
+  // // The host version of dist_device()
+  // inline float dist_host( const float a0, const float a1,
+  //                         const float a2, const float a3,
+  //                         const float a4, const float a5,
+  //                         const float b0, const float b1,
+  //                         const float b2, const float b3,
+  //                         const float b4, const float b5,
+  //                         int direction )
+  // {
+  //   const float coeff[6] = { 0.0, 30.0, 30.0, 10.0, 1.0, 1.0 };
+  //   float tmp;
+
+  //   // [0] = image index
+  //   tmp = fabsf( b0 - a0 );
+  //   if ( tmp > 1.0 ) return 150000.0;
+
+  //   // [1], [2] = dy, dx (rotation representation)
+  //   tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
+  //   if ( tmp > 1.0 ) {
+  //     return 150000.0;
+  //   }
+
+      
+  //   // [4],[5] = spatial distance
+  //   // Should be compensated by the rotation (dy,dx)
+  //   // Note that dy = b1 dx = b2 by definition
+
+  //   float ay(a4), ax(a5);
+
+  //   if ( 0 == direction ) {
+  //     ay -= b2;
+  //     ax -= b1;
+  //   } else if ( 1 == direction ) {
+  //     ay += b1;
+  //     ax -= b2;
+  //   } else if ( 2 == direction ) {
+  //     ay += b2;
+  //     ax += b1;
+  //   } else if ( 3 == direction ) {
+  //     ay -= b1;
+  //     ax += b2;
+  //   }
+    
+    
+    
+      
+  //   tmp = fabsf( ay - b4 ) + fabsf( ax - b5 );
+  //   if ( tmp > host_patch_side ) {
+  //     return 150000.0;
+  //   }
+      
+  //   // [1],[2] = spatial distance
+    
+  //   float sum = tmp * coeff[4];
+
+  //   sum += fabsf( b1 - a1 ) * coeff[1];
+  //   sum += fabsf( b2 - a2 ) * coeff[2];
+  //   sum += fabsf( b3 - a3 ) * coeff[3];
+
+    
+  //   return sum;
+  // }
+
+
+
   __device__ inline float dist_device( const float a0, const float a1,
                                        const float a2, const float a3,
                                        const float a4, const float a5,
                                        const float b0, const float b1,
                                        const float b2, const float b3,
-                                       const float b4, const float b5,
-                                       int direction )
+                                       const float b4, const float b5 )
   {
     float tmp;
 
@@ -41,51 +167,19 @@ namespace optimize_cuda
     tmp = fabsf( b0 - a0 );
     if ( tmp > 0.5 ) return 150000.0;
 
-    // [1], [2] = dy, dx (rotation representation)
     tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
-    if ( tmp > 1.0 ) {
+    if ( tmp > 1.5 ) {
       return 150000.0;
     }
 
-      
-    // [4],[5] = spatial distance
-    // Should be compensated by the rotation (dy,dx)
-    // Note that dy = b1 dx = b2 by definition
+    tmp = 0.0f;
+    
+    tmp += fabsf( b1 - a1 ) * g_coeff[1];
+    tmp += fabsf( b2 - a2 ) * g_coeff[2];
+    tmp += fabsf( b4 - a4 ) * g_coeff[4];
+    tmp += fabsf( b5 - a5 ) * g_coeff[5];
 
-    float ay(a4), ax(a5);
-
-    if ( 0 == direction ) {
-      ay -= b2;
-      ax -= b1;
-    } else if ( 1 == direction ) {
-      ay += b1;
-      ax -= b2;
-    } else if ( 2 == direction ) {
-      ay += b2;
-      ax += b1;
-    } else if ( 3 == direction ) {
-      ay -= b1;
-      ax += b2;
-    }
-    
-    
-    
-      
-    tmp = fabsf( ay - b4 ) + fabsf( ax - b5 );
-    if ( tmp > g_patch_side ) {
-      return 150000.0;
-    }
-      
-    // [1],[2] = spatial distance
-    
-    float sum = tmp * g_coeff[4];
-
-    sum += fabsf( b1 - a1 ) * g_coeff[1];
-    sum += fabsf( b2 - a2 ) * g_coeff[2];
-    sum += fabsf( b3 - a3 ) * g_coeff[3];
-
-    
-    return sum;
+    return tmp;
   }
 
   // The host version of dist_device()
@@ -94,8 +188,7 @@ namespace optimize_cuda
                           const float a4, const float a5,
                           const float b0, const float b1,
                           const float b2, const float b3,
-                          const float b4, const float b5,
-                          int direction )
+                          const float b4, const float b5 )
   {
     const float coeff[6] = { 0.0, 30.0, 30.0, 10.0, 1.0, 1.0 };
     float tmp;
@@ -104,52 +197,21 @@ namespace optimize_cuda
     tmp = fabsf( b0 - a0 );
     if ( tmp > 1.0 ) return 150000.0;
 
-    // [1], [2] = dy, dx (rotation representation)
     tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
-    if ( tmp > 1.0 ) {
+    if ( tmp > 1.5 ) {
       return 150000.0;
     }
 
-      
-    // [4],[5] = spatial distance
-    // Should be compensated by the rotation (dy,dx)
-    // Note that dy = b1 dx = b2 by definition
+    tmp = 0.0f;
+    
+    tmp += fabsf( b1 - a1 ) * coeff[1];
+    tmp += fabsf( b2 - a2 ) * coeff[2];
+    tmp += fabsf( b4 - a4 ) * coeff[4];
+    tmp += fabsf( b5 - b5 ) * coeff[5];
 
-    float ay(a4), ax(a5);
-
-    if ( 0 == direction ) {
-      ay -= b2;
-      ax -= b1;
-    } else if ( 1 == direction ) {
-      ay += b1;
-      ax -= b2;
-    } else if ( 2 == direction ) {
-      ay += b2;
-      ax += b1;
-    } else if ( 3 == direction ) {
-      ay -= b1;
-      ax += b2;
-    }
-    
-    
-    
-      
-    tmp = fabsf( ay - b4 ) + fabsf( ax - b5 );
-    if ( tmp > host_patch_side ) {
-      return 150000.0;
-    }
-      
-    // [1],[2] = spatial distance
-    
-    float sum = tmp * coeff[4];
-
-    sum += fabsf( b1 - a1 ) * coeff[1];
-    sum += fabsf( b2 - a2 ) * coeff[2];
-    sum += fabsf( b3 - a3 ) * coeff[3];
-
-    
-    return sum;
+    return tmp;
   }
+
   
 
   // normalize messages of a node (pixel) with the same direction (sum to 0)
@@ -229,8 +291,7 @@ namespace optimize_cuda
           const float *lp0 = labelp + result[i] * dim;
           const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
           energy += dist_host( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
-                               lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
-                               d ) * lambda;
+                               lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5] ) * lambda;
         }
         
 
@@ -240,8 +301,7 @@ namespace optimize_cuda
           const float *lp0 = labelp + result[i] * dim;
           const float *lp1 = labelp + incDim[d] + result[i+inc[d]] * dim;
           energy += dist_host( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
-                               lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
-                               d ) * lambda;
+                               lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5] ) * lambda;
         }
 
         i++;
@@ -348,8 +408,7 @@ namespace optimize_cuda
       float *lp1 = label + ( ( pixel + g_inc[dir] ) * K + threadIdx.z ) * dim;
       
       distance[idx] = dist_device( lp0[0], lp0[1], lp0[2], lp0[3], lp0[4], lp0[5],
-                                   lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5],
-                                   dir );
+                                   lp1[0], lp1[1], lp1[2], lp1[3], lp1[4], lp1[5] );
     }
   }
 

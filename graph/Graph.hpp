@@ -10,9 +10,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include "LLPack/utils/extio.hpp"
+#include "LLPack/utils/Environment.hpp"
 
-
-
+using namespace EnvironmentVariable;
 
 namespace PatTk
 {
@@ -22,6 +22,7 @@ namespace PatTk
     int y;
     int x;
     float scale, rotation, dist;
+
     PatLoc( int index_, int y_, int x_, float scale_, float rotation_, float dist_ )
       : index(index_), y(y_), x(x_), scale(scale_), rotation(rotation_), dist(dist_) {}
 
@@ -31,6 +32,30 @@ namespace PatTk
     }
 
     PatLoc() : index(0), y(0), x(0), scale(0), rotation(0), dist(0) {}
+
+    inline void GetTransform( float *transform, int i, int j ) const
+    {
+      static int radius = env["patch-w"] >> 1;
+      double cosa = cos( -rotation ) * scale;
+      double sina = sin( -rotation ) * scale;
+
+      // the top-left corner of the target patch
+      double y1 = radius * ( - cosa - sina + 1 ) + y;
+      double x1 = radius * ( sina - cosa + 1 ) + x;
+
+      /*
+       * | S*cosa   S*sina   dy  |    | i |    | y1 |
+       * | -S*sina  S*cosa   dx  | x  | j | =  | x1 |
+       * |   0        0      1   |    | 1 |    |  1 |
+       */
+      
+      transform[0] = static_cast<float>( index ); // index
+      transform[1] = sina * scale;
+      transform[2] = cosa * scale;
+      transform[3] = scale;
+      transform[4] = y1 - i * scale * cosa - j * scale * sina; // dy
+      transform[5] = x1 + i * scale * sina - j * scale * cosa; // dx
+    }
     
 
     inline void write( FILE *out ) const
