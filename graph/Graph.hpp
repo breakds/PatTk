@@ -11,6 +11,7 @@
 #include <cmath>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/Environment.hpp"
+#include "../interfaces/cv_interface.hpp"
 
 using namespace EnvironmentVariable;
 
@@ -33,11 +34,24 @@ namespace PatTk
 
     PatLoc() : index(0), y(0), x(0), scale(0), rotation(0), dist(0) {}
 
+    // constructor with shift
+    PatLoc( const PatLoc& loc, int dy, int dx )
+      : index(loc.index), scale(loc.scale), rotation(loc.rotation)
+    {
+      double S = 1.0 / scale;
+      double cosa = cos( -rotation ) * S;
+      double sina = sin( -rotation ) * S;
+      y = loc.y + dy * cosa + dx * sina;
+      x = loc.x - dy * sina + dx * cosa;
+    }
+
     inline void GetTransform( float *transform, int i, int j ) const
     {
       static int radius = env["patch-w"] >> 1;
-      double cosa = cos( -rotation ) * scale;
-      double sina = sin( -rotation ) * scale;
+      double S = 1.0 / scale;
+
+      double cosa = cos( -rotation ) * S;
+      double sina = sin( -rotation ) * S;
 
       // the top-left corner of the target patch
       double y1 = radius * ( - cosa - sina + 1 ) + y;
@@ -50,12 +64,40 @@ namespace PatTk
        */
       
       transform[0] = static_cast<float>( index ); // index
-      transform[1] = sina * scale;
-      transform[2] = cosa * scale;
+      transform[1] = sina * S;
+      transform[2] = cosa * S;
       transform[3] = scale;
-      transform[4] = y1 - i * scale * cosa - j * scale * sina; // dy
-      transform[5] = x1 + i * scale * sina - j * scale * cosa; // dx
+      transform[4] = y1 - i * S * cosa - j * S * sina; // dy
+      transform[5] = x1 + i * S * sina - j * S * cosa; // dx
     }
+
+
+    inline Image<BGRCell,int,false>::Patch toPatch( const Album<BGRCell, int, false> &album ) const
+    {
+
+      // cv::Mat raw = cv::imread( strf( "%s/%s_L.png", env["dataset"].c_str(),
+      //                                 imgList[index].c_str() ) );
+      // if ( raw.empty() ) {
+      //   Error( "cannot open image %s/%s.png", env["dataset"].c_str(),
+      //          imgList[index].c_str() );
+      //   exit( -1 );
+      // }
+      
+      //      Image<BGRCell, int, false > img = std::move( cvFeatGen<BGRCell, int, false>::gen( raw ) );
+
+      static int radius = env["patch-w"] >> 1;
+      
+  
+      double ang = - rotation;
+      double cosa = cos( ang ) * scale;
+      double sina = sin( ang ) * scale;
+  
+      double y1 = ( -radius * cosa - radius * sina + ( y + radius ) );
+      double x1 = ( radius * sina - radius * cosa + ( x + radius ) );
+
+      return album(index).Spawn( y1, x1, 1.0 / scale, ang / M_PI * 180.0 );
+    }
+
     
 
     inline void write( FILE *out ) const

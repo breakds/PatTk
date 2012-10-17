@@ -142,15 +142,19 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 # TARGET_LINK_LIBRARIES(Stitching OPENCV)
 
 # Graph Builder
-ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
-TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
+# ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
+# TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
+
+# Region Matching
+# ADD_EXECUTABLE(Region sample/Region.cpp)
+# TARGET_LINK_LIBRARIES(Region ${OPENCV})
 
 # Stitching Result
 ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
 TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
 
 # Validation of Spatial Consistency
-ADD_EXECUTABLE(Inspect sample/Inspect.cpp)
-TARGET_LINK_LIBRARIES(Inspect ${OPENCV})
+# ADD_EXECUTABLE(Inspect sample/Inspect.cpp)
+# TARGET_LINK_LIBRARIES(Inspect ${OPENCV})
 
 

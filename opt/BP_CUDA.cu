@@ -165,11 +165,11 @@ namespace optimize_cuda
 
     // [0] = image index
     tmp = fabsf( b0 - a0 );
-    if ( tmp > 0.5 ) return 150000.0;
+    if ( tmp > 0.5 ) return 500.0;
 
     tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
     if ( tmp > 1.5 ) {
-      return 150000.0;
+      return 500.0;
     }
 
     tmp = 0.0f;
@@ -195,11 +195,11 @@ namespace optimize_cuda
 
     // [0] = image index
     tmp = fabsf( b0 - a0 );
-    if ( tmp > 1.0 ) return 150000.0;
+    if ( tmp > 1.0 ) return 500.0;
 
     tmp = fabsf( a1 - b1 ) + fabsf( a2 - b2  );
     if ( tmp > 1.5 ) {
-      return 150000.0;
+      return 500.0;
     }
 
     tmp = 0.0f;
@@ -364,8 +364,7 @@ namespace optimize_cuda
         __syncthreads();
 
         float min = distance[ ( k * 4 + dir ) * area  + i ] * lambda + h[ threadIdx.x ];
-
-
+        
         for ( int k0=1; k0<K; k0++ ) {
           __syncthreads();
           float value = distance[ ( ( k0 * K + k ) * 4 + dir ) * area  + i ] * lambda +

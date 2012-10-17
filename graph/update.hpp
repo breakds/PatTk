@@ -228,8 +228,12 @@ namespace PatTk
   };
 
 
-  void BuildArrays( float* &D, float* &label, const PatGraph &graph, int candNum )
+  void BuildArrays( float* &D, float* &label, const PatGraph &graph, int candNum,
+                    const Album<BGRCell,int,false> &album, const int targetID ) 
   {
+
+    const Image<BGRCell,int,false> &img = album(targetID);
+
     int tarH = graph.rows;
     int tarW = graph.cols;
 
@@ -238,6 +242,7 @@ namespace PatTk
     float *Dp = D;
     for ( int i=0; i<tarH; i++ ) {
       for ( int j=0; j<tarW; j++ ) {
+        Image<BGRCell,int,false>::Patch p0 = img.Spawn( i, j, 1.0, 0.0 );
         // assume all candidate set is of size K * 2
         for ( int k=0; k<candNum; k++ ) {
           *(Dp++) = sqrt( graph(i,j)[k].dist );
@@ -265,31 +270,85 @@ namespace PatTk
   }
 
   
-  // int Enrichment( PatGraph &graph, int* result, int origCandNum )
-  // {
-  //   // Get Enrichment graph
-  //   PatGraph enrichment( graph.rows, graph.cols );
+  int Enrichment( PatGraph &graph, int* result, int origCandNum,
+                  const Album<BGRCell,int,false> &album, const int targetID ) 
+  {
+    static const int num = 5;
+    static const int di[5] = { -1, 0, 1, 0, 0 };
+    static const int dj[5] = { 0, -1, 0, 1, 0 };
+    const Image<BGRCell,int,false> &img = album(targetID);
+
+
+    Info( "Enrichment started ..." );
+    // Construct Enrichment graph
+    PatGraph enrichment( graph.rows, graph.cols );
+    int k = -1;
+    for ( int i=0; i<graph.rows; i++ ) {
+      for ( int j=0; j<graph.cols; j++ ) {
+        k++;
+        for ( int dir=0; dir<5; dir++ ) {
+          int i1 = i + di[dir];
+          int j1 = j + dj[dir];
+          if ( i1 < 0 || i1 >= graph.rows ||
+               j1 < 0 || j1 >= graph.cols ) {
+            continue;
+          }
+          int d = i1 * graph.cols + j1;
+          enrichment[d].push_back( PatLoc( graph(k)[result[k]], di[dir], dj[dir] ) );
+          // calculate distance
+          int sum = 0;
+          int tmp = 0;
+          auto p0 = img.Spawn( i1, j1, 1.0, 0.0 );
+          auto p1 = enrichment(d).back().toPatch( album );
+          for ( int c=0, end=p0.dim(); c<end; c++ ) {
+            tmp = p1[c] - p0[c];
+            sum += tmp * tmp;
+          }
+          enrichment[d].back().dist = static_cast<float>( sum );
+        }
+      }
+    }
     
 
-  // }
+    for ( int i=0; i<graph.rows*graph.cols; i++ ) {
+      // fill and compensation
+      graph[i].resize( num + origCandNum );
+      for ( int k=0; k<num; k++ ) {
+        if ( k < static_cast<int>( enrichment[i].size() ) ) {
+          graph[i][k+origCandNum] = enrichment[i][k];
+        } else {
+          graph[i][k+origCandNum] = enrichment[i].back();
+        }
+      }
+    }
+
+    Done( "Enrichment" );
+
+    return (num+origCandNum);
+  }
 
   double UpdateGraph( const std::vector<std::string> &imgList, // filenames for all the images
-                    const int tarH, // width of the target
-                    const int tarW, // height of the target
-                    const int targetID, // image id of the target
-                    const int referenceID ) // image id of the reference
+                      const Album<BGRCell,int,false> &album,
+                      const int tarH, // width of the target
+                      const int tarW, // height of the target
+                      const int targetID, // image id of the target
+                      const int referenceID ) // image id of the reference
   {
+
     // Constants
     static const float lambda = 2.00;
-    static const int K = env["graph-degree"];
+    static const int K = env["gen"];
+    static const int num = 5;
     int area = tarH * tarW;
+
+
     
     // Generate the configuration file
     // GenConfDefault( env["directory"], imgList[targetID], imgList[referenceID] );
     GenConfTemp( targetID, referenceID );
     
     // Call nnmex externally
-    // system( "./nnmex PatchMatch.conf" );
+    system( "./nnmex PatchMatch.conf" );
     
     
     // New Graph:
@@ -306,7 +365,7 @@ namespace PatTk
     int candNum = K;
     if ( probeFile(oldpath) ) {
       graphOld = std::move( PatGraph(oldpath) );
-      candNum = K << 1;
+      candNum = K + env["keep"];
     };
     
 
@@ -318,7 +377,7 @@ namespace PatTk
 
 
 
-
+    
     
     
     // Prepare data term ( height x width x K );
@@ -326,45 +385,56 @@ namespace PatTk
     
     // Prepare labels term ( height x width x K x dim ) (dim=6)
     float *label = nullptr;
-    BuildArrays( D, label, graph, candNum );
-
-
 
     // Prepare the result array
     int result[area];
 
-
-    printf( "candNum = %d\n", candNum );
-
-
-
-
-#ifndef ENABLE_CUDA
-    // Loopy BP
-    optimize::Options options;
-    options.maxIter = 10;
-    options.numHypo = 3;
-    options.verbose = 0;
-
-    timer::tic();
-    float *msg = new float[tarH*tarW*candNum*4];
-    double energy = optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
-                                                                    tarH, tarW, candNum, 6,
-                                                                    result, options, msg );
-    printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+    // Prepare the message array
+    float *msg = new float[tarH*tarW*(candNum+num)*4];
     
-#else
-    // Loopy BP Cuda Version
-    optimize_cuda::Options options;
-    options.maxIter = 10;
-    options.verbose = 0;
-    options.lambda = lambda;
+    int enrichIter = env["enrich-iter"];
 
-    timer::tic();
-    float *msg = new float[tarH&tarW*candNum*4];
-    double energy = optimize_cuda::LoopyBP( D, label, tarH, tarW, candNum, 6, result, options, msg );
-    printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+    memset( result, 0, sizeof(int) * area );
+    int labelNum = candNum;
+
+    double energy = 0.0;
+
+    for ( int iter=0; iter<enrichIter; iter++ ) {
+
+      BuildArrays( D, label, graph, labelNum, album, targetID );
+
+      printf( "candNum = %d\n", labelNum );
+
+      printf( "Shell Iteration %d:\n", iter );
+#ifndef ENABLE_CUDA
+      // Loopy BP
+      optimize::Options options;
+      options.maxIter = 10;
+      options.numHypo = 3;
+      options.verbose = 0;
+
+      timer::tic();
+
+      energy = optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
+                                                                      tarH, tarW, labelNum, 6,
+                                                                      result, options, msg );
+      printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
+#else
+      // Loopy BP Cuda Version
+      optimize_cuda::Options options;
+      options.maxIter = 10;
+      options.verbose = 0;
+      options.lambda = lambda;
+
+      timer::tic();
+
+      energy = optimize_cuda::LoopyBP( D, label, tarH, tarW, labelNum, 6, result, options, msg );
+      printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
 #endif
+      if ( iter < enrichIter - 1 ) { 
+        labelNum = Enrichment( graph, result, candNum, album, targetID );
+      }
+    }
     
 
     // Save Optimization Result
@@ -377,7 +447,7 @@ namespace PatTk
     
 
     // eliminate the bottom candidates
-    int keep = 5;
+    int keep = env["keep"];
     for ( int i=0; i<area; i++ ) {
       heap<float,int> ranker( keep );
       for ( int k=0; k<candNum; k++ ) {

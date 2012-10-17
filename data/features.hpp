@@ -20,7 +20,7 @@ namespace PatTk
   class HistCell : public AbstractCell<dataType>
   {
   public:
-    static const bool RotationSensitive = false;
+    static const int RotationSensitive = 0;
   private:
     vector<dataType> h;
   public:
@@ -157,7 +157,7 @@ namespace PatTk
   class HoGCell : public HistCell<unsigned char>
   {
   public:
-    static const int RotationSensitive = true;
+    static const int RotationSensitive = 1;
 
     static inline unsigned char resample( const unsigned char a, const unsigned char b, const double ratio )
     {
@@ -171,7 +171,7 @@ namespace PatTk
   class SingleCell : public AbstractCell<dataType>
   {
   public:
-    static const bool RotationSensitive = false;
+    static const int RotationSensitive = 0;
   private:
     dataType d;
   public:
@@ -240,7 +240,7 @@ namespace PatTk
   class LabCell : public AbstractCell<unsigned char>
   {
   public:
-    static const bool RotationSensitive = false;
+    static const int RotationSensitive = 0;
   private:
     unsigned char lab[3];
   public:
@@ -305,7 +305,7 @@ namespace PatTk
   class BGRCell : public AbstractCell<unsigned char>
   {
   public:
-    static const bool RotationSensitive = false;
+    static const int RotationSensitive = 0;
   private:
     unsigned char bgr[3];
   public:
@@ -362,6 +362,64 @@ namespace PatTk
     {
       assert( index < length );
       return bgr[index];
+    }
+  };
+
+  class GradCell : public AbstractCell<float>
+  {
+  public:
+    static const int RotationSensitive = 2;
+  private:
+    float grad[2]; // 0 for y and 1 for x
+  public:
+    GradCell() : AbstractCell(2) {}
+    GradCell( const float grady, const float gradx ) : AbstractCell(2)
+    {
+      grad[0] = grady;
+      grad[1] = gradx;
+    }
+
+    // copy constructor
+    GradCell( const GradCell& other ) : AbstractCell(2)
+    {
+      grad[0] = other.grad[0];
+      grad[1] = other.grad[1];
+    }
+
+    // move constructor
+    GradCell( GradCell&& other ) : AbstractCell(2)
+    {
+      grad[0] = other.grad[0];
+      grad[1] = other.grad[1];
+    }
+
+    // move assignment
+    const GradCell& operator=( GradCell&& other )
+    {
+      grad[0] = other.grad[0];
+      grad[1] = other.grad[1];
+      return (*this);
+    }
+    
+    // copy assignment
+    const GradCell& operator=( GradCell& other )
+    {
+      grad[0] = other.grad[0];
+      grad[1] = other.grad[1];
+      return (*this);
+    }
+
+    
+    inline float& operator[]( const int index )
+    {
+      assert( index < length );
+      return grad[index];
+    }
+
+    inline const float& operator()( const int index ) const
+    {
+      assert( index < length );
+      return grad[index];
     }
   };
 

@@ -88,7 +88,7 @@ namespace PatTk
     typedef dataType type;
 
 
-    static const bool RotationSensitive = false;
+    static const int RotationSensitive = 0;
     
 
     // The length of content in the cell
@@ -634,12 +634,12 @@ namespace PatTk
       return m_cels[pos+patmask.cellShift[index]](patmask.inCellShift[index]);
     }
 
-    template <bool T>
+    template <int T>
     inline const typename cellType::type GetPatchComponent( double y, double x,
                                                             double __attribute__((__unused__)) rotation,
                                                             double horiz_y,
                                                             double horiz_x, int index,
-                                                            typename std::enable_if<!T>::type
+                                                            typename std::enable_if<T==0>::type
                                                             __attribute__((__unused__)) *padding=0 ) const
     {
       return Interpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
@@ -647,10 +647,31 @@ namespace PatTk
                           patmask.inCellShift[index] );
     }
 
-    template <bool T>
+
+    template <int T>
+    inline const typename cellType::type GetPatchComponent( double y, double x,
+                                                            double __attribute__((__unused__)) rotation,
+                                                            double horiz_y,
+                                                            double horiz_x, int index,
+                                                            typename std::enable_if<T==2>::type
+                                                            __attribute__((__unused__)) *padding=0 ) const
+    {
+      typename cellType::type tmp =
+        Interpolate( y + patmask.y_offset[index] * vertical_y + patmask.x_offset[index] * horiz_y,
+                     x + patmask.y_offset[index] * vertical_x + patmask.x_offset[index] * horiz_x,
+                     patmask.inCellShift[index] );
+      auto dy = tmp[0];
+      auto dx = tmp[1];
+      tmp[0] = dy * vertical_y + dx * horiz_y;
+      tmp[1] = dy * vertical_x + dx * horiz_x;
+      return tmp;
+    }
+
+    
+    template <int T>
     inline const typename cellType::type GetPatchComponent( double y, double x, double rotation, double horiz_y,
                                                             double horiz_x, int index,
-                                                            typename std::enable_if<T>::type
+                                                            typename std::enable_if<T==1>::type
                                                             __attribute__((__unused__)) *padding=0 ) const
     {
       static const double ang_unit = 1.0 / 180.0;
@@ -669,16 +690,16 @@ namespace PatTk
       pos1 += base;
       
       typename cellType::type a = Interpolate( y + patmask.y_offset[pos0] * vertical_y +
-                                              patmask.x_offset[pos0] * horiz_y,
-                                              x + patmask.y_offset[pos0] * vertical_x +
-                                              patmask.x_offset[pos0] * horiz_x,
-                                              patmask.inCellShift[pos0] );
+                                               patmask.x_offset[pos0] * horiz_y,
+                                               x + patmask.y_offset[pos0] * vertical_x +
+                                               patmask.x_offset[pos0] * horiz_x,
+                                               patmask.inCellShift[pos0] );
 
       typename cellType::type b = Interpolate( y + patmask.y_offset[pos1] * vertical_y +
-                                              patmask.x_offset[pos1] * horiz_y,
-                                              x + patmask.y_offset[pos1] * vertical_x +
-                                              patmask.x_offset[pos1] * horiz_x,
-                                              patmask.inCellShift[pos1] );
+                                               patmask.x_offset[pos1] * horiz_y,
+                                               x + patmask.y_offset[pos1] * vertical_x +
+                                               patmask.x_offset[pos1] * horiz_x,
+                                               patmask.inCellShift[pos1] );
 
       return static_cast<typename cellType::type>( a * ( 1.0 - ratio ) + b * ratio );
     }

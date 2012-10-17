@@ -140,6 +140,42 @@ namespace PatTk
     }
   };
 
+    // HoGCell Specialization
+  template <typename valueType, bool lite>
+  class cvFeatGen<GradCell, valueType, lite>
+  {
+  public:
+    static Image<GradCell, valueType, lite> gen( const cv::Mat& raw )
+    {
+      cv::Mat src, gray;
+      cv::GaussianBlur( raw, src, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
+      cv::cvtColor( src, gray, CV_BGR2GRAY );
+
+      cv::Mat gradx, grady;
+      cv::Sobel( gray, gradx, CV_32F, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT );
+      cv::Sobel( gray, grady, CV_32F, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT );
+      
+      cv::Mat_<float>::iterator itGradx = gradx.begin<float>();
+      cv::Mat_<float>::iterator itGrady = grady.begin<float>();
+      cv::Mat_<float>::iterator itEnd = gradx.end<float>();
+
+      Image<GradCell, valueType, lite> img( raw.rows, raw.cols );
+            
+
+      uint i = 0;
+      for ( ; itGradx != itEnd; itGradx++, itGrady++ ){
+
+        double dx = static_cast<double>( *itGradx );
+        double dy = static_cast<double>( *itGrady );
+
+        img[i++] = new GradCell( *itGrady, *itGradx );
+      }
+
+      return img;
+    }
+  };
+
+
   // +-------------------------------------------------------------------------------
   // |  Album<cellType, typename valueType> Generators
   // +-------------------------------------------------------------------------------
@@ -463,6 +499,78 @@ namespace PatTk
 
 
 
+
+  class ImageViewer
+  {
+  private:
+    std::string wndName;
+    cv::Mat image;
+    int align;
+    std::function<void(int,int)> callback;
+  public:
+    static const int CENTER = 0;
+    static const int TOPLEFT = 1;
+    
+    ImageViewer( std::string wnd, cv::Mat img ) : align(CENTER)
+    {
+      wndName = wnd;
+      image = img.clone();
+      cv::imshow( wndName, image );
+      cv::setMouseCallback( wndName, MouseCallback, this );
+      callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
+    }
+
+    ImageViewer( std::string wnd, int index, std::vector<std::string> &imgList )
+      : align(CENTER) // index = image index in Dataset
+    {
+      wndName = wnd;
+      image = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[index].c_str() ) );
+      display( -1, -1 );
+      callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
+    }
+
+    
+    void display( int x, int y )
+    {
+      static const int radius = env["patch-w"] >> 1;
+      cv::Mat canvas = image.clone();
+      cv::imshow( wndName, canvas );
+      if ( -1 != x ) {
+        if ( CENTER == align ) {
+          rectangle( canvas,
+                     cv::Point( x-radius, y-radius ),
+                     cv::Point( x+radius, y+radius ),
+                     cv::Scalar( 0, 255, 0 ) ) ;
+        } else if ( TOPLEFT == align ) {
+          rectangle( canvas,
+                     cv::Point( x-radius, y-radius ),
+                     cv::Point( x+radius, y+radius ),
+                     cv::Scalar( 0, 255, 0 ) ) ;
+        }
+      }
+      cv::imshow( wndName, canvas );
+      cv::setMouseCallback( wndName, MouseCallback, this );
+    }
+
+    void chImg( const int index, const std::vector<std::string> &imgList )
+    {
+      image = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[index].c_str() ) );
+      display( -1, -1 );
+    }
+
+    void setCallback( std::function<void(int,int)> cb ) {
+      callback = cb;
+    }
+
+    static void MouseCallback( int event, int x, int y, int __attribute__((__unused__)) flags, void *param )
+    {
+      if ( event == CV_EVENT_LBUTTONDOWN ) {
+        ImageViewer *viewer = (ImageViewer*) param;
+        viewer->display( x, y );
+        viewer->callback( x, y );
+      }
+    }
+  };
 
 
 
