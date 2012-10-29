@@ -348,14 +348,10 @@ namespace PatTk
     GenConfTemp( targetID, referenceID );
     
     // Call nnmex externally
-    system( "./nnmex PatchMatch.conf" );
+    // system( "./nnmex PatchMatch.conf" );
     
     
-    // New Graph:
-    // PatGraph graph = std::move( GetMapping( strf( "%s/mapping.txt", env["directory"].c_str() ), 
-    // tarH, tarW, referenceID ) );
-    
-    string mappingPath = "./mapping.dat";
+    string mappingPath = "./clustered.dat";
     PatGraph graph( mappingPath );
     
       

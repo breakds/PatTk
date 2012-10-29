@@ -1,4 +1,3 @@
-
 # created from template OpenCV included c++ project
 #   by BreakDS 
 #   Mar 23 2012 @ Univeristy of Wisconsin-Madison
@@ -41,11 +40,39 @@ if ("${HOSTNAME}" MATCHES "emperor.cs.wisc.edu")
     IMPORTED_LOCATION "/scratch/usr/local/lib/libopencv_objdetect.so" )
   set(OPENCV "OPENCV")
 
-  # CUDA SDK 4.2
-  set(CUDA_TOOLKIT_ROOT_DIR "/s/cuda-4.2.9/") # Force it to search for CUDA 4.2.9
-  find_package("CUDA" 4.2 REQUIRED)
+  # CUDA SDK 5.0
+  set(CUDA_TOOLKIT_ROOT_DIR "/s/cuda-5.0.35/") # Force it to search for CUDA 4.2.9
+  find_package("CUDA" 5.0 REQUIRED)
   set(CUDA_NVCC_FLAGS "-arch=sm_20")
 endif ("${HOSTNAME}" MATCHES "emperor.cs.wisc.edu")
+
+
+# ================================================================================
+# Include Directory Structure for breakds@beggar
+if ("${HOSTNAME}" MATCHES "beggar.cs.wisc.edu")
+  include_directories(
+    "/scratch/usr/local/include"
+    "~/pf/projects"
+    "/scratch/opt/include"
+    ".")
+  # OpenCV Library
+  add_library( OPENCV SHARED IMPORTED)
+  set_property( TARGET OPENCV PROPERTY
+    IMPORTED_LOCATION "/scratch/opt/lib/libopencv_core.so" )
+  set_property( TARGET OPENCV PROPERTY
+    IMPORTED_LOCATION "/scratch/opt/lib/libopencv_highgui.so" )
+  set_property( TARGET OPENCV PROPERTY
+    IMPORTED_LOCATION "/scratch/opt/lib/libopencv_features2d.so" )
+  set_property( TARGET OPENCV PROPERTY
+    IMPORTED_LOCATION "/scratch/opt/lib/libopencv_objdetect.so" )
+  set(OPENCV "OPENCV")
+
+  # CUDA SDK 5.0
+  set(CUDA_TOOLKIT_ROOT_DIR "/s/cuda-5.0.35/") # Force it to search for CUDA 4.2.9
+  find_package("CUDA" 5.0 REQUIRED)
+  set(CUDA_NVCC_FLAGS "-arch=sm_30")
+endif ("${HOSTNAME}" MATCHES "beggar.cs.wisc.edu")
+
 
 
 
@@ -142,19 +169,31 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 # TARGET_LINK_LIBRARIES(Stitching OPENCV)
 
 # Graph Builder
-# ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
-# TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
+ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
+TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
 
 # Region Matching
-# ADD_EXECUTABLE(Region sample/Region.cpp)
-# TARGET_LINK_LIBRARIES(Region ${OPENCV})
+ADD_EXECUTABLE(Region sample/Region.cpp)
+TARGET_LINK_LIBRARIES(Region ${OPENCV})
 
 # Stitching Result
-ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
-TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
+# ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
+# TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
 
 # Validation of Spatial Consistency
 # ADD_EXECUTABLE(Inspect sample/Inspect.cpp)
 # TARGET_LINK_LIBRARIES(Inspect ${OPENCV})
+
+# Experiment on clustering idea
+# ADD_EXECUTABLE(Clustering experiment/Clustering.cpp)
+# TARGET_LINK_LIBRARIES(Clustering ${OPENCV})
+
+# Experiment on the global clustering idea
+ADD_EXECUTABLE(Global experiment/GlobalClustering.cpp)
+TARGET_LINK_LIBRARIES(Global ${OPENCV})
+
+# Experiment on clustering idea
+ADD_EXECUTABLE(nearest experiment/nearest.cpp)
+TARGET_LINK_LIBRARIES(nearest ${OPENCV})
 
 

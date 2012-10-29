@@ -46,7 +46,6 @@ int main( int argc, char **argv )
   std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
                                                                  env["list-file"].c_str() ) ) );
 
-
   for ( int graphID=0; graphID<env["graphs"].size(); graphID++ ) {
     
     PatGraph graph( strf( "%s/%s", env["graph-folder"].c_str(), env["graphs"][graphID].c_str() ) );
@@ -62,7 +61,7 @@ int main( int argc, char **argv )
         }
       }
     }
-  
+
 
     vector<int> imageIDs;
     imageIDs.resize( graph.rows * graph.cols );
@@ -73,11 +72,14 @@ int main( int argc, char **argv )
 
     
 
-
     vector< list<int> > indexed( imgList.size() );
     for ( int i=0; i<graph.rows * graph.cols; i++ ) {
+      // debugging
+      printf( "(%d,%d): %d\n", i / graph.cols, i % graph.cols, graph(i)[0].index );
       indexed[graph(i)[0].index].push_back( i );
     }
+
+
 
     vector<int> sorted( graph.cols * graph.rows, 0 );
 
@@ -89,9 +91,13 @@ int main( int argc, char **argv )
     
     
 
+    
+
+
 
     Image<BGRCell, int, false> image;
-  
+
+    
     int currentImgID = -1;
     for ( auto& i : sorted ) {
       int y = i / graph.cols;
@@ -124,8 +130,13 @@ int main( int argc, char **argv )
           if ( y + dy < graph.rows && x + dx < graph.cols ) {
             counts[y+dy][x+dx]++;
             for ( int ch=0; ch<3; ch++ ) {
-              values[y+dy][x+dx][ch] += candPatch[k];
-              k++;
+              try {
+                values[y+dy][x+dx][ch] += candPatch[k];
+                k++;
+              } catch ( char * str ) {
+                Error( "%s", str );
+                Error( "(%d,%d)", graph(i)[0].y, graph(i)[0].x );
+              }
             }
           } else {
             k += 3;

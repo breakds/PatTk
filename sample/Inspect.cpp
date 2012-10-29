@@ -66,6 +66,7 @@ int main( int argc, char **argv )
     for ( int j=0; j<graph.cols; j++ ) {
       
       float transform[6];
+
       graph(i,j)[0].GetTransform( transform, i, j );
       
       // fill index image;
@@ -76,8 +77,10 @@ int main( int argc, char **argv )
       idxImg.at<cv::Vec3b>( i, j )[2] = 0;
 
       // fill location image;
-      b_channel = static_cast<uchar>( transform[4] / static_cast<double>( graph.rows ) * 255.0 );
-      g_channel = static_cast<uchar>( transform[5] / static_cast<double>( graph.cols ) * 255.0 );
+      b_channel = static_cast<uchar>( ( transform[4] + graph.rows ) /
+                                      static_cast<double>( graph.rows << 1) * 255.0 );
+      g_channel = static_cast<uchar>( ( transform[5] + graph.cols ) /
+                                      static_cast<double>( graph.cols << 1) * 255.0 );
       locImg.at<cv::Vec3b>( i, j )[0] = b_channel;
       locImg.at<cv::Vec3b>( i, j )[1] = g_channel;
       locImg.at<cv::Vec3b>( i, j )[2] = 0;
@@ -127,7 +130,6 @@ int main( int argc, char **argv )
                             best = ele;
                           }
                         }
-                        printf( "smallest = %.4f\n", best.dist );
                         source.chImg( graph(y-radius,x-radius)[0].index, imgList );
                         // source.display( graph(y-radius,x-radius)[0].x+radius,
                         //                 graph(y-radius,x-radius)[0].y+radius );
