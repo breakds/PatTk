@@ -439,23 +439,28 @@ namespace PatTk
     // static_assert( std::is_same<HistCell<data_t>, cellType>::value,
     //                "IntergralImage() - only supports HistCell." );
 
-    
-    cellType tmp[img.rows][img.cols];
+    cellType *tmp = new cellType[img.rows * img.cols];
+
+    cellType *tmpp = tmp;
     for ( int i=0; i<img.rows; i++ ) {
       for ( int j=0; j<img.cols; j++ ) {
-        tmp[i][j] = img(i,j);
+        *(tmpp++) = img(i,j);
       }
     }
 
+    
     for ( int i=0; i<img.rows; i++ ) {
+      tmpp = tmp + i * img.cols + 1;
       for ( int j=1; j<img.cols; j++ ) {
-        tmp[i][j] += tmp[i][j-1];
+        *(tmpp++) += tmp[i * img.cols + j - 1];
       }
     }
 
     for ( int j=0; j<img.cols; j++ ) {
+      tmpp = tmp + img.cols + j;
       for ( int i=1; i<img.rows; i++  ) {
-        tmp[i][j] += tmp[i-1][j];
+        *tmpp += tmp[(i-1) * img.cols + j];
+        tmpp += img.cols;
       }
     }
 
@@ -471,20 +476,20 @@ namespace PatTk
         int top = i - neg;
         int left = j - neg;
         int k = i * img.cols + j;
-        img[k] = tmp[bottom][right];
+        img[k] = tmp[bottom * img.cols + right];
 
         if ( 0 < top && 0 < left ) {
-          img[k] += tmp[top-1][left-1];
+          img[k] += tmp[(top-1) * img.cols + left - 1];
         }
         
         if ( 0 < top ) {
-          img[k] -= tmp[top-1][right];
+          img[k] -= tmp[(top-1) * img.cols + right ];
         } else {
           top = 0;
         }
         
         if ( 0 < left ) {
-          img[k] -= tmp[bottom][left-1];
+          img[k] -= tmp[bottom * img.cols + left-1];
         } else {
           left = 0;
         }
@@ -492,7 +497,8 @@ namespace PatTk
         img[k] /= ( (bottom - top + 1) * (right - left + 1) );
       }
     }
-    
+
+    DeleteToNullWithTestArray( tmp );
   }
   
 };

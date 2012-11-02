@@ -234,6 +234,9 @@ void experiment()
 
 int main( int argc, char **argv )
 {
+
+
+  
   if ( argc < 2 ) {
     Error( "Missing configuration file in options. (Global.conf)" );
     exit( -1 );
@@ -241,53 +244,58 @@ int main( int argc, char **argv )
 
   env.parse( argv[1] );
   env.Summary();
-
-  PatGraph graph( env["graph-file"] );
-
-
-  // prepare x array and y array
-  std::vector<float> x;
-  std::vector<float> y;
-  int radius = env["patch-w"] >> 1;
-  for ( int i=0; i<graph.rows - env["patch-w"]; i++ ) {
-    for ( int j=0; j<graph.cols - env["patch-w"]; j++ ) {
-      for ( auto& ele : graph(i,j) ) {
-        x.push_back( static_cast<float>( i + radius ) );
-        x.push_back( static_cast<float>( j + radius ) );
-        y.push_back( static_cast<float>( ele.y + radius * ele.scale ) );
-        y.push_back( static_cast<float>( ele.x + radius * ele.scale ) );
-      }
-    }
-  }
-
-
-  int *assign = nullptr;
-  float *trans = nullptr;
-  Options options;
-  options.maxIter = 15;
-
-  Info( "Starting Optimization: %ld pairs.", x.size() >> 1 );
   
-  TransformFitting( &x[0], &y[0], x.size() >> 1, env["cluster-num"], options, assign, trans );
+
+  cv::Mat a = cv::imread( "imR.png" );
+  auto img = cvFeatGen<HoGCell, int, false>::gen( a );
+
+  // PatGraph graph( env["graph-file"] );
 
 
-  // statitiscs
-  int count[static_cast<int>(env["cluster-num"])];
-  for ( int i=0; i<env["cluster-num"]; i++ ) {
-    count[i] = 0;
-  }
+  // // prepare x array and y array
+  // std::vector<float> x;
+  // std::vector<float> y;
+  // int radius = env["patch-w"] >> 1;
+  // for ( int i=0; i<graph.rows - env["patch-w"]; i++ ) {
+  //   for ( int j=0; j<graph.cols - env["patch-w"]; j++ ) {
+  //     for ( auto& ele : graph(i,j) ) {
+  //       x.push_back( static_cast<float>( i + radius ) );
+  //       x.push_back( static_cast<float>( j + radius ) );
+  //       y.push_back( static_cast<float>( ele.y + radius * ele.scale ) );
+  //       y.push_back( static_cast<float>( ele.x + radius * ele.scale ) );
+  //     }
+  //   }
+  // }
 
-  for ( int i=0; i<static_cast<int>( x.size() >> 1 ); i++ ) {
-    count[assign[i]]++;
-  }
 
-  for ( int k=0; k<env["cluster-num"]; k++ ) {
-    printf( "%.2f, %.2f, %.2f, %.2f: %d\n", trans[k*4], trans[k*4+1], trans[k*4+2], trans[k*4+3], count[k] );
-  }
+  // int *assign = nullptr;
+  // float *trans = nullptr;
+  // Options options;
+  // options.maxIter = 15;
 
-  DeleteToNullWithTestArray( assign );
-  DeleteToNullWithTestArray( trans );
+  // Info( "Starting Optimization: %ld pairs.", x.size() >> 1 );
+  
+  // TransformFitting( &x[0], &y[0], x.size() >> 1, env["cluster-num"], options, assign, trans );
 
+
+  // // statitiscs
+  // int count[static_cast<int>(env["cluster-num"])];
+  // for ( int i=0; i<env["cluster-num"]; i++ ) {
+  //   count[i] = 0;
+  // }
+
+  // for ( int i=0; i<static_cast<int>( x.size() >> 1 ); i++ ) {
+  //   count[assign[i]]++;
+  // }
+
+  // for ( int k=0; k<env["cluster-num"]; k++ ) {
+  //   printf( "%.2f, %.2f, %.2f, %.2f: %d\n", trans[k*4], trans[k*4+1], trans[k*4+2], trans[k*4+3], count[k] );
+  // }
+
+  // DeleteToNullWithTestArray( assign );
+  // DeleteToNullWithTestArray( trans );
+
+  
 
   
   return 0;

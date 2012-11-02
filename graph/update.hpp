@@ -351,7 +351,7 @@ namespace PatTk
     // system( "./nnmex PatchMatch.conf" );
     
     
-    string mappingPath = "./clustered.dat";
+    string mappingPath = "./mapping.dat";
     PatGraph graph( mappingPath );
     
       
