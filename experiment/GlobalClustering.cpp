@@ -299,10 +299,6 @@ int main( int argc, char **argv )
   }
   END_WITH( out );
 
-  cv::Mat ha;
-  auto img0 = cvFeatGen<HistCell<float>, int, false>::gen( ha );
-  
-  
   
   DeleteToNullWithTestArray( assign );
   DeleteToNullWithTestArray( trans );
