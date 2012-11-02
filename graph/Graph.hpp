@@ -17,6 +17,45 @@ using namespace EnvironmentVariable;
 
 namespace PatTk
 {
+
+  struct AffineTransform
+  {
+    float a, b, dy, dx;
+
+    /*
+      | a  b dy |
+      | -b a dx |
+      | 0  0 1  |
+    */
+    AffineTransform() : a(1.0f), b(0.0f), dy(0.0f), dx(0.0f) {}
+
+    AffineTransform( float a_, float b_, float dy_, float dx_ ) :
+      a(a_), b(b_), dy(dy_), dx(dx_) {}
+
+    
+    inline void write( FILE* out )
+    {
+      fwrite( &a, sizeof(float), 1, out );
+      fwrite( &b, sizeof(float), 1, out );
+      fwrite( &dy, sizeof(float), 1, out );
+      fwrite( &dx, sizeof(float), 1, out );
+    }
+
+    inline void read( FILE* in )
+    {
+      fread( &a, sizeof(float), 1, in );
+      fread( &b, sizeof(float), 1, in );
+      fread( &dy, sizeof(float), 1, in );
+      fread( &dx, sizeof(float), 1, in );
+    }
+
+    inline void apply( float y, float x, float& new_y, float& new_x ) const
+    {
+      new_y = a * y + b * x + dy;
+      new_x = -b * y + a * x + dx;
+    }
+  };
+  
   struct PatLoc
   {
     int index;

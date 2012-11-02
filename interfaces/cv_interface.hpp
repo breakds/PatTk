@@ -98,28 +98,28 @@ namespace PatTk
       cv::Sobel( gray, gradx, CV_32F, 1, 0 );
       cv::Sobel( gray, grady, CV_32F, 0, 1 );
       
-      Image<HistCell<double>, valueType, lite > img( raw.rows, raw.cols );
+      Image<HistCell<float>, valueType, lite > img( raw.rows, raw.cols );
       
       cv::Mat_<float>::iterator itGradx = gradx.begin<float>();
       cv::Mat_<float>::iterator itGrady = grady.begin<float>();
       cv::Mat_<float>::iterator itEnd = gradx.end<float>();
 
-      double radCell = M_PI / hogBins;
+      float radCell = M_PI / hogBins;
       uint i = 0;
       for ( ; itGradx != itEnd; itGradx++, itGrady++ ){
-        double dx = static_cast<double>( *itGradx );
-        double dy = static_cast<double>( *itGrady );
+        float dx = static_cast<float>( *itGradx );
+        float dy = static_cast<float>( *itGrady );
         
-        double val = sqrt( dx * dx + dy * dy );
-        double rad = atan2( dy, dx );
+        float val = sqrt( dx * dx + dy * dy );
+        float rad = atan2( dy, dx );
         if ( rad < 0 ) {
           rad += M_PI;
         }
-        double pos = rad / radCell - 0.5;
+        float pos = rad / radCell - 0.5;
         int b0 = static_cast<int>( floor( pos ) );
         int b1 = b0 + 1;
-        double w0 = b1 - pos;
-        double w1 = 1.0 - w0;
+        float w0 = b1 - pos;
+        float w1 = 1.0 - w0;
         if ( b0 < 0) b0 = hogBins - 1;
         if ( b1 >= hogBins ) b1 -= hogBins;
         img[i].reset( hogBins );
@@ -137,6 +137,65 @@ namespace PatTk
         img[i].NormalizeToUchar( hog[i] );
       }
       return hog;
+    }
+  };
+
+
+  template <typename valueType, bool lite>
+  class cvFeatGen<HistCell<float>,valueType, lite>
+  {
+  public:
+    static Image<HistCell<float>,valueType, lite> gen( const cv::Mat& raw )
+    {
+      static int hogBins = env["hog-bins"];
+      cv::Mat lab = cv::Mat::zeros( raw.rows, raw.cols, CV_8UC3 );
+      cv::cvtColor( raw, lab, CV_BGR2Lab );
+      cv::Mat gray( raw.rows, raw.cols, CV_8UC1 );
+      cv::Mat_<cv::Vec3b>::const_iterator it = lab.begin<cv::Vec3b>();
+      cv::Mat_<cv::Vec3b>::const_iterator end = lab.end<cv::Vec3b>();
+      cv::Mat_<uchar>::iterator grayit = gray.begin<uchar>();
+      for ( ; it != end; it++ ) {
+        *(grayit++) = (*it)[0];
+      }
+      
+      cv::Mat gradx, grady;
+      cv::Sobel( gray, gradx, CV_32F, 1, 0 );
+      cv::Sobel( gray, grady, CV_32F, 0, 1 );
+      
+      Image<HistCell<float>, valueType, lite > img( raw.rows, raw.cols );
+      
+      cv::Mat_<float>::iterator itGradx = gradx.begin<float>();
+      cv::Mat_<float>::iterator itGrady = grady.begin<float>();
+      cv::Mat_<float>::iterator itEnd = gradx.end<float>();
+
+      float radCell = M_PI / hogBins;
+      uint i = 0;
+      for ( ; itGradx != itEnd; itGradx++, itGrady++ ){
+        float dx = static_cast<float>( *itGradx );
+        float dy = static_cast<float>( *itGrady );
+        
+        float val = sqrt( dx * dx + dy * dy );
+        float rad = atan2( dy, dx );
+        if ( rad < 0 ) {
+          rad += M_PI;
+        }
+        float pos = rad / radCell - 0.5;
+        int b0 = static_cast<int>( floor( pos ) );
+        int b1 = b0 + 1;
+        float w0 = b1 - pos;
+        float w1 = 1.0 - w0;
+        if ( b0 < 0) b0 = hogBins - 1;
+        if ( b1 >= hogBins ) b1 -= hogBins;
+        img[i].reset( hogBins );
+        
+        img[i][b0] = w0 * val;
+        img[i][b1] = w1 * val;
+        i++;
+      }
+
+      IntegralImage( img, env["hog-cell-size"] );
+
+      return img;
     }
   };
 

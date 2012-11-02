@@ -10,6 +10,7 @@
 #include "LLPack/utils/Environment.hpp"
 #include "LLPack/algorithms/heap.hpp"
 #include "LLPack/algorithms/list.hpp"
+#include "LLPack/algorithms/sort.hpp"
 #include "../interfaces/cv_interface.hpp"
 #include "../graph/Graph.hpp"
 
@@ -246,55 +247,66 @@ int main( int argc, char **argv )
   env.Summary();
   
 
-  cv::Mat a = cv::imread( "imR.png" );
-  auto img = cvFeatGen<HoGCell, int, false>::gen( a );
-
-  // PatGraph graph( env["graph-file"] );
+  PatGraph graph( env["graph-file"] );
 
 
-  // // prepare x array and y array
-  // std::vector<float> x;
-  // std::vector<float> y;
-  // int radius = env["patch-w"] >> 1;
-  // for ( int i=0; i<graph.rows - env["patch-w"]; i++ ) {
-  //   for ( int j=0; j<graph.cols - env["patch-w"]; j++ ) {
-  //     for ( auto& ele : graph(i,j) ) {
-  //       x.push_back( static_cast<float>( i + radius ) );
-  //       x.push_back( static_cast<float>( j + radius ) );
-  //       y.push_back( static_cast<float>( ele.y + radius * ele.scale ) );
-  //       y.push_back( static_cast<float>( ele.x + radius * ele.scale ) );
-  //     }
-  //   }
-  // }
+  // prepare x array and y array
+  std::vector<float> x;
+  std::vector<float> y;
+  int radius = env["patch-w"] >> 1;
+  for ( int i=0; i<graph.rows - env["patch-w"]; i++ ) {
+    for ( int j=0; j<graph.cols - env["patch-w"]; j++ ) {
+      for ( auto& ele : graph(i,j) ) {
+        x.push_back( static_cast<float>( i + radius ) );
+        x.push_back( static_cast<float>( j + radius ) );
+        y.push_back( static_cast<float>( ele.y + radius * ele.scale ) );
+        y.push_back( static_cast<float>( ele.x + radius * ele.scale ) );
+      }
+    }
+  }
 
 
-  // int *assign = nullptr;
-  // float *trans = nullptr;
-  // Options options;
-  // options.maxIter = 15;
+  int *assign = nullptr;
+  float *trans = nullptr;
+  Options options;
+  options.maxIter = 15;
 
-  // Info( "Starting Optimization: %ld pairs.", x.size() >> 1 );
+  Info( "Starting Optimization: %ld pairs.", x.size() >> 1 );
   
-  // TransformFitting( &x[0], &y[0], x.size() >> 1, env["cluster-num"], options, assign, trans );
+  TransformFitting( &x[0], &y[0], x.size() >> 1, env["cluster-num"], options, assign, trans );
 
 
-  // // statitiscs
-  // int count[static_cast<int>(env["cluster-num"])];
-  // for ( int i=0; i<env["cluster-num"]; i++ ) {
-  //   count[i] = 0;
-  // }
+  // statitiscs
 
-  // for ( int i=0; i<static_cast<int>( x.size() >> 1 ); i++ ) {
-  //   count[assign[i]]++;
-  // }
+  std::vector<int> count( env["cluster-num"], 0 );
+  
+  for ( int i=0; i<static_cast<int>( x.size() >> 1 ); i++ ) {
+    count[assign[i]]++;
+  }
 
-  // for ( int k=0; k<env["cluster-num"]; k++ ) {
-  //   printf( "%.2f, %.2f, %.2f, %.2f: %d\n", trans[k*4], trans[k*4+1], trans[k*4+2], trans[k*4+3], count[k] );
-  // }
+  std::vector<int> order = std::move( sorting::index_sort( count ) );
 
-  // DeleteToNullWithTestArray( assign );
-  // DeleteToNullWithTestArray( trans );
+  WITH_OPEN( out, env["output"].c_str(), "w" );
 
+  int K = env["cluster-num"];
+  fwrite( &K, sizeof(int), 1, out );
+
+  for ( int i=0; i<K; i++ ) {
+    int k = order[i];
+    printf( "%.2f, %.2f, %.2f, %.2f: %d\n", trans[k*4], trans[k*4+1], trans[k*4+2], trans[k*4+3], count[k] );
+    AffineTransform t( trans[k*4], trans[k*4+1], trans[k*4+2], trans[k*4+3] );
+    t.write( out );
+  }
+  END_WITH( out );
+
+  cv::Mat ha;
+  auto img0 = cvFeatGen<HistCell<float>, int, false>::gen( ha );
+  
+  
+  
+  DeleteToNullWithTestArray( assign );
+  DeleteToNullWithTestArray( trans );
+  
   
 
   

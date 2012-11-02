@@ -216,7 +216,11 @@ ADD_EXECUTABLE(Global experiment/GlobalClustering.cpp)
 TARGET_LINK_LIBRARIES(Global ${OPENCV})
 
 # Experiment on clustering idea
-ADD_EXECUTABLE(nearest experiment/nearest.cpp)
-TARGET_LINK_LIBRARIES(nearest ${OPENCV})
+# ADD_EXECUTABLE(nearest experiment/nearest.cpp)
+# TARGET_LINK_LIBRARIES(nearest ${OPENCV})
+
+# Transformation Viewer
+ADD_EXECUTABLE(show experiment/ShowTransform.cpp)
+TARGET_LINK_LIBRARIES(show ${OPENCV})
 
 
