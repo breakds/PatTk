@@ -75,7 +75,6 @@ int main( int argc, char **argv )
     vector< list<int> > indexed( imgList.size() );
     for ( int i=0; i<graph.rows * graph.cols; i++ ) {
       // debugging
-      printf( "(%d,%d): %d\n", i / graph.cols, i % graph.cols, graph(i)[0].index );
       indexed[graph(i)[0].index].push_back( i );
     }
 

@@ -220,7 +220,15 @@ TARGET_LINK_LIBRARIES(Global ${OPENCV})
 # TARGET_LINK_LIBRARIES(nearest ${OPENCV})
 
 # Transformation Viewer
-ADD_EXECUTABLE(show experiment/ShowTransform.cpp)
-TARGET_LINK_LIBRARIES(show ${OPENCV})
+# ADD_EXECUTABLE(show experiment/ShowTransform.cpp)
+# TARGET_LINK_LIBRARIES(show ${OPENCV})
+
+# Belief Propagation for Global Clustering
+ADD_EXECUTABLE(RegionClu experiment/RegionClustering.cpp)
+TARGET_LINK_LIBRARIES(RegionClu ${OPENCV} cuda_opt)
+
+# Compare
+ADD_EXECUTABLE(compare sample/Compare.cpp)
+TARGET_LINK_LIBRARIES(compare ${OPENCV} cuda_opt)
 
 

@@ -71,7 +71,7 @@ namespace PatTk
       read( in );
     }
 
-    PatLoc() : index(0), y(0), x(0), scale(0), rotation(0), dist(0) {}
+    PatLoc() : index(0), y(0), x(0), scale(1.0), rotation(0), dist(0) {}
 
     // constructor with shift
     PatLoc( const PatLoc& loc, int dy, int dx )
@@ -82,6 +82,17 @@ namespace PatTk
       double sina = sin( -rotation ) * S;
       y = loc.y + dy * cosa + dx * sina;
       x = loc.x - dy * sina + dx * cosa;
+    }
+
+    PatLoc( const AffineTransform& transform, const int ind, float y0, float x0 ) : index(ind)
+    {
+      scale = sqrtf( transform.a * transform.a + transform.b * transform.b );
+      rotation = -atan2f( transform.b, transform.a );
+      float y1 = 0.0f;
+      float x1 = 0.0f;
+      transform.apply( y0, x0, y1, x1 );
+      y = static_cast<int>( y1 );
+      x = static_cast<int>( x1 );
     }
 
     inline void GetTransform( float *transform, int i, int j ) const

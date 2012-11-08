@@ -276,15 +276,14 @@ namespace optimize_cuda
     // constants
     const int inc[4] = { -width, -1, width, 1 };
     const int incDim[4] = {-width*K*dim,-K*dim,width*K*dim,K*dim};
-    
-    
+
     double energy = 0.0;
     int i = 0;
     const float *labelp = label;
     for ( int y=0; y<height; y++ ) {
       for ( int x=0; x<width; x++ ) {
         energy += D[i*K+result[i]];
-        
+
         // UP:
         int d = 0;
         if ( y > 0 ) {
@@ -308,7 +307,6 @@ namespace optimize_cuda
         labelp += K * dim;
       }
     }
-
     return energy;
   }
 
@@ -427,7 +425,6 @@ namespace optimize_cuda
   {
 
     
-    
     const float coeff[6] = { 0.0, 30.0, 30.0, 10.0, 1.0, 1.0 };
     HANDLE_ERROR( cudaMemcpyToSymbol( optimize_cuda::g_coeff, &coeff, sizeof(float) * 6, 0, cudaMemcpyHostToDevice ) );    
 
@@ -449,8 +446,6 @@ namespace optimize_cuda
       // Message buffer is not provided externally
       buf = new float[4*width*height*K];
     }
-
-
 
     // Initialization of device memory
     // Data term array
@@ -583,14 +578,18 @@ namespace optimize_cuda
       
     }
 
-    UpdateResult_device<<<(width*height+1)/64,64>>>( width * height,
+
+    UpdateResult_device<<<(width*height)/64+1,64>>>( width * height,
                                                      devD,
                                                      devMsg,
                                                      devResult,
                                                      K );
 
     HANDLE_ERROR( cudaMemcpy( result, devResult, sizeof(int) * width * height, cudaMemcpyDeviceToHost ) );
+
+
     energy = UpdateEnergy( D, label, height, width, K, dim, options.lambda, result );
+
     printf( "Final energy = %.5lf\n", energy );
 
     // Free Cuda Memory

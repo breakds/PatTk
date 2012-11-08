@@ -336,7 +336,7 @@ namespace PatTk
   {
 
     // Constants
-    static const float lambda = 2.00;
+    static const float lambda = 5.00;
     static const int K = env["gen"];
     static const int num = 5;
     int area = tarH * tarW;
@@ -353,8 +353,8 @@ namespace PatTk
     
     string mappingPath = "./mapping.dat";
     PatGraph graph( mappingPath );
-    
-      
+
+
     // Old Graph:
     PatGraph graphOld( tarH, tarW );
     string oldpath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
@@ -363,19 +363,10 @@ namespace PatTk
       graphOld = std::move( PatGraph(oldpath) );
       candNum = K + env["keep"];
     };
-    
 
-    
-    
-    
     // Merge Graphs
     graph += graphOld;
 
-
-
-    
-    
-    
     // Prepare data term ( height x width x K );
     float *D = nullptr;
     
@@ -395,6 +386,7 @@ namespace PatTk
 
     double energy = 0.0;
 
+
     for ( int iter=0; iter<enrichIter; iter++ ) {
 
       BuildArrays( D, label, graph, labelNum, album, targetID );
@@ -411,6 +403,7 @@ namespace PatTk
 
       timer::tic();
 
+
       energy = optimize::LoopyBP<FakeLabelDist<float>, float>( D, label, lambda, 
                                                                       tarH, tarW, labelNum, 6,
                                                                       result, options, msg );
@@ -425,6 +418,7 @@ namespace PatTk
       timer::tic();
 
       energy = optimize_cuda::LoopyBP( D, label, tarH, tarW, labelNum, 6, result, options, msg );
+      
       printf( "BP is done. time elapsed: %.2lf sec\n", timer::utoc() );
 #endif
       if ( iter < enrichIter - 1 ) { 
@@ -432,7 +426,7 @@ namespace PatTk
       }
     }
     
-
+    
     // Save Optimization Result
     PatGraph resGraph( graph.rows, graph.cols );
     for ( int i=0; i<area; i++ ) {
@@ -440,8 +434,10 @@ namespace PatTk
     }
     string savepath = strf( "%s/%s.res", env["graph-dir"].c_str(), imgList[referenceID].c_str() );
     resGraph.write( savepath );
-    
 
+
+
+    
     // eliminate the bottom candidates
     int keep = env["keep"];
     for ( int i=0; i<area; i++ ) {
@@ -464,14 +460,15 @@ namespace PatTk
     // Save temporary candidates mapping
     savepath = strf( "%s/%s.graph", env["graph-dir"].c_str(), imgList[targetID].c_str() );
     graph.write( savepath );
-
-    
-
-
-    
-
     
     
+    // write result out
+    WITH_OPEN( out, "result.dat", "w" );
+    fwrite( &graph.rows, sizeof(int), 1, out );
+    fwrite( &graph.cols, sizeof(int), 1, out );
+    fwrite( &result, sizeof(int), graph.rows * graph.cols, out );
+    END_WITH( out );
+
     
     DeleteToNullWithTestArray( label );
     DeleteToNullWithTestArray( msg );

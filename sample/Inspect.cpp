@@ -122,24 +122,24 @@ int main( int argc, char **argv )
   int radius = env["patch-w"] >> 1;
   viewer.setCallback( [&graph,&source,&imgList,&radius](int x, int y)
                       {
-                        PatLoc best( 0, 0, 0, 1.0, 0, 0 );
-                        float min = graph(y-radius,x-radius)[0].dist;
-                        for ( auto& ele : graph(y-radius,x-radius) ) {
-                          if ( ele.dist < min ) {
-                            min = ele.dist;
-                            best = ele;
-                          }
-                        }
+                        // PatLoc best( 0, 0, 0, 1.0, 0, 0 );
+                        // float min = graph(y-radius,x-radius)[0].dist;
+                        // for ( auto& ele : graph(y-radius,x-radius) ) {
+                        //   if ( ele.dist < min ) {
+                        //     min = ele.dist;
+                        //     best = ele;
+                        //   }
+                        // }
                         source.chImg( graph(y-radius,x-radius)[0].index, imgList );
-                        // source.display( graph(y-radius,x-radius)[0].x+radius,
-                        //                 graph(y-radius,x-radius)[0].y+radius );
-                        source.display( best.x+radius, best.y+radius );
-                        if ( 1 < graph(y-radius,x-radius).size() ) {
-                          Info( "Patch(%d,%d)", y-radius, x-radius );
-                          for ( auto& ele : graph(y-radius,x-radius) ) {
-                            ele.show();
-                          }
-                        }
+                        source.display( graph(y-radius,x-radius)[0].x+radius,
+                                        graph(y-radius,x-radius)[0].y+radius );
+                        // source.display( best.x+radius, best.y+radius );
+                        // if ( 1 < graph(y-radius,x-radius).size() ) {
+                        //   Info( "Patch(%d,%d)", y-radius, x-radius );
+                        //   for ( auto& ele : graph(y-radius,x-radius) ) {
+                        //     ele.show();
+                        //   }
+                        // }
                       } );
   
   
