@@ -1,4 +1,4 @@
 PatTk
 =====
 
-Patch-based Vision Toolkit
+Patch-based Vision Toolkit. 
