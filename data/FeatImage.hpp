@@ -62,41 +62,24 @@ namespace PatTk
       PatchProxy( const FeatImage<dataType> *p, int y1, int x1 ) 
         : parent(p), y(y1), x(x1) 
       {
-        coorIdx = (y1 * parent->rows + x1) * parent->dimCell;
-        // debugging
-        for ( int c=0; c<parent->GetPatchDim(); c++ ) {
-          printf( "%d: (%d,%d) %d\n", c, parent->options.offsetY[c], parent->options.offsetX[c],
-                  parent->options.offset[c] );
-          if ( c % 50 == 0 ) {
-            char ch;
-            scanf( "%c", &ch );
-          }
-        }
+        coorIdx = (y1 * parent->cols + x1) * parent->dimCell;
       }
 
       /* get dimension */
-      int dim() const
+      inline int dim() const
       {
         return parent->GetPatchDim();
       }
 
-      dataType operator()( int c ) const
+      inline dataType operator()( int c ) const
       {
         int y1 = parent->options.offsetY[c] + y;
         int x1 = parent->options.offsetX[c] + x;
-        if ( y1 == 0 && x1 == 0 ) {
-          printf( "(%d, %d)\n", y1, x1 );
-          char ch;
-          scanf( "%c", &ch );
-        }
+        
         if ( y1 < 0 || y1 >= parent->rows ||
              x1 < 0 || x1 >= parent->cols ) {
           return 0;
         }
-
-        printf( "(%d, %d)\n", y1, x1 );
-        char ch;
-        scanf( "%c", &ch );
         
         return parent->get( coorIdx + parent->options.offset[c] );
       }
@@ -234,11 +217,11 @@ namespace PatTk
 
     inline void FetchPatch( int i, int j, dataType *feat ) const
     {
-      int y = i - options.patch_start_offset;
+      int y = i + options.patch_start_offset;
       dataType *featp = feat;
       memset( feat, 0, sizeof(dataType) * options.patch_dim );
       for ( int l=0; l<options.patch_size; l++, y+=options.patch_stride ) {
-        int x = j - options.patch_start_offset;
+        int x = j + options.patch_start_offset;
         for ( int k=0; k<options.patch_size; k++, x+=options.patch_stride ) {
           if ( 0 <= y && y < rows &&
                0 <= x && x < cols ) {
@@ -392,6 +375,48 @@ namespace PatTk
       std::cout << ")\n";
     }
 
+  };
+
+
+  // +-------------------------------------------------------------------------------
+  // | Album, collection of imges.
+  // | Serve as owner of images, as well as owner of patches.
+  // +-------------------------------------------------------------------------------
+  template <typename dataType>
+  class Album
+  {
+  private:
+    std::vector< FeatImage<dataType> > pages;
+    Album( const Album<dataType>& other );
+  public:
+
+    /* ---------- constructors ---------- */
+    
+    Album()
+    {
+      pages.clear();
+    }
+
+    /* move constructor */
+    Album( Album<dataType>&& other )
+    {
+      pages.swap( other.pages );
+    }
+
+    /* push() has side effect. It is destructive as it steals the
+     * FeatImage that img refer to. */
+    inline void push( FeatImage<dataType>&& img )
+    {
+      img.id = static_cast<int>( pages.size() );
+      pages.push_back( std::move(img) );
+    }
+
+    /* Only provide read-only access to member images */
+    const FeatImage<dataType>& operator()( const int index ) const
+    {
+      return pages[index];
+    }
+    
   };
   
 }

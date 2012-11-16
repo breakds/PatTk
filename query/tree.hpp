@@ -6,247 +6,230 @@
 
 #pragma once
 
-#include <utility>
-#include <memory>
+#include <vector>
 #include <deque>
-#include <tuple>
-#include <type_traits>
-#include "data/2d.hpp"
-#include "data/features.hpp"
-#include "LLPack/algorithms/sort.hpp"
+#include <memory>
+#include "Revolver.hpp"
 
 namespace PatTk
 {
-  template <typename cellType, typename valueType>
-  class AbstractBranch
-  {
-  public:
-    virtual int operator()( const typename Image<cellType,valueType>::Patch& patch ) const = 0;
-    virtual void write( FILE* out ) const = 0;
-    virtual void read( FILE* in ) = 0;
-  };
 
-  
-  
-  template <typename cellType, typename valueType>
-  class AbstractKernel
+  struct LocInfo
   {
-    static_assert( std::is_base_of< AbstractCell<typename cellType::type>, cellType >::value,
-                   "cellType is not a valid cell type. (does not derive from AbstractCell." );
-  public:
-    // Useful type interface
-    typedef cellType cell_t;
-    typedef valueType value_t;
-    typedef typename Image<cellType,valueType>::Patch patch_t;
-    typedef typename cellType::type data_t;
-    typedef typename Generalized<typename cellType::type>::type gen_data_t;
-  public:
-    static vector<AbstractBranch<cellType,valueType> > RaiseHypothesis() {}
+    int id, y, x;
   };
 
 
+  template <typename T>
+  class SimpleKernel
+  {
+  public:
+    typedef T dataType;
+    
+    class State
+    {
+    public:
+      int *idx;
+      int len;
+      Shuffler shuffler;
+
+      State( int *i, int l, int s )
+        : idx(i), len(l), shuffler(s) {}
+      
+      State( int *i, int l, const Shuffler& s )
+        : idx(i), len(l), shuffler(s) {}
+    };
+
+    class Judger
+    {
+    public:
+      dataType th;
+      int component;
+      inline int operator()( typename FeatImage<T>::PatchProxy &p )
+      {
+        if ( p(component) < th ) return 0;
+        return 1;
+      }
+
+      inline int operator()( T* p )
+      {
+        if ( p[component] < th ) return 0;
+        return 1;
+      }
+    };
+
+    static int numHypo;
+    static int stopNum;
+    static typename Generalized<dataType>::type converge;
+    
+    static int split( std::vector<typename FeatImage<T>::PatchProxy> &list, State& state,
+                      Judger &judger )
+    {
+
+      if ( state.len <= stopNum ) {
+        return -1;
+      }
+      if ( 0 == state.shuffler.Number() ) {
+        return -2;
+      }
+
+      state.shuffler.ResetShuffle();
+
+      int trial = 0;
+      uint c[numHypo];
+      while ( SHUFFLER_ERROR != ( c[trial] = state.shuffler.Next() ) && trial < numHypo ) {
+        typename Generalized<T>::type min = list[state.idx[0]](c[trial]);
+        typename Generalized<T>::type max = list[state.idx[0]](c[trial]);
+        for ( int i=1; i<state.len; i++ ) {
+          if ( list[state.idx[i]](c[trial]) > max ) {
+            max = list[state.idx[i]](c[trial]);
+          } else if ( list [state.idx[i]](c[trial]) < min ) {
+            min = list[state.idx[i]](c[trial]);
+          }
+        }
+
+        if ( max - min < converge ) {
+          state.shuffler.Disqualify();
+        } else {
+          trial++;
+        }
+      }
+
+      if ( 0 == trial ) {
+        return -3;
+      }
+
+      int minDiff = -1;
+      for ( int t=0; t<trial; t++ ) {
+        int pick = rand() % state.len;
+        dataType th = list[state.idx[pick]](c[t]);
+        int leftNum = 0;
+        int rightNum = 0;
+        for ( int i=0; i<state.len; i++ ) {
+          if ( list[state.idx[i]](c[t]) < th ) {
+            leftNum++;
+          } else {
+            rightNum++;
+          }
+        }
+        if ( -1 == minDiff || abs( leftNum - rightNum ) < minDiff ) {
+          minDiff = abs( leftNum - rightNum );
+          judger.th = th;
+          judger.component = c[t];
+        }
+      }
+
+      if ( -1 == minDiff ) {
+        return -4;
+      }
+
+      if ( state.len == minDiff ) {
+        return -5;
+      }
+      
+      int right = -1;
+      for ( int i=0; i<state.len; i++ ) {
+        if ( 0 == judger( list[state.idx[i]] ) ) {
+          right++;
+          int tmp = state.idx[right];
+          state.idx[right] = state.idx[i];
+          state.idx[i] = tmp;
+        }
+      }
+
+      return right;
+      
+    }
+  };
+
+  template <typename T>
+  int SimpleKernel<T>::numHypo = 10;
+
+  template <typename T>
+  int SimpleKernel<T>::stopNum = 10;
+
+  template <>
+  double SimpleKernel<float>::converge = 0.05;
+
+  template <>
+  double SimpleKernel<double>::converge = 0.05;
+
+  template <>
+  int SimpleKernel<unsigned char>::converge = 10;
+
+
+
   
+
+
   
   template <typename kernel>
   class Tree
   {
-    static_assert( std::is_base_of< AbstractKernel<typename kernel::cell_t, typename kernel::value_t>,
-                                    kernel>::value, "kernel does derive from AbstractKernel." );
-                   
   private:
-    // Children
-    std::unique_ptr<Tree<kernel> > child[2];
-    // Test Function
-    typename kernel::branch fork;
+    std::unique_ptr< Tree<kernel> > child[2];
+    std::vector<LocInfo> store;
+    typename kernel::Judger judger;
     
-  private:
-    // Prohibited copy/move constructors
-    Tree( const Tree<kernel>& tree ) {}
-    Tree( Tree<kernel>&& tree ) {}
-    // Prohibited copy/move assignment
-    const Tree<kernel>& operator=( const Tree<kernel>& tree ) {}
-    const Tree<kernel>& operator=( Tree<kernel>&& tree ) {}
-
   public:
-    // patches (valid for leaf nodes only)
-    vector<typename kernel::patch_t> patches;
 
-
-    // default constructor
-    Tree() : fork()
+    Tree() 
     {
       child[0].reset( nullptr );
       child[1].reset( nullptr );
-      patches.clear();
+      store.clear();
     }
 
-    Tree( const vector<typename kernel::patch_t>& patchList )
+    Tree( std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len )
     {
-      grow( patchList );
-    }
-
-    // write()
-    void write( const std::string& filename ) const
-    {
-      WITH_OPEN( out, filename.c_str(), "w" );
-      write( out );
-      END_WITH( out );
-    }
-    
-    void write( FILE *out ) const
-    {
-      if ( leaf() ) {
-        int flag = 1;
-        fwrite( &flag, sizeof(int), 1, out );
-        // write leaf patches
-        int len = static_cast<int>( patches.size() );
-        fwrite( &len, sizeof(int), 1, out );
-        for ( auto& ele : patches ) {
-          ele.write( out );
-        }
-      } else {
-        int flag = 0;
-        fwrite( &flag, sizeof(int), 1, out );
-        // write branch function
-        fork.write( out );
-        // write child
-        child[0]->write( out );
-        child[1]->write( out );
-      }
-    }
-
-    // read()
-    template <typename cellType, typename valueType, bool lite>
-    void read( const std::string& filename, const Album<cellType,valueType,lite>& album )
-    {
-      WITH_OPEN( in, filename.c_str(), "r" );
-      read( in, album );
-      END_WITH( in );
-    }
-
-    // read()
-    template <typename cellType, typename valueType, bool lite>
-    void read( FILE* in, const Album<cellType,valueType,lite>& album )
-    {
-      int flag = 0;
-      fread( &flag, sizeof(int), 1, in );
-
-      if ( 1 == flag ) {
-        // read leaf patches
-        int len = 0;
-        fread( &len, sizeof(int), 1, in );
-        patches.clear();
-        for ( int i=0; i<len; i++ ) {
-          patches.push_back( album.ReadPatch( in ) );
-        }
-      } else {
-        // read branch function
-        fork.read( in );
-        
-        child[0].reset( new Tree() );
-        child[1].reset( new Tree() );
-        child[0]->read( in, album );
-        child[1]->read( in, album );
-      }
+      store.clear();
       
-    }
-
-    // Constructor 1: Build Tree from scractch
-    void grow( const vector<typename kernel::patch_t>& patchList )
-    {
-      // The references to patches
-      int indices[patchList.size()];
-      for ( uint i=0; i<patchList.size(); i++ ) indices[i] = i;
-
-      // The stack of triplets:
-      // ( node*, reference, length )
-      std::deque<std::tuple<Tree<kernel>*,int*,int> > stack;
-      stack.clear();
-      //      stack.push_back( std::move( std::make_tuple( this, indices, static_cast<int>(patchList.size()) ) ) );
-      stack.push_back( std::tuple<Tree<kernel>*,int*,int>( this, indices, static_cast<int>(patchList.size()) ) );
+      std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
+      stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
       
-      while( !stack.empty() ) {
-
-        // Get next node from stack
-        Tree<kernel> *node = std::get<0>( stack.front() );
-        int *ref = std::get<1>( stack.front() );
-        int len = std::get<2>( stack.front() );
+      while ( !stack.empty() ) {
+        typename kernel::State &state = stack.front().first;
+        Tree<kernel> *node = stack.front().second;
+        int right = kernel::split( list, state, node->judger );
+        if ( right >= 0 ) {
+          // internal node
+          node->child[0].reset( new Tree() );
+          node->child[1].reset( new Tree() );
+          stack.push_back( std::make_pair( typename kernel::State( state.idx,
+                                                                   right,
+                                                                   state.shuffler ),
+                                           node->child[0].get() ));
+          stack.push_back( std::make_pair( typename kernel::State( state.idx + right,
+                                                                   state.len - right,
+                                                                   state.shuffler ),
+                                           node->child[1].get() ));
+        } else {
+          // leaf node
+          for ( int i=0; i<state.len; i++ ) {
+            LocInfo loc;
+            loc.y = list[state.idx[i]].y;
+            loc.x = list[state.idx[i]].x;
+            loc.id = list[state.idx[i]].parent->id;
+            node->store.push_back( loc );
+          }
+        }
         stack.pop_front();
-
-
-        if ( kernel::terminate( patchList, ref, len ) ) {
-          // first termination condition statisfied
-          for ( int i=0; i<len; i++ ) {
-            node->patches.push_back( patchList[ref[i]] );
-          }
-          continue;
-        }
-
-
-        if ( -1 == kernel::split( patchList, ref, len, node->fork ) ) {
-          // second termination condition satisfied
-          for ( int i=0; i<len; i++ ) {
-            node->patches.push_back( patchList[ref[i]] );
-          }
-          continue;
-        }
-
-        // Get the right branch's reference start point
-        int right(-1), t(0);
-        for ( int i=0; i<len; i++ ) {
-          if ( 0 == node->fork( patchList[ref[i]] ) ) {
-            right++;
-            t = ref[i];
-            ref[i] = ref[right];
-            ref[right] = t;
-          }
-        }
-        right++;
-
-        
-        assert( right != 0 && right != len );
-        node->child[0].reset( new Tree() );
-        node->child[1].reset( new Tree() );
-        stack.push_back( std::make_tuple( node->child[0].get(), ref, right ) );
-        stack.push_back( std::make_tuple( node->child[1].get(), ref + right, len - right ) );
       }
     }
-    
-    inline bool leaf() const
+
+    inline bool isLeaf()
     {
-      if ( nullptr == child[0] && nullptr == child[1] ) {
-        return true;
-      }
-      return false;
+      if ( child[0] ) return false;
+      return true;
     }
 
-    inline const Tree<kernel>* direct( const typename kernel::patch_t& query ) const
+    std::vector<LocInfo>& query( typename FeatImage<typename kernel::dataType>::PatchProxy &p )
     {
-      if ( leaf() ) {
-        return this;
-      }
-      
-      Tree<kernel> *node = child[fork(query)].get();
-      
-      while ( !node->leaf() ) {
-        node = node->child[node->fork( query )].get();
-      }
-      
-      return node;
-    }
-
-
-    inline void Summary() const
-    {
-      if ( leaf() ) {
-        printf( "leaf with %ld patches. They are:\n", patches.size() );
-        for ( auto& ele : patches ) {
-          ele.Summary();
-        }
+      if ( isLeaf() ) {
+        return store;
       } else {
-        printf( "Internal Node.\n" );
+        return child[judger(p)]->query( p );
       }
     }
   };
-    
-};
+}

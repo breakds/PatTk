@@ -1,7 +1,11 @@
+#include <vector>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/time.hpp"
+#include "LLPack/utils/pathname.hpp"
 #include "../FeatImage.hpp"
 #include "../../interfaces/opencv_aux.hpp"
+#include "../../query/tree.hpp"
+
 
 
 
@@ -9,26 +13,35 @@ using namespace PatTk;
 int main()
 {
 
+  srand(0);
+  // std::vector<std::string> imgList = std::move( readlines( "camvid_mid/small.txt" ) );
+  // auto album = cvAlbum<HOG>::gen( path::FFFL( "camvid_mid", imgList, ".png" ) );
+
   auto img = cvFeat<HOG>::gen( "camvid_mid/Seq05VD_f00810.png" );
 
-  
-  float feat[img.GetPatchDim()];
-  
-  timer::tic();
+  std::vector<FeatImage<float>::PatchProxy> l;
+
   for ( int i=0; i<img.rows; i++ ) {
     for ( int j=0; j<img.cols; j++ ) {
-      img.FetchPatch( i, j, feat );
-      FeatImage<float>::PatchProxy a = img.Spawn( i, j );
-      for ( int c=0; c<img.GetPatchDim(); c++ ) {
-        // printf( "%.3f %.3f\n", feat[c], a(c) );
-        int x = a(c);
-      }
-
-      char ch;
-      scanf( "%c", &ch );
+      l.push_back( img.Spawn( i, j ) );
     }
   }
-  printf( "time elapsed: %.4lf sec\n", timer::utoc() );
-        
+
+  int idx[l.size()];
+
+  for ( int i=0, end=static_cast<int>( l.size() ); i < end; i++ ) {
+    idx[i] = i;
+  }
+
+  Tree<SimpleKernel<float> > tree( l, idx, l.size() );
+
+  FeatImage<float>::PatchProxy p = img.Spawn( 1, 33 );
+
+  std::vector<LocInfo> &loc = tree.query( p );
+
+  for ( auto& ele : loc ) {
+    printf( "%d, %d\n", ele.y, ele.x );
+  }
+  
   return 0;
 }

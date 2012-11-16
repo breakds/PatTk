@@ -20,13 +20,41 @@
 namespace PatTk
 {
 
+  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT };
+  
   /* anonymous namespace for helper functions */
   namespace
   {
+    template <featEnum featType>
+    class GetDataType{
+    public:
+      typedef void type;
+    };
+
+    template <>
+    class GetDataType<BGR>
+    {
+    public:
+      typedef uchar type;
+    };
+
+    template <>
+    class GetDataType<Lab>
+    {
+    public:
+      typedef uchar type;
+    };
+
+    template <>
+    class GetDataType<HOG>
+    {
+    public:
+      typedef float type;
+    };
 
   }
 
-  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT };
+
 
   
   template <featEnum featType> struct FeatOptions {};
@@ -196,8 +224,8 @@ namespace PatTk
           float *gyptr = grady.ptr<float>(i);
           for ( int j=0; j<raw.cols; j++ ) {
             float max = (*mxptr) * (*mxptr) + (*myptr) * (*myptr);
-            mxptr++;
-            myptr++;
+            *gxptr = *(mxptr++);
+            *gyptr = *(myptr++);
             for ( int k=1; k<3; k++ ) {
               float norm = (*mxptr) * (*mxptr) + (*myptr) * (*myptr);
               if ( norm > max ) {
@@ -216,6 +244,7 @@ namespace PatTk
         cv::Sobel( normalized, gradx, CV_32F, 1, 0 );
         cv::Sobel( normalized, grady, CV_32F, 0, 1 );
       }
+
 
       /* convert to rad and norm */
       cv::Mat radMat( raw.rows, raw.cols, CV_32FC1 );
@@ -265,6 +294,24 @@ namespace PatTk
       return blockMap;
     }
 
+  };
+
+  template <featEnum featType>
+  class cvAlbum
+  {
+  public:
+    static Album<typename GetDataType<featType>::type> gen( const std::vector<std::string>& lst )
+    {
+      Info( "Creating Album ..." );
+      Album<typename GetDataType<featType>::type> album;
+      for ( int i=0, end=static_cast<int>( lst.size() ); i<end; i++ ) {
+        auto img = cvFeat<featType>::gen( lst[i] );
+        Info( "%d/%d %s", i+1, end, lst[i].c_str() );
+        album.push( std::move( img ) );
+      }
+      Done( "Album created." );
+      return album;
+    }
   };
 }
 
