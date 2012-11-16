@@ -19,7 +19,7 @@ namespace PatTk
 {
 
 
-
+  
   
   template <typename dataType>
   class FeatImage
@@ -34,16 +34,74 @@ namespace PatTk
       int patch_size;
       int patch_stride;
       int patch_start_offset;
+      int hist_dim;
       int patch_dim;
+      std::vector<int> offset;
+      std::vector<int> offsetY;
+      std::vector<int> offsetX;
       PatchOptions( int dimCell ) : patch_size(3), patch_stride(3), 
                                     patch_start_offset(-3), 
+                                    hist_dim( dimCell ),
                                     patch_dim( 3 * 3 * dimCell ) {}
     };
 
     /* ---------- prohibited methods ---------- */
     FeatImage( FeatImage<dataType>& other ) {}
     const FeatImage<dataType>& operator=( FeatImage<dataType> &other ) {}
-  
+
+  public:
+    /* ---------- Simple Patch ---------- */
+    
+    class PatchProxy {
+    public:
+      const FeatImage<dataType> *parent;
+      int y, x, coorIdx;
+
+      
+      /* constructor */
+      PatchProxy( const FeatImage<dataType> *p, int y1, int x1 ) 
+        : parent(p), y(y1), x(x1) 
+      {
+        coorIdx = (y1 * parent->rows + x1) * parent->dimCell;
+        // debugging
+        for ( int c=0; c<parent->GetPatchDim(); c++ ) {
+          printf( "%d: (%d,%d) %d\n", c, parent->options.offsetY[c], parent->options.offsetX[c],
+                  parent->options.offset[c] );
+          if ( c % 50 == 0 ) {
+            char ch;
+            scanf( "%c", &ch );
+          }
+        }
+      }
+
+      /* get dimension */
+      int dim() const
+      {
+        return parent->GetPatchDim();
+      }
+
+      dataType operator()( int c ) const
+      {
+        int y1 = parent->options.offsetY[c] + y;
+        int x1 = parent->options.offsetX[c] + x;
+        if ( y1 == 0 && x1 == 0 ) {
+          printf( "(%d, %d)\n", y1, x1 );
+          char ch;
+          scanf( "%c", &ch );
+        }
+        if ( y1 < 0 || y1 >= parent->rows ||
+             x1 < 0 || x1 >= parent->cols ) {
+          return 0;
+        }
+
+        printf( "(%d, %d)\n", y1, x1 );
+        char ch;
+        scanf( "%c", &ch );
+        
+        return parent->get( coorIdx + parent->options.offset[c] );
+      }
+    };
+
   public:
     /* ---------- properties ---------- */
     int rows, cols;
@@ -61,15 +119,17 @@ namespace PatTk
       options.patch_size = s;
       options.patch_start_offset = - ( s << 1 ) * options.patch_stride;
       options.patch_dim = s * s * dimCell;
+      initPatchOptions();
     }
 
     inline void SetPatchStride( int s )
     {
       options.patch_size = s;
       options.patch_start_offset = - ( options.patch_size << 1 ) * s;
+      initPatchOptions();
     }
 
-    inline int GetPatchDim()
+    inline int GetPatchDim() const
     {
       return options.patch_dim;
     }
@@ -80,12 +140,39 @@ namespace PatTk
 
     /* ---------- constructor/desctructor/assignment ---------- */
 
+    /* initialize Patch Offsets Vector */
+    inline void initPatchOptions()
+    {
+      options.offset.resize( options.patch_dim );
+      options.offsetX.resize( options.patch_dim );
+      options.offsetY.resize( options.patch_dim );
+      int y = options.patch_start_offset;
+      int k = 0;
+
+      for ( int i=0; i<options.patch_size; i++, y+=options.patch_stride ) {
+        int x = options.patch_start_offset;
+        for ( int j=0; j<options.patch_size; j++, x+=options.patch_stride ) {
+          for ( int c=0; c<dimCell; c++, k++ ) {
+            options.offset[k] = ( y * cols + x ) * dimCell + c;
+            options.offsetY[k] = y;
+            options.offsetX[k] = x;
+          }
+        }
+      }
+    }
+
     /* default constructor: zero sized image */
-    FeatImage() : data(), rows(0), cols(0), id(-1), dimCell(0), options(0) {}
+    FeatImage() : data(), rows(0), cols(0), id(-1), dimCell(0), options(0) 
+    {
+      initPatchOptions();
+    }
 
     /* empty image constructor */
     FeatImage( int h, int w, int dim ) : data(h*w*dim,0), rows(h), cols(w), id(-1), 
-                                         dimCell(dim), options(dim) {}
+                                         dimCell(dim), options(dim)
+    {
+      initPatchOptions();
+    }
 
     /* move constructor */
     FeatImage( FeatImage<dataType> &&other ) : rows(other.rows), cols(other.cols), id(other.id),
@@ -106,7 +193,7 @@ namespace PatTk
     }
 
     /* clone */
-    inline FeatImage<dataType> clone()
+    inline FeatImage<dataType> clone() const
     {
       FeatImage<dataType> re;
       re.rows = rows;
@@ -137,17 +224,21 @@ namespace PatTk
       return (&data[0]) + i * dimCell;
     }
     
+    inline dataType get( const int i ) const
+    {
+      return data[i];
+    }
     
     
     /* ---------- Patch Accessors ---------- */
 
-    inline void FetchPatch( int i, int j, dataType *feat )
+    inline void FetchPatch( int i, int j, dataType *feat ) const
     {
       int y = i - options.patch_start_offset;
-      int x = j - options.patch_start_offset;
       dataType *featp = feat;
       memset( feat, 0, sizeof(dataType) * options.patch_dim );
       for ( int l=0; l<options.patch_size; l++, y+=options.patch_stride ) {
+        int x = j - options.patch_start_offset;
         for ( int k=0; k<options.patch_size; k++, x+=options.patch_stride ) {
           if ( 0 <= y && y < rows &&
                0 <= x && x < cols ) {
@@ -156,6 +247,11 @@ namespace PatTk
           featp += dimCell;
         }
       }
+    }
+
+    inline PatchProxy Spawn( int i, int j ) const 
+    {
+      return PatchProxy( this, i, j );
     }
     
     
