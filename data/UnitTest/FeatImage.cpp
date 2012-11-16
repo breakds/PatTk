@@ -19,25 +19,33 @@ int main()
 
   auto img = cvFeat<HOG>::gen( "camvid_mid/Seq05VD_f00810.png" );
 
-  std::vector<FeatImage<float>::PatchProxy> l;
+  // std::vector<FeatImage<float>::PatchProxy> l;
 
-  for ( int i=0; i<img.rows; i++ ) {
-    for ( int j=0; j<img.cols; j++ ) {
-      l.push_back( img.Spawn( i, j ) );
-    }
-  }
+  // for ( int i=0; i<img.rows; i++ ) {
+  //   for ( int j=0; j<img.cols; j++ ) {
+  //     l.push_back( img.Spawn( i, j ) );
+  //   }
+  // }
 
-  int idx[l.size()];
+  // int idx[l.size()];
 
-  for ( int i=0, end=static_cast<int>( l.size() ); i < end; i++ ) {
-    idx[i] = i;
-  }
+  // for ( int i=0, end=static_cast<int>( l.size() ); i < end; i++ ) {
+  //   idx[i] = i;
+  // }
 
-  Tree<SimpleKernel<float> > tree( l, idx, l.size() );
+  // Tree<SimpleKernel<float> > tree( l, idx, l.size() );
 
-  FeatImage<float>::PatchProxy p = img.Spawn( 1, 33 );
+  // tree.write( "tree.dat" );
 
-  std::vector<LocInfo> &loc = tree.query( p );
+
+
+
+
+  auto tree = Tree<SimpleKernel<float> >::read( "tree.dat" );
+  
+  FeatImage<float>::PatchProxy p = img.Spawn( 18, 200 );
+
+  std::vector<LocInfo> &loc = tree->query( p );
 
   for ( auto& ele : loc ) {
     printf( "%d, %d\n", ele.y, ele.x );
@@ -45,3 +53,8 @@ int main()
   
   return 0;
 }
+
+
+
+
+

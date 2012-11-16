@@ -1,7 +1,7 @@
 /*********************************************************************************
  * File: tree.hpp
  * Description: Random Tree Utilities. Designed for working with patches.
- * by BreakDS, University of Wisconsin Madison, Sat Jul 14 07:58:16 CDT 2012
+ * by BreakDS, University of Wisconsin Madison, Fri Nov 16 16:04:26 CST 2012
  *********************************************************************************/
 
 #pragma once
@@ -17,6 +17,21 @@ namespace PatTk
   struct LocInfo
   {
     int id, y, x;
+
+    inline void write( FILE *out )
+    {
+      fwrite( &id, sizeof(int), 1, out );
+      fwrite( &y, sizeof(int), 1, out );
+      fwrite( &x, sizeof(int), 1, out );
+    }
+
+    inline void read( FILE *in )
+    {
+      fread( &id, sizeof(int), 1, in );
+      fread( &y, sizeof(int), 1, in );
+      fread( &x, sizeof(int), 1, in );
+    }
+    
   };
 
 
@@ -45,6 +60,19 @@ namespace PatTk
     public:
       dataType th;
       int component;
+
+      inline void write( FILE *out )
+      {
+        fwrite( &th, sizeof(dataType), 1, out );
+        fwrite( &component, sizeof(int), 1, out );
+      }
+
+      inline void read( FILE *in )
+      {
+        fread( &th, sizeof(dataType), 1, in );
+        fread( &component, sizeof(int), 1, in );
+      }
+      
       inline int operator()( typename FeatImage<T>::PatchProxy &p )
       {
         if ( p(component) < th ) return 0;
@@ -180,6 +208,37 @@ namespace PatTk
       store.clear();
     }
 
+
+    static std::unique_ptr<Tree<kernel> > read( std::string filename )
+    {
+      std::unique_ptr<Tree<kernel> > tree;
+      WITH_OPEN( in, filename.c_str(), "r" );
+      tree.reset( new Tree( in ) );
+      END_WITH( in );
+      return tree;
+    }
+    
+    
+    Tree( FILE *in )
+    {
+      judger.read( in );
+      unsigned char finished = 0;
+      fread( &finished, sizeof(unsigned char), 1, in );
+      if ( 1 == finished ) {
+        int len = 0;
+        fread( &len, sizeof(int), 1, in );
+        store.resize( len );
+        for ( int i=0; i<len; i++ ) {
+          store[i].read( in );
+        }
+      } else {
+        child[0].reset( new Tree( in ) );
+        child[1].reset( new Tree( in ) );
+      }
+    }
+
+
+
     Tree( std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len )
     {
       store.clear();
@@ -214,6 +273,32 @@ namespace PatTk
           }
         }
         stack.pop_front();
+      }
+    }
+
+    void write( std::string filename )
+    {
+      WITH_OPEN( out, filename.c_str(), "w" );
+      write( out );
+      END_WITH( out );
+    }
+    
+    void write( FILE *out )
+    {
+      judger.write( out );
+      if ( isLeaf() ) {
+        unsigned char uc = 1;
+        fwrite( &uc, sizeof(unsigned char), 1, out );
+        int len = static_cast<int>( store.size() );
+        fwrite( &len, sizeof(int), 1, out );
+        for ( auto& ele : store ) {
+          ele.write( out );
+        }
+      } else {
+        unsigned char uc = 0;
+        fwrite( &uc, sizeof(unsigned char), 1, out );
+        child[0]->write( out );
+        child[1]->write( out );
       }
     }
 
