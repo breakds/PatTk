@@ -25,8 +25,12 @@ namespace PatTk
 
 
   public:
+
     /* ---------- constructors/destructors ---------- */
-    
+    Hist( int n )
+    {
+      h.resize()
+    }
     
     
   }

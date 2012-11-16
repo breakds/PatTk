@@ -20,6 +20,8 @@ MESSAGE(STATUS "Hostname:               ${HOSTNAME}")
 MESSAGE(STATUS "Build Type:             ${CMAKE_BUILD_TYPE}")
 MESSAGE(STATUS "GCC:                    ${CMAKE_CXX_COMPILER}")
 
+option (BUILD_UNITTEST "build executables in purpose of unittest." ON)
+
 
 # ================================================================================
 # Include Directory Structure for breakds@emperor
@@ -139,8 +141,8 @@ MESSAGE(STATUS "NVCC VERISON: ${CUDA_NVCC_EXECUTABLE}" )
 
 
 
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-cuda_add_library(cuda_opt SHARED opt/BP_CUDA.cu)
+# set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+# cuda_add_library(cuda_opt SHARED opt/BP_CUDA.cu)
 
 
 
@@ -154,81 +156,12 @@ set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g  -D_GLIBCXX_DEBUG")
 set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 
 
-# PatchShift
-# ADD_EXECUTABLE(PatchShift sample/PatchShift.cpp)
-# TARGET_LINK_LIBRARIES(PatchShift OPENCV)
-
-# Usage
-# ADD_EXECUTABLE(usage sample/usage.cpp)
-# TARGET_LINK_LIBRARIES(usage OPENCV)
-
-# AlbumTest
-# ADD_EXECUTABLE(AlbumTest sample/AlbumTest.cpp)
-# TARGET_LINK_LIBRARIES(AlbumTest OPENCV)
-
-# TreeBuild
-# ADD_EXECUTABLE(TreeBuild sample/TreeBuild.cpp)
-# TARGET_LINK_LIBRARIES(TreeBuild OPENCV)
-
-# Fake Label Test
-# ADD_EXECUTABLE(FakeLabel sample/FakeLabel.cpp)
-# TARGET_LINK_LIBRARIES(FakeLabel OPENCV)
+if (BUILD_UNITTEST)
+  ADD_EXECUTABLE(TestFeatImage data/UnitTest/FeatImage.cpp)
+  TARGET_LINK_LIBRARIES(TestFeatImage ${OPENCV})
+endif (BUILD_UNITTEST)
 
 
-# Heavy Patch Test
-# ADD_EXECUTABLE(HeavyPatch sample/HeavyPatch.cpp)
-# TARGET_LINK_LIBRARIES(HeavyPatch OPENCV)
 
-# BP Test
-# ADD_EXECUTABLE(matting opt/UnitTest/matting.cpp)
-# TARGET_LINK_LIBRARIES(matting OPENCV cuda_opt)
-
-# IconList Test
-# ADD_EXECUTABLE(IconList interfaces/UnitTest/IconList.cpp)
-# TARGET_LINK_LIBRARIES(IconList OPENCV)
-
-# Stiching
-# ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
-# TARGET_LINK_LIBRARIES(Stitching OPENCV)
-
-# Graph Builder
-ADD_EXECUTABLE(builder sample/GraphBuilder.cpp)
-TARGET_LINK_LIBRARIES(builder ${OPENCV} cuda_opt)
-
-# Region Matching
-ADD_EXECUTABLE(Region sample/Region.cpp)
-TARGET_LINK_LIBRARIES(Region ${OPENCV})
-
-# Stitching Result
-# ADD_EXECUTABLE(Stitching sample/Stitching.cpp)
-# TARGET_LINK_LIBRARIES(Stitching ${OPENCV})
-
-# Validation of Spatial Consistency
-# ADD_EXECUTABLE(Inspect sample/Inspect.cpp)
-# TARGET_LINK_LIBRARIES(Inspect ${OPENCV})
-
-# Experiment on clustering idea
-# ADD_EXECUTABLE(Clustering experiment/Clustering.cpp)
-# TARGET_LINK_LIBRARIES(Clustering ${OPENCV})
-
-# Experiment on the global clustering idea
-ADD_EXECUTABLE(Global experiment/GlobalClustering.cpp)
-TARGET_LINK_LIBRARIES(Global ${OPENCV})
-
-# Experiment on clustering idea
-# ADD_EXECUTABLE(nearest experiment/nearest.cpp)
-# TARGET_LINK_LIBRARIES(nearest ${OPENCV})
-
-# Transformation Viewer
-# ADD_EXECUTABLE(show experiment/ShowTransform.cpp)
-# TARGET_LINK_LIBRARIES(show ${OPENCV})
-
-# Belief Propagation for Global Clustering
-ADD_EXECUTABLE(RegionClu experiment/RegionClustering.cpp)
-TARGET_LINK_LIBRARIES(RegionClu ${OPENCV} cuda_opt)
-
-# Compare
-ADD_EXECUTABLE(compare sample/Compare.cpp)
-TARGET_LINK_LIBRARIES(compare ${OPENCV} cuda_opt)
 
 
