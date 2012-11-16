@@ -17,36 +17,79 @@
 
 namespace PatTk
 {
+
+
+
+  
   template <typename dataType>
   class FeatImage
   {
   private:
     /* ---------- data ---------- */
     std::vector<dataType> data;
+
+    /* ---------- Extra Properties ---------- */
+    struct PatchOptions
+    {
+      int patch_size;
+      int patch_stride;
+      int patch_start_offset;
+      int patch_dim;
+      PatchOptions( int dimCell ) : patch_size(3), patch_stride(3), 
+                                    patch_start_offset(-3), 
+                                    patch_dim( 3 * 3 * dimCell ) {}
+    };
+
+    /* ---------- prohibited methods ---------- */
+    FeatImage( FeatImage<dataType>& other ) {}
+    const FeatImage<dataType>& operator=( FeatImage<dataType> &other ) {}
+  
   public:
     /* ---------- properties ---------- */
     int rows, cols;
     int id;
     int dimCell;
-
+    
   private:
-    /* ---------- prohibited methods ---------- */
-    FeatImage( FeatImage<dataType>& other ) {}
-    const FeatImage<dataType>& operator=( FeatImage<dataType> &other ) {}
+    /* ---------- Patch Options ----------*/
+    PatchOptions options;
+    
+  public:
+    /* ---------- Patch Options Accessors ---------- */
+    inline void SetPatchSize( int s ) 
+    {
+      options.patch_size = s;
+      options.patch_start_offset = - ( s << 1 ) * options.patch_stride;
+      options.patch_dim = s * s * dimCell;
+    }
+
+    inline void SetPatchStride( int s )
+    {
+      options.patch_size = s;
+      options.patch_start_offset = - ( options.patch_size << 1 ) * s;
+    }
+
+    inline int GetPatchDim()
+    {
+      return options.patch_dim;
+    }
+    
+
     
   public:
 
     /* ---------- constructor/desctructor/assignment ---------- */
 
     /* default constructor: zero sized image */
-    FeatImage() : data(), rows(0), cols(0), id(-1), dimCell(0) {}
+    FeatImage() : data(), rows(0), cols(0), id(-1), dimCell(0), options(0) {}
 
     /* empty image constructor */
-    FeatImage( int h, int w, int dim ) : data(h*w*dim,0), rows(h), cols(w), id(-1), dimCell(dim) {}
+    FeatImage( int h, int w, int dim ) : data(h*w*dim,0), rows(h), cols(w), id(-1), 
+                                         dimCell(dim), options(dim) {}
 
     /* move constructor */
     FeatImage( FeatImage<dataType> &&other ) : rows(other.rows), cols(other.cols), id(other.id),
-                                               dimCell(other.dimCell)
+                                               dimCell(other.dimCell), options(other.options)
     {
       data.swap( other.data );
     }
@@ -59,6 +102,7 @@ namespace PatTk
       id = other.id;
       dimCell = other.dimCell;
       data.swap( other.data );
+      options = other.options;
     }
 
     /* clone */
@@ -70,8 +114,11 @@ namespace PatTk
       re.id = id;
       re.dimCell = dimCell;
       re.data = data;
+      re.options = options;
       return re;
     }
+
+    
     
     /* ---------- Cell Accessors ---------- */
 
@@ -89,7 +136,29 @@ namespace PatTk
     {
       return (&data[0]) + i * dimCell;
     }
+    
+    
+    
+    /* ---------- Patch Accessors ---------- */
 
+    inline void FetchPatch( int i, int j, dataType *feat )
+    {
+      int y = i - options.patch_start_offset;
+      int x = j - options.patch_start_offset;
+      dataType *featp = feat;
+      memset( feat, 0, sizeof(dataType) * options.patch_dim );
+      for ( int l=0; l<options.patch_size; l++, y+=options.patch_stride ) {
+        for ( int k=0; k<options.patch_size; k++, x+=options.patch_stride ) {
+          if ( 0 <= y && y < rows &&
+               0 <= x && x < cols ) {
+            memcpy( featp, (*this)(y,x), sizeof(dataType) * dimCell );
+          }
+          featp += dimCell;
+        }
+      }
+    }
+    
+    
 
     /* ---------- Operations ---------- */
     inline void MeanFilter( int wndRadius = 1 )

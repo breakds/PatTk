@@ -258,12 +258,10 @@ namespace PatTk
       
       pointMap.MeanFilter( options.cell_side >> 1 );
 
-      timer::tic();
       FeatImage<float> blockMap = pointMap.Group( options.block_size >> 1 );
-      printf( "%.5lf sec\n", timer::utoc() );
 
       blockMap.NormalizeCell();
-
+      
       return blockMap;
     }
 
