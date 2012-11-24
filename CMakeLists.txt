@@ -159,7 +159,14 @@ set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
 if (BUILD_UNITTEST)
   ADD_EXECUTABLE(TestFeatImage data/UnitTest/FeatImage.cpp)
   TARGET_LINK_LIBRARIES(TestFeatImage ${OPENCV})
+  ADD_EXECUTABLE(TestRotation data/UnitTest/RotationTest.cpp)
+  TARGET_LINK_LIBRARIES(TestRotation ${OPENCV})
 endif (BUILD_UNITTEST)
+
+ADD_EXECUTABLE(proptest experiment/proptest.cpp)
+TARGET_LINK_LIBRARIES(proptest ${OPENCV})
+
+
 
 
 

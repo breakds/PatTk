@@ -73,13 +73,13 @@ namespace PatTk
         fread( &component, sizeof(int), 1, in );
       }
       
-      inline int operator()( typename FeatImage<T>::PatchProxy &p )
+      inline int operator()( const typename FeatImage<T>::PatchProxy &p ) const
       {
         if ( p(component) < th ) return 0;
         return 1;
       }
 
-      inline int operator()( T* p )
+      inline int operator()( const T* p ) const
       {
         if ( p[component] < th ) return 0;
         return 1;
@@ -302,13 +302,22 @@ namespace PatTk
       }
     }
 
-    inline bool isLeaf()
+    inline bool isLeaf() const
     {
       if ( child[0] ) return false;
       return true;
     }
 
-    std::vector<LocInfo>& query( typename FeatImage<typename kernel::dataType>::PatchProxy &p )
+    const std::vector<LocInfo>& query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const
+    {
+      if ( isLeaf() ) {
+        return store;
+      } else {
+        return child[judger(p)]->query( p );
+      }
+    }
+
+    const std::vector<LocInfo>& query( const typename kernel::dataType *p ) const
     {
       if ( isLeaf() ) {
         return store;

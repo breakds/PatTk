@@ -36,21 +36,21 @@ namespace PatTk
 
   
   
-  
 
   /* note: this function works even if src and dst are the same */
   template<typename floating>
-  inline void normalize_vec( const floating *src, floating *dst, int dim )
+  inline void normalize_vec( const floating *src, floating *dst, int dim, floating norm=1.0 )
   {
-    // std::static_assert( std::is_floating_point<floating>::valye >,
-    //                     "template parameter floating is not a floating point type." );
     
     floating tmp = 0;
     for ( int i=0; i<dim; i++ ) {
       tmp += src[i] * src[i];
     }
+
     tmp += epsilon<floating>::value * epsilon<floating>::value;
-    tmp = sqrt( tmp );
+
+    tmp = sqrt( tmp ) / norm;
+    
     for ( int i=0; i<dim; i++ ) {
       dst[i] = src[i] / tmp;
     }
@@ -66,4 +66,77 @@ namespace PatTk
     return sqrt(re);
   }
 
+
+  template <typename dataType>
+  inline double dist_l2( const dataType* vec0, const dataType *vec1, int dim )
+  {
+    const dataType *vp0 = vec0;
+    const dataType *vp1 = vec1;
+    double re = 0;
+    for ( int i=0; i<dim; i++ ) {
+      typename Generalized<dataType>::type tmp = *(vp0++) - *(vp1++);
+      re += tmp * tmp;
+    }
+    return sqrt(re);
+  }
+
+  
+
+  /* scale a vector */
+  template <typename dataType>
+  inline void scale( dataType* vec, int dim, dataType wt )
+  {
+    dataType* vecp = vec;
+    for ( int i=0; i<dim; i++ ) *(vecp++) *= wt;
+  }
+
+  /* add two vectors and assign the result to the first one */
+  template <typename dataType>
+  inline void addto( dataType *v0, const dataType *v1, int dim )
+  {
+    dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    for ( int i=0; i<dim; i++ ) *(vp0++) += *(vp1++);
+  }
+
+  /* add two vectors and store the result in the third parameter */
+  template <typename dataType>
+  inline void add( const dataType *v0, const dataType *v1, dataType *res, int dim )
+  {
+    const dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    dataType *resp = res;
+    for ( int i=0; i<dim; i++ ) *(resp++) = *(vp0++) + *(vp1++);
+  }
+
+  /* combine two vectors with weights alpha and beta, store the reuslt
+     in the third parameter */
+  template <typename dataType>
+  inline void combine( const dataType *v0, const dataType *v1, dataType *res, int dim,
+                       const dataType alpha, const dataType beta )
+  {
+    const dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    dataType *resp = res;
+    for ( int i=0; i<dim; i++ ) *(resp++) = *(vp0++) * alpha + *(vp1++) * beta;
+  }
+
+  /* shift the vector as a histogram where the shift bins is delta > 0 */
+  template <typename dataType>
+  inline void shift( dataType *vec, int dim, float delta )
+  {
+    dataType tmp[dim];
+    memcpy( tmp, vec, sizeof( dataType ) * dim );
+    int lo = static_cast<int>( delta );
+    float alpha = delta - lo;
+    float balpha = 1.0 - alpha;
+    for ( int i=0; i<dim; i++ ) {
+      if ( lo >= dim ) lo -= dim;
+      int hi = lo + 1;
+      if ( hi >= dim ) hi -= dim;
+      vec[i] = tmp[lo] * balpha + tmp[hi] * alpha;
+      lo++;
+    }
+  }
+  
 }

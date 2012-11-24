@@ -8,7 +8,6 @@
 
 
 
-
 using namespace PatTk;
 int main()
 {
@@ -17,7 +16,7 @@ int main()
   // std::vector<std::string> imgList = std::move( readlines( "camvid_mid/small.txt" ) );
   // auto album = cvAlbum<HOG>::gen( path::FFFL( "camvid_mid", imgList, ".png" ) );
 
-  auto img = cvFeat<HOG>::gen( "camvid_mid/Seq05VD_f00810.png" );
+  auto img = cvFeat<HOG>::gen( "camvid_mid/Seq05VD_f00810.png", 3, 0.7 );
 
   // std::vector<FeatImage<float>::PatchProxy> l;
 
@@ -43,14 +42,17 @@ int main()
 
   auto tree = Tree<SimpleKernel<float> >::read( "tree.dat" );
   
-  FeatImage<float>::PatchProxy p = img.Spawn( 18, 200 );
+  FeatImage<float>::PatchProxy p = img.Spawn( 180, 20 );
 
-  std::vector<LocInfo> &loc = tree->query( p );
+  const std::vector<LocInfo> &loc = tree->query( p );
 
   for ( auto& ele : loc ) {
     printf( "%d, %d\n", ele.y, ele.x );
   }
+
+
   
+
   return 0;
 }
 
