@@ -63,7 +63,7 @@ int main( int argc, char **argv )
         ranker.resize( numProp );
         for ( int k=0; k<10; k++ ) {
           float rotation = static_cast<float>( rand() ) / RAND_MAX * 2 * M_PI;
-          // float rotation = M_PI;
+          // float rotation = M_PI / 6;
           float scale = static_cast<float>( rand() ) / RAND_MAX * 1.5 + 0.5;
           // float scale = 1.0;
           img.FetchPatch( 0, i, j, rotation, scale, feat );

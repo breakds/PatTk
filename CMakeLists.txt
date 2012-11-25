@@ -161,6 +161,8 @@ if (BUILD_UNITTEST)
   TARGET_LINK_LIBRARIES(TestFeatImage ${OPENCV})
   ADD_EXECUTABLE(TestRotation data/UnitTest/RotationTest.cpp)
   TARGET_LINK_LIBRARIES(TestRotation ${OPENCV})
+  ADD_EXECUTABLE(TestScale data/UnitTest/ScaleTest.cpp)
+  TARGET_LINK_LIBRARIES(TestScale ${OPENCV})
 endif (BUILD_UNITTEST)
 
 ADD_EXECUTABLE(proptest experiment/proptest.cpp)

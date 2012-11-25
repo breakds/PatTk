@@ -286,7 +286,7 @@ namespace PatTk
 
     inline const dataType* operator()( const int y, const int x, const int layer ) const
     {
-      return (&pyramid[layer][0]) + ( y * cols + x ) * dimCell;
+      return (&pyramid[layer][0]) + ( y * cols_layer[layer] + x ) * dimCell;
     }
 
     inline const dataType* operator()( const int i ) const
@@ -325,30 +325,31 @@ namespace PatTk
     }
     
     /* get patch from a particular layer of pyramid */
-    inline void FetchPatch( int layer, int i, int j, float rotation, float scale, dataType *feat ) const
+    inline void FetchPatch( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
     {
       assert( layer >= 0 && layer < ( scales << 1 ) + 1 );
 
-      float ratio = scale_layer[layer] / scale;
+      float ratio = scale * scale_layer[layer];
 
-      float cy = i * ratio;
-      float cx = j * ratio;
+      
 
-      float stride = options.patch_stride * scale_layer[layer];
+      float cy = i * scale_layer[layer];
+      float cx = j * scale_layer[layer];
+      
       float cosa = cos( rotation );
       float sina = sin( rotation );
 
-      float vert_y = cosa * scale_layer[layer];
-      float vert_x = -sina * scale_layer[layer];
+      float vert_y = cosa * ratio;
+      float vert_x = -sina * ratio;
       float horz_y = -vert_x;
       float horz_x = vert_y;
-
+      
 
       float y0 = cy + ( vert_y + horz_y ) * options.patch_start_offset;
       float x0 = cx + ( vert_x + horz_x ) * options.patch_start_offset;
 
-      vert_y *= stride;
-      vert_x *= stride;
+      vert_y *= options.patch_stride;
+      vert_x *= options.patch_stride;
       horz_y = -vert_x;
       horz_x = vert_y;
 
@@ -429,10 +430,10 @@ namespace PatTk
     /* rotation is clockwize and in rad
      * scale > 1 = upsampled and < 1 = downsampled
      */
-    inline void FetchPatch( int i, int j, float rotation, float scale, dataType *feat ) const
+    inline void FetchPatch( float i, float j, float rotation, float scale, dataType *feat ) const
     {
 
-      float log_scale = - log(scale) / log(scale_base);
+      float log_scale = log(scale) / log(scale_base);
       if ( log_scale < -scales ) {
         FetchPatch( -scales, i, j, rotation, scale, feat );
       } else if ( log_scale > scales ) {

@@ -14,35 +14,30 @@ int main()
 
   srand(0);
 
-  float ang = 30.0 / 180.0 * M_PI;
-
-  auto src = cvFeat<HOG>::gen( "simple/src.png.30" , 2, 0.9 );
+  auto src = cvFeat<HOG>::gen( "simple2/src.png" , 4, 0.95 );
   src.SetRotBins( 9 );
-  auto ref = cvFeat<HOG>::gen( "simple/ref.png" );
+  auto ref = cvFeat<HOG>::gen( "simple2/ref.png" );
 
-  cv::Mat srcmat = cv::imread( "simple/src.png.30" );
+  cv::Mat srcmat = cv::imread( "simple2/src.png" );
   ImageViewer srcv( "source", srcmat );
-  cv::Mat refmat = cv::imread( "simple/ref.png" );
+  cv::Mat refmat = cv::imread( "simple2/ref.png" );
   ImageViewer refv( "reference", refmat );
 
+  float scale = static_cast<float>( src.cols ) / ref.cols;
 
-  refv.setCallback( [&refmat,&srcv,&src,&ref,&ang]( int x, int y )
+  printf( "%.4f\n", scale );
+
+
+  refv.setCallback( [&refmat,&srcv,&src,&ref,&scale]( int x, int y )
                     {
                       std::vector<PatLoc> list;
                       
-
-                      float cosa = cosf( ang );
-                      float sina = sinf( ang );
                       
-                      float y1 = cosa * y + sina * x;
-                      float x1 = -sina * y + cosa * x + refmat.rows * sina;
+                      float y1 = y * scale;
+                      float x1 = x * scale;
 
-
-
-
-
+                      list.push_back( PatLoc( -1, y1, x1, 0.0, scale ) );
                       
-                      list.push_back( PatLoc( -1, y1, x1, ang, 1.0 ) );
 
                       srcv.display( list );
 
@@ -53,8 +48,7 @@ int main()
                       float feat_src[src.GetPatchDim()];
 
                       ref.FetchPatch( y, x, feat_ref );
-                      src.FetchPatch( 2, y1, x1, ang, 1.0, feat_src );
-
+                      src.FetchPatch( y1, x1, 0.0, scale, feat_src );
 
 
                       printf( "------------------------------\n" );
@@ -63,10 +57,14 @@ int main()
                           printf( "--\n" );
                         }
                         printf( "%.4f\t%.4f\n", feat_ref[i], feat_src[i] );
-                      }
 
+                      }
+                      
                       printf( "norm0: %.4f\n", norm_l2( feat_ref, ref.GetPatchDim() ) );
                       printf( "norm1: %.4f\n", norm_l2( feat_src, src.GetPatchDim() ) );
+                      printf( "(%d,%d)\n", y, x );
+                      
+                      
                     } );
   
 

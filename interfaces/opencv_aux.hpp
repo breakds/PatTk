@@ -334,7 +334,7 @@ namespace PatTk
 
 
       
-      scale = 1.0 / base;
+      scale = 1.0f / base;
       for ( int i=1; i<=scales; i++ ) {
         cv::resize( org, tmp, cv::Size( org.cols * scale, org.rows * scale ) );
         scale = scale / base;
@@ -343,13 +343,11 @@ namespace PatTk
       
       return FeatImage<float>( std::move(imgs), base );
     }
-
-
-
+    
+    
     // +--------------------------------------------------+
     // |  HOG Feature Generator Core                      |
     // +--------------------------------------------------+
-    
     template <featEnum T=featType>
     static FeatImage<float> gen( cv::Mat raw, ENABLE_IF( HOG == T ) )
     {

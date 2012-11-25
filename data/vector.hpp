@@ -20,19 +20,32 @@ namespace PatTk
   {
   public:
     static const numeric value;
+    static const numeric v1;
   };
 
   template <>
   const int epsilon<int>::value(1);
 
   template <>
+  const int epsilon<int>::v1(1);
+
+  template <>
   const unsigned char epsilon<unsigned char>::value(1);
+
+  template <>
+  const unsigned char epsilon<unsigned char>::v1(1);
 
   template <>
   const float epsilon<float>::value(1e-5);
 
   template <>
+  const float epsilon<float>::v1(1e-1);
+
+  template <>
   const double epsilon<double>::value(1e-5);
+
+  template <>
+  const double epsilon<double>::v1(1e-1);
 
   
   
@@ -47,7 +60,7 @@ namespace PatTk
       tmp += src[i] * src[i];
     }
 
-    tmp += epsilon<floating>::value * epsilon<floating>::value;
+    tmp += epsilon<floating>::v1 * epsilon<floating>::v1;
 
     tmp = sqrt( tmp ) / norm;
     
