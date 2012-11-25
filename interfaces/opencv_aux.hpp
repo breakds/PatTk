@@ -239,46 +239,53 @@ namespace PatTk
     // +--------------------------------------------------+
     // |  HOG Feature Straight Forward Generator          |
     // +--------------------------------------------------+
-    template <featEnum T=featType>
-    static FeatImage<float> gen( cv::Mat &img, float y, float x,
-                                 float rotation, float scale,
-                                 int patch_stride = 3,
-                                 int patch_size = 3,
-                                 ENABLE_IF( HOG == T ) )
-    {
-      cv::Mat tmp;
-      cv::resize( img, tmp, cv::Size( img.cols * scale, img.rows * scale ) );
+    // template <featEnum T=featType>
+    // static FeatImage<float> gen( cv::Mat &img, float y, float x,
+    //                              float rotation, float scale,
+    //                              int orientation_bins = 9;
+    //                              int patch_stride = 3,
+    //                              int patch_size = 3,
+    //                              int cell_side = 5,
+    //                              ENABLE_IF( HOG == T ) )
+    // {
+    //   cv::Mat tmp;
+    //   cv::resize( img, tmp, cv::Size( img.cols * scale, img.rows * scale ) );
+
+    //   cv::Mat gradx( raw.rows, raw.cols, CV_32FC1 );
+    //   cv::Mat grady( raw.rows, raw.cols, CV_32FC1 );
+
       
 
-      int radius = patch_size >> 1;
+
+    //   int radius = patch_size >> 1;
       
-      float vert_y = patch_stride * sinf( rotation );
-      float vert_x = patch_stride * cosf( rotation );
-      float horz_y = vert_x;
-      float horz_x = -vert_y;
+    //   float vert_y = patch_stride * sinf( rotation );
+    //   float vert_x = patch_stride * cosf( rotation );
+    //   float horz_y = vert_x;
+    //   float horz_x = -vert_y;
 
-      float y0 = y - vert_y * radius - horz_y * radius;
-      flaot x0 = x - vert_x * radius - horz_x * radius;
+    //   float y0 = y - vert_y * radius - horz_y * radius;
+    //   flaot x0 = x - vert_x * radius - horz_x * radius;
 
-      for ( int i=0; i<patch_size; i++ ) {
-        int y1 = y0;
-        int x1 = x0;
-        for ( int j=0; j<patch_size; j++ ) {
+    //   for ( int i=0; i<patch_size; i++ ) {
+    //     int y1 = y0;
+    //     int x1 = x0;
+    //     for ( int j=0; j<patch_size; j++ ) {
 
           
           
 
-          y1 += horz_y;
-          x1 += horz_x;
-        }
-        y0 += vert_y;
-        x0 += vert_x;
-      }
+    //       y1 += horz_y;
+    //       x1 += horz_x;
+    //     }
+    //     y0 += vert_y;
+    //     x0 += vert_x;
+    //   }
       
-    }
+    // }
     
       
-
+    
 
     // +--------------------------------------------------+
     // |  HOG Feature Generator                           |
@@ -292,7 +299,7 @@ namespace PatTk
         Error( "cvFeat<HOG::gen()   Failed to load image %d", filename.c_str() );
         exit( -1 );
       }
-
+      
       return gen<HOG>( raw );
     }
 
@@ -433,6 +440,8 @@ namespace PatTk
 
       /* voting */
       pointMap.MeanFilter( options.cell_side >> 1 );
+
+      pointMap.SetRotBins( options.orientation_bins );
 
       return pointMap;
 

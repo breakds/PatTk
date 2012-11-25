@@ -2,6 +2,7 @@
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/time.hpp"
 #include "LLPack/utils/pathname.hpp"
+#include "LLPack/algorithms/list.hpp"
 #include "../FeatImage.hpp"
 #include "../../interfaces/opencv_aux.hpp"
 #include "../../query/tree.hpp"
@@ -12,58 +13,122 @@ using namespace PatTk;
 int main()
 {
 
-  srand(0);
-
-  float ang = M_PI / 6;
-
   auto src = cvFeat<HOG>::gen( "simple/src.png.30" , 2, 0.9 );
-  src.SetRotBins( 9 );
-  auto ref = cvFeat<HOG>::gen( "simple/ref.png" );
+  auto ref = cvFeat<HOG>::gen( "simple/ref.png", 2, 0.9f );
 
   cv::Mat srcmat = cv::imread( "simple/src.png.30" );
   ImageViewer srcv( "source", srcmat );
   cv::Mat refmat = cv::imread( "simple/ref.png" );
   ImageViewer refv( "reference", refmat );
 
-  refv.setCallback( [&refmat,&srcv,&src,&ref,&ang]( int x, int y )
+
+  float ang = 0.0;
+
+  int N = 10;
+
+  float feat_base[ref.GetPatchDim()];
+  
+  Circular<float*> features( N );
+
+  int curY(0), curX(0);
+
+  refv.setCallback( [&refmat,&srcv,&src,&ref,&ang,&feat_base,&features,&curY,&curX]( int x, int y )
                     {
-                      std::vector<PatLoc> list;
+
+                      curY = y;
+                      curX = x;
                       
+                      ref.FetchPatch( y, x, feat_base );
 
-                      float cosa = cosf( ang );
-                      float sina = sinf( ang );
+                      features.clear();
+
+                      ang = 0.0;
+
+                      float *feat = new float[ref.GetPatchDim()];
+
+                      ref.FetchPatch( 2, y, x, ang, 1.0, feat );
+
+                      features.push_back( feat );
+
+                      printf( "features.size = %d\n", features.size() );
                       
-                      int y1 = static_cast<int>( cosa * y + sina * x );
-                      int x1 = static_cast<int>( -sina * y + cosa * x + refmat.rows * sina );
-
-                      // int y1 = 239 - y;
-                      // int x1 = 319 - x;
-                      
-                      list.push_back( PatLoc( -1, y1, x1, ang, 1.0 ) );
-
-
-                      float feat_ref[ref.GetPatchDim()];
-                      float feat_src[src.GetPatchDim()];
-
-                      ref.FetchPatch( y, x, feat_ref );
-                      src.FetchPatch( 2, y1, x1, ang, 1.0, feat_src );
-
-                      srcv.display( list );
-
                       printf( "------------------------------\n" );
                       for ( int i=0; i<ref.GetPatchDim(); i++ ) {
                         if ( 0 == i%9 ) {
                           printf( "--\n" );
                         }
-                        printf( "%.4f\t%.4f\n", feat_ref[i], feat_src[i] );
+                        printf( "%.4f   |", feat_base[i] );
+                        for ( int k=0; k<features.size(); k++ ) {
+                          printf( "\t%.4f", features(k)[i] );
+                        }
+                        printf( "\n" );
                       }
 
-                      printf( "norm0: %.4f\n", norm_l2( feat_ref, ref.GetPatchDim() ) );
-                      printf( "norm1: %.4f\n", norm_l2( feat_src, src.GetPatchDim() ) );
+                      printf( "(%d,%d)\n", y, x );
                     } );
-  
 
-  while ( 27 != cv::waitKey(30) );
+  char key;
+  while ( 27 != ( key = cv::waitKey(30) ) ) {
+    if ( 81 == key ) {
+      std::vector<PatLoc> list;
+      ang -= 1.0 / 180.0 * M_PI;
+      list.push_back( PatLoc( -1, curY, curX, ang, 1.0f ) );
+      refv.display( list );
+
+      float *feat = new float[ref.GetPatchDim()];
+
+      ref.FetchPatch( 2, curY, curX, ang, 1.0, feat );
+
+      if ( features.full() ) {
+        features.pop_front();
+      }
+
+      features.push_back( feat );
+
+      printf( "------------------------------\n" );
+      for ( int i=0; i<ref.GetPatchDim(); i++ ) {
+        if ( 0 == i%9 ) {
+          printf( "--\n" );
+        }
+        printf( "%.4f   |", feat_base[i] );
+        for ( int k=0; k<features.size(); k++ ) {
+          printf( "\t%.4f", features(k)[i] );
+        }
+        printf( "\n" );
+      }
+
+      
+    } else if ( 83 == key ) {
+      std::vector<PatLoc> list;
+      ang += 1.0 / 180.0 * M_PI;
+      list.push_back( PatLoc( -1, curY, curX, ang, 1.0f ) );
+      refv.display( list );
+
+      float *feat = new float[ref.GetPatchDim()];
+
+      ref.FetchPatch( 2, curY, curX, ang, 1.0, feat );
+
+      if ( features.full() ) {
+        features.pop_front();
+      }
+      
+      features.push_back( feat );
+
+      printf( "------------------------------\n" );
+      for ( int i=0; i<ref.GetPatchDim(); i++ ) {
+        if ( 0 == i%9 ) {
+          printf( "--\n" );
+        }
+        printf( "%.4f   |", feat_base[i] );
+        for ( int k=0; k<features.size(); k++ ) {
+          printf( "\t%.4f", features(k)[i] );
+        }
+        printf( "\n" );
+      }
+
+    }
+  }
+
 
   return 0;
 }

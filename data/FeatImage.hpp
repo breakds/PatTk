@@ -421,7 +421,7 @@ namespace PatTk
           featp += options.rotBins;
         }
       }
-
+      
       normalize_vec( feat, feat, options.patch_dim );
     }
     
