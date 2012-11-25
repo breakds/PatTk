@@ -20,7 +20,7 @@ int main( int argc, char **argv )
   int numProp = 10;
   
   
-  auto img = cvFeat<HOG>::gen( "simple/src.png.resized", 0, 0.7 );
+  auto img = cvFeat<HOG>::gen( "simple/src.png.resized", 8, 0.9 );
   auto ref = cvFeat<HOG>::gen( "simple/ref.png", 0, 0.7 );
 
   if ( 0 == strcmp( argv[1], "train" ) ) {
@@ -63,10 +63,9 @@ int main( int argc, char **argv )
         ranker.resize( numProp );
         for ( int k=0; k<10; k++ ) {
           float rotation = static_cast<float>( rand() ) / RAND_MAX * 2 * M_PI;
-          // float rotation = M_PI / 6;
-          float scale = static_cast<float>( rand() ) / RAND_MAX * 1.5 + 0.5;
-          // float scale = 1.0;
-          img.FetchPatch( 0, i, j, rotation, scale, feat );
+          // float rotation = 0.0;
+          float scale = static_cast<float>( rand() ) / RAND_MAX * 0.4 + 0.8;
+          img.FetchPatch( i, j, rotation, scale, feat );
           const std::vector<LocInfo>& re = tree->query( feat );
           int p = 0;
           for ( auto& ele : re ) {
@@ -97,10 +96,12 @@ int main( int argc, char **argv )
           ranker.resize( numProp );
           for ( auto& ele : geomap(i,j) ) {
             PatLoc loc = ele.apply( i, j );
-            ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-            double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
-            Geometric copy = ele;
-            ranker.add( dist, copy );
+            if ( 0 <= loc.y && loc.y <= ref.rows && 0 <= loc.x && loc.x < ref.cols ) {
+              ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+              double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
+              Geometric copy = ele;
+              ranker.add( dist, copy );
+            }
           }
 
           geomap[ i * geomap.cols + j ].clear();
@@ -125,10 +126,12 @@ int main( int argc, char **argv )
           ranker.resize( numProp );
           for ( auto& ele : geomap(i,j) ) {
             PatLoc loc = ele.apply( i, j );
-            ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-            double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
-            Geometric copy = ele;
-            ranker.add( dist, copy );
+            if ( 0 <= loc.y && loc.y <= ref.rows && 0 <= loc.x && loc.x < ref.cols ) {
+              ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+              double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
+              Geometric copy = ele;
+              ranker.add( dist, copy );
+            }
           }
 
           geomap[ i * geomap.cols + j ].clear();
@@ -152,10 +155,12 @@ int main( int argc, char **argv )
           ranker.resize( numProp );
           for ( auto& ele : geomap(i,j) ) {
             PatLoc loc = ele.apply( i, j );
-            ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-            double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
-            Geometric copy = ele;
-            ranker.add( dist, copy );
+            if ( 0 <= loc.y && loc.y <= ref.rows && 0 <= loc.x && loc.x < ref.cols ) {                          
+              ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+              double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
+              Geometric copy = ele;
+              ranker.add( dist, copy );
+            }
           }
 
           geomap[ i * geomap.cols + j ].clear();
@@ -180,10 +185,12 @@ int main( int argc, char **argv )
           ranker.resize( numProp );
           for ( auto& ele : geomap(i,j) ) {
             PatLoc loc = ele.apply( i, j );
-            ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-            double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
-            Geometric copy = ele;
-            ranker.add( dist, copy );
+            if ( 0 <= loc.y && loc.y <= ref.rows && 0 <= loc.x && loc.x < ref.cols ) {                          
+              ref.FetchPatch( 0, loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+              double dist = dist_l2( feat, feat_c, ref.GetPatchDim() );
+              Geometric copy = ele;
+              ranker.add( dist, copy );
+            }
           }
 
           geomap[ i * geomap.cols + j ].clear();
@@ -198,8 +205,6 @@ int main( int argc, char **argv )
         }
       }
 
-      
-      
     }
 
 
