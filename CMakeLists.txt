@@ -163,10 +163,12 @@ if (BUILD_UNITTEST)
   TARGET_LINK_LIBRARIES(TestRotation ${OPENCV})
   ADD_EXECUTABLE(TestScale data/UnitTest/ScaleTest.cpp)
   TARGET_LINK_LIBRARIES(TestScale ${OPENCV})
+  ADD_EXECUTABLE(icon interfaces/UnitTest/IconList.cpp)
+  TARGET_LINK_LIBRARIES(icon ${OPENCV})
 endif (BUILD_UNITTEST)
 
-ADD_EXECUTABLE(proptest experiment/proptest.cpp)
-TARGET_LINK_LIBRARIES(proptest ${OPENCV})
+ADD_EXECUTABLE(code experiment/code_test.cpp)
+TARGET_LINK_LIBRARIES(code ${OPENCV})
 
 
 

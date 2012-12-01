@@ -49,11 +49,13 @@ namespace PatTk
       std::vector<int> offset;
       std::vector<int> offsetY;
       std::vector<int> offsetX;
+      bool normalized;
       PatchOptions( int dimCell ) : patch_size(3), patch_stride(3), 
                                     patch_start_offset(-3), 
                                     hist_dim( dimCell ),
                                     patch_dim( 3 * 3 * dimCell ),
-                                    rotBins(0), shiftUnit(1.0) {}
+                                    rotBins(0), shiftUnit(1.0),
+                                    normalized(true) {}
     };
 
     /* ---------- prohibited methods ---------- */
@@ -118,7 +120,7 @@ namespace PatTk
 
     inline void SetPatchStride( int s )
     {
-      options.patch_size = s;
+      options.patch_stride = s;
       options.patch_start_offset = - ( options.patch_size << 1 ) * s;
       initPatchOptions();
     }
@@ -134,6 +136,11 @@ namespace PatTk
       if ( 0 != r ) {
         options.shiftUnit = M_PI / r;
       }
+    }
+
+    inline void ToggleNormalized( bool tog )
+    {
+      options.normalized = tog;
     }
 
     
@@ -187,7 +194,6 @@ namespace PatTk
       rows_layer[0] = rows;
       cols_layer[0] = cols;
     }
-    
 
     /* pyramid constructor */
     FeatImage( std::vector<FeatImage<dataType> > &&imgs, float base ) : pyramid(1), id(-1),
@@ -242,6 +248,11 @@ namespace PatTk
     
     /* move constructor */
     FeatImage( FeatImage<dataType> &&other ) : pyramid(std::move(other.pyramid)),
+                                               scale_base(other.scale_base),
+                                               scales(other.scales),
+                                               scale_layer(std::move(other.scale_layer)),
+                                               rows_layer(std::move(other.rows_layer)),
+                                               cols_layer(std::move(other.cols_layer)),
                                                rows(other.rows), cols(other.cols), id(other.id),
                                                dimCell(other.dimCell), options(other.options)
     {
@@ -256,6 +267,11 @@ namespace PatTk
       id = other.id;
       dimCell = other.dimCell;
       pyramid.swap( other.pyramid );
+      scale_base = other.scale_base;
+      scales = other.scales;
+      scale_layer.swap( other.scale_layer );
+      rows_layer.swap( other.rows_layer );
+      cols_layer.swap( other.cols_layer );
       options = other.options;
       return (*this);
     }
@@ -311,6 +327,7 @@ namespace PatTk
       int y = i + options.patch_start_offset;
       dataType *featp = feat;
       memset( feat, 0, sizeof(dataType) * options.patch_dim );
+
       for ( int l=0; l<options.patch_size; l++, y+=options.patch_stride ) {
         int x = j + options.patch_start_offset;
         for ( int k=0; k<options.patch_size; k++, x+=options.patch_stride ) {
@@ -321,7 +338,9 @@ namespace PatTk
           featp += dimCell;
         }
       }
-      normalize_vec( feat, feat, options.patch_dim );
+      if ( options.normalized ) {
+        normalize_vec( feat, feat, options.patch_dim );
+      }
     }
     
     /* get patch from a particular layer of pyramid */
@@ -376,7 +395,7 @@ namespace PatTk
 
           // note from now on vec0 and featp are interchangebale
           vec0 = featp;
-
+          
           if ( b00 && b10 ) {
             combine( (*this)( y1, x1, layer ), (*this)( y1 + 1, x1, layer ),
                      vec0, dimCell, 1.0f - alpha, alpha );
@@ -422,8 +441,9 @@ namespace PatTk
           featp += options.rotBins;
         }
       }
-      
-      normalize_vec( feat, feat, options.patch_dim );
+      if ( options.normalized ) {
+        normalize_vec( feat, feat, options.patch_dim );
+      }
     }
     
 
@@ -434,7 +454,9 @@ namespace PatTk
     {
 
       float log_scale = log(scale) / log(scale_base);
-      if ( log_scale < -scales ) {
+      if ( 0 == scales ) {
+        FetchPatch( 0, i, j, rotation, scale, feat );
+      } else if ( log_scale < -scales ) {
         FetchPatch( -scales, i, j, rotation, scale, feat );
       } else if ( log_scale > scales ) {
         FetchPatch( scales, i, j, rotation, scale, feat );
@@ -571,7 +593,8 @@ namespace PatTk
     // }
 
     /* ---------- Tracer ---------- */
-    inline void showCell( const int i ) const
+    template <typename T = dataType>
+    inline void showCell( const int i, ENABLE_IF( (!std::is_same<T,unsigned char>::value) )  ) const
     {
       const dataType* f = (*this)(i);
       std::cout << "( ";
@@ -581,7 +604,19 @@ namespace PatTk
       std::cout << ")\n";
     }
 
-    inline void showCell( const int i, const int j ) const
+    template <typename T = dataType>
+    inline void showCell( const int i, ENABLE_IF((std::is_same<T,unsigned char>::value))  ) const
+    {
+      const dataType* f = (*this)(i);
+      printf( "( " );
+      for ( int c=0; c<dimCell; c++ ) {
+        printf( "%hhu ", f[c] );
+      }
+      printf( ")\n" );
+    }
+
+    template <typename T = dataType>
+    inline void showCell( const int i, const int j, ENABLE_IF((!std::is_same<T,unsigned char>::value)) ) const
     {
       const dataType* f = (*this)(i,j);
       std::cout.precision(5);
@@ -591,6 +626,18 @@ namespace PatTk
       }
       std::cout << ")\n";
     }
+
+    template <typename T = dataType>
+    inline void showCell( const int i, const int j, ENABLE_IF((std::is_same<T,unsigned char>::value))  ) const
+    {
+      const dataType* f = (*this)(i,j);
+      printf( "( " );
+      for ( int c=0; c<dimCell; c++ ) {
+        printf( "%hhu ", f[c] );
+      }
+      printf( ")\n" );
+    }
+
 
   };
 

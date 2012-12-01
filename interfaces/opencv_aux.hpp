@@ -109,6 +109,7 @@ namespace PatTk
             raw_ptr++;
           }
         }
+        img.ToggleNormalized( false );
         return img;
       } else if ( 3 == raw.channels() ) {
         FeatImage<uchar> img( raw.rows, raw.cols, 3 );
@@ -120,6 +121,7 @@ namespace PatTk
           memcpy( img_ptr, raw_ptr, row_size );
           img_ptr += row_stride;
         }
+        img.ToggleNormalized( false );
         return img;
       }
 
@@ -235,57 +237,6 @@ namespace PatTk
       hi_wt = pos - lo_bin;
       lo_wt = 1.0 - hi_wt;
     }
-
-    // +--------------------------------------------------+
-    // |  HOG Feature Straight Forward Generator          |
-    // +--------------------------------------------------+
-    // template <featEnum T=featType>
-    // static FeatImage<float> gen( cv::Mat &img, float y, float x,
-    //                              float rotation, float scale,
-    //                              int orientation_bins = 9;
-    //                              int patch_stride = 3,
-    //                              int patch_size = 3,
-    //                              int cell_side = 5,
-    //                              ENABLE_IF( HOG == T ) )
-    // {
-    //   cv::Mat tmp;
-    //   cv::resize( img, tmp, cv::Size( img.cols * scale, img.rows * scale ) );
-
-    //   cv::Mat gradx( raw.rows, raw.cols, CV_32FC1 );
-    //   cv::Mat grady( raw.rows, raw.cols, CV_32FC1 );
-
-      
-
-
-    //   int radius = patch_size >> 1;
-      
-    //   float vert_y = patch_stride * sinf( rotation );
-    //   float vert_x = patch_stride * cosf( rotation );
-    //   float horz_y = vert_x;
-    //   float horz_x = -vert_y;
-
-    //   float y0 = y - vert_y * radius - horz_y * radius;
-    //   flaot x0 = x - vert_x * radius - horz_x * radius;
-
-    //   for ( int i=0; i<patch_size; i++ ) {
-    //     int y1 = y0;
-    //     int x1 = x0;
-    //     for ( int j=0; j<patch_size; j++ ) {
-
-          
-          
-
-    //       y1 += horz_y;
-    //       x1 += horz_x;
-    //     }
-    //     y0 += vert_y;
-    //     x0 += vert_x;
-    //   }
-      
-    // }
-    
-      
-    
 
     // +--------------------------------------------------+
     // |  HOG Feature Generator                           |
@@ -493,16 +444,6 @@ namespace PatTk
       radius = r;
     }
 
-    // ImageViewer( std::string wnd, int index, std::vector<std::string> &imgList )
-    //   : align(CENTER) // index = image index in Dataset
-    // {
-    //   wndName = wnd;
-    //   image = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[index].c_str() ) );
-    //   display( -1, -1 );
-    //   callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
-    // }
-
-    
     void display( int x, int y )
     {
       cv::Mat canvas = image.clone();
@@ -544,12 +485,6 @@ namespace PatTk
     }
 
                   
-    // void chImg( const int index, const std::vector<std::string> &imgList )
-    // {
-    //   image = cv::imread( strf( "%s/%s.png", env["dataset"].c_str(), imgList[index].c_str() ) );
-    //   display( -1, -1 );
-    // }
-
     void setCallback( std::function<void(int,int)> cb ) {
       callback = cb;
     }
@@ -563,6 +498,210 @@ namespace PatTk
       }
     }
   };
+
+
+  // +-------------------------------------------------------------------------------
+  // |  Visualization sub-Library
+  // +-------------------------------------------------------------------------------
+  void put( const cv::Mat& icon, const int y, const int x, cv::Mat& bg, const int zoom = 1 )
+  {
+    if ( CV_8UC3 != icon.type() || CV_8UC3 != icon.type() ) {
+      Error( "IconList::put() - either icon or bg is not of CV_8UC3" );
+      exit( -1 );
+    }
+    for ( int dy=0; dy<icon.rows; dy++ ) {
+      for ( int dx=0; dx<icon.cols; dx++ ) {
+        for ( int k=0; k<3; k++ ) {
+          for ( int zy=0; zy<zoom; zy++ ) {
+            for ( int zx=0; zx<zoom; zx++ ) {
+              bg.at<cv::Vec3b>( y + dy * zoom + zy, x + dx * zoom + zx )[k] = icon.at<cv::Vec3b>( dy, dx )[k];
+            }
+          }
+        }
+      }
+    }
+  }
+  
+
+
+  class IconList
+  {
+  private:
+    std::vector<cv::Mat> icons;
+    std::function<void(const int)> callback;
+  public:
+    std::vector<PatLoc> patches;
+    std::string window;
+    int patchSize;
+    struct Options
+    {
+      int margin;
+      int cols;
+      int colSep;
+      int rowSep;
+      int zoom;
+      cv::Scalar background;
+    } options;
+    
+  private:
+    IconList();
+
+    static void MouseCallback( int event, int x, int y, int __attribute__((__unused__)) flags, void *param )
+    {
+      if ( event == CV_EVENT_LBUTTONDOWN ) {
+        IconList *ptr = (IconList*) param;
+        ptr->display( y, x );
+      }
+    }
+    
+  public:
+    IconList( const std::string& win, int size ) : window(win), patchSize(size)
+    {
+      options.margin = 5;
+      options.cols = 40;
+      options.colSep = 5;
+      options.rowSep = 5;
+      options.zoom = 1;
+      options.background = cv::Scalar( 0, 0, 0 );
+      callback = [](const int index){ printf("%d clicked.\n", index ); };
+    }
+
+    ~IconList()
+    {
+      close();
+    }
+
+    void clear()
+    {
+      icons.clear();
+      patches.clear();
+    }
+
+
+    void push( const std::vector<std::string>& imgList, const PatLoc& loc )
+    {
+      cv::Mat tmp = cv::imread( imgList[loc.id] );
+      if ( tmp.empty() ) {
+        Error( "IconList::push() - failed to load image %s.", imgList[loc.id].c_str() );
+        exit( -1 );
+      }
+      if ( CV_8UC3 != tmp.type() ) {
+        Error( "IconList::push() - image is not of type CV_8UC3." );
+        exit( -1 );
+      }
+      
+      auto img = cvFeat<BGR>::gen( tmp );
+      img.SetPatchStride(1);
+      img.SetPatchSize( patchSize );
+      uchar patch[img.GetPatchDim()];
+      img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, patch );
+
+
+      icons.push_back( cv::Mat( patchSize, patchSize, CV_8UC3 ) );
+      cv::Mat& icon = icons.back();
+      int i = 0;
+      for ( int dy=0; dy<patchSize; dy++ ) {
+        for ( int dx=0; dx<patchSize; dx++ ) {
+          for ( int k=0; k<3; k++ ) {
+            icon.at<cv::Vec3b>( dy, dx )[k] = patch[i++];
+          }
+        }
+      }
+      patches.push_back( loc );
+    }
+
+  void push( const cv::Mat tmp, const PatLoc& loc )
+    {
+
+      if ( CV_8UC3 != tmp.type() ) {
+        Error( "IconList::push() - image is not of type CV_8UC3." );
+        exit( -1 );
+      }
+
+      // debuggomg:
+
+      loc.show();
+      char ch;
+      scanf( "%c", &ch );
+      
+      auto img = cvFeat<BGR>::gen( tmp );
+      img.SetPatchStride(1);
+      img.SetPatchSize( patchSize );
+      uchar patch[img.GetPatchDim()];
+      img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, patch );
+
+
+      icons.push_back( cv::Mat( patchSize, patchSize, CV_8UC3 ) );
+      cv::Mat& icon = icons.back();
+      int i = 0;
+      printf( "patchSize: %d\n", patchSize );
+      for ( int dy=0; dy<patchSize; dy++ ) {
+        for ( int dx=0; dx<patchSize; dx++ ) {
+          for ( int k=0; k<3; k++ ) {
+            icon.at<cv::Vec3b>( dy, dx )[k] = patch[i++];
+          }
+        }
+      }
+      patches.push_back( loc );
+    }
+
+    
+    
+    void setCallback( std::function<void(const int)> cb ) {
+      callback = cb;
+    }
+
+    // ( my, mx ) represents the position of the last mouse click.
+    void display( const int my = -1, const int mx = -1 )
+    {
+      if ( 0 == icons.size() ) {
+        Info( "IconList::display() - nothing to show." );
+        return ;
+      }
+      int width = options.margin * 2 + options.colSep * ( options.cols - 1 )
+        + icons[0].cols * options.zoom * options.cols;
+      int rows = ( icons.size() - 1 ) / options.cols + 1;
+      int height = options.margin * 2 + options.rowSep * ( rows - 1 ) + icons[0].rows * options.zoom * rows;
+      cv::Mat canvas( height, width, CV_8UC3, options.background );
+
+      int y = options.margin;
+      int x = options.margin;
+      for ( uint i=0; i<icons.size(); i++ ) {
+        put( icons[i], y, x, canvas, options.zoom );
+        if ( -1 != my && -1 != mx ) {
+          // highlight
+          if ( y <=  my && my < y + icons[0].rows * options.zoom &&
+               x <= mx && mx < x + icons[0].cols * options.zoom ) {
+            callback( i );
+            rectangle( canvas,
+                       cv::Point( x-2, y-2 ),
+                       cv::Point( x + icons[0].cols * options.zoom + 1, y + icons[0].rows * options.zoom + 1 ),
+                       cv::Scalar( 0, 255, 0 ) ) ;
+          }
+        }
+        if ( 0 == (i+1) % options.cols ) {
+          y += options.rowSep + icons[0].rows * options.zoom;
+          x = options.margin;
+        } else {
+          x += options.colSep + icons[0].cols * options.zoom;
+        }
+      }
+      cv::imshow( window, canvas );
+      cv::setMouseCallback( window, MouseCallback, this );
+    }
+
+    void close()
+    {
+      cv::destroyWindow( window );
+      cv::waitKey(1);
+    }
+
+  };
+  
+
+
+
+  
 
 
 

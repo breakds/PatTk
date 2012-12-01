@@ -126,7 +126,7 @@ namespace PatTk
      in the third parameter */
   template <typename dataType>
   inline void combine( const dataType *v0, const dataType *v1, dataType *res, int dim,
-                       const dataType alpha, const dataType beta )
+                       float alpha, float beta )
   {
     const dataType* vp0 = v0;
     const dataType* vp1 = v1;
