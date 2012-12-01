@@ -170,6 +170,9 @@ endif (BUILD_UNITTEST)
 ADD_EXECUTABLE(code experiment/code_test.cpp)
 TARGET_LINK_LIBRARIES(code ${OPENCV})
 
+ADD_EXECUTABLE(pm experiment/pm_test.cpp)
+TARGET_LINK_LIBRARIES(pm ${OPENCV})
+
 
 
 

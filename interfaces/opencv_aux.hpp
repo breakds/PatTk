@@ -134,7 +134,7 @@ namespace PatTk
     {
       cv::Mat raw = cv::imread( filename );
       if ( raw.empty() ) {
-        Error( "cvFeat<BGR::gen()   Failed to load image %d", filename.c_str() );
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
         exit( -1 );
       }
       return gen<BGR>( raw );
@@ -147,7 +147,7 @@ namespace PatTk
       
       cv::Mat raw = cv::imread( filename );
       if ( raw.empty() ) {
-        Error( "cvFeat<BGR::gen()   Failed to load image %d", filename.c_str() );
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
         exit( -1 );
       }
       
@@ -247,7 +247,7 @@ namespace PatTk
     {
       cv::Mat raw = cv::imread( filename );
       if ( raw.empty() ) {
-        Error( "cvFeat<HOG::gen()   Failed to load image %d", filename.c_str() );
+        Error( "cvFeat<HOG::gen()   Failed to load image %s", filename.c_str() );
         exit( -1 );
       }
       
@@ -264,7 +264,7 @@ namespace PatTk
       
       cv::Mat raw = cv::imread( filename );
       if ( raw.empty() ) {
-        Error( "cvFeat<HOG::gen()   Failed to load image %d", filename.c_str() );
+        Error( "cvFeat<HOG::gen()   Failed to load image %s", filename.c_str() );
         exit( -1 );
       }
 
@@ -570,7 +570,7 @@ namespace PatTk
     {
       close();
     }
-
+    
     void clear()
     {
       icons.clear();
@@ -592,7 +592,7 @@ namespace PatTk
       
       auto img = cvFeat<BGR>::gen( tmp );
       img.SetPatchStride(1);
-      img.SetPatchSize( patchSize );
+      img.SetPatchSize( patchSize >> 1 );
       uchar patch[img.GetPatchDim()];
       img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, patch );
 
@@ -610,7 +610,7 @@ namespace PatTk
       patches.push_back( loc );
     }
 
-  void push( const cv::Mat tmp, const PatLoc& loc )
+    void push( const cv::Mat tmp, const PatLoc& loc )
     {
 
       if ( CV_8UC3 != tmp.type() ) {
@@ -618,23 +618,20 @@ namespace PatTk
         exit( -1 );
       }
 
-      // debuggomg:
 
       loc.show();
-      char ch;
-      scanf( "%c", &ch );
       
+
       auto img = cvFeat<BGR>::gen( tmp );
       img.SetPatchStride(1);
       img.SetPatchSize( patchSize );
       uchar patch[img.GetPatchDim()];
+
       img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, patch );
-
-
+      
       icons.push_back( cv::Mat( patchSize, patchSize, CV_8UC3 ) );
       cv::Mat& icon = icons.back();
       int i = 0;
-      printf( "patchSize: %d\n", patchSize );
       for ( int dy=0; dy<patchSize; dy++ ) {
         for ( int dx=0; dx<patchSize; dx++ ) {
           for ( int k=0; k<3; k++ ) {

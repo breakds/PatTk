@@ -30,8 +30,8 @@ int main( int argc, char **argv )
   if ( 0 == strcmp( argv[1], "train" ) ) {
     std::vector<FeatImage<float>::PatchProxy> l;
 
-    for ( int i=0; i<ref.rows; i++ ) {
-      for ( int j=0; j<ref.cols; j++ ) {
+    for ( int i=7; i<ref.rows-7; i++ ) {
+      for ( int j=7; j<ref.cols-7; j++ ) {
         l.push_back( ref.Spawn( i, j ) );
       }
     }
@@ -42,7 +42,29 @@ int main( int argc, char **argv )
       idx[i] = i;
     }
 
+
     Tree<SimpleKernel<float> > tree( l, idx, l.size() );
+    
+
+    
+    // debugging:
+    
+    float feat[ref.GetPatchDim()];
+
+    ref.FetchPatch( 189, 85, feat );
+
+    auto proxy = ref.Spawn( 189, 85 );
+
+    for ( int i=0; i<ref.GetPatchDim(); i++ ) {
+      printf( "%.4f\t%.4f\n", feat[i], proxy(i) );
+    }
+
+    // auto& re = tree.query( feat );
+    // for ( auto& ele : re ) {
+    //   printf( "%d, %d\n", ele.y, ele.x );
+    // }
+
+    
 
     tree.write( "tree.dat" );
   } else if ( 0 == strcmp( argv[1], "test" ) ) {

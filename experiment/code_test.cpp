@@ -22,13 +22,13 @@ int main()
   cv::Mat refimg = cv::imread( "simple/ref.png" );
   
   
-  auto img = cvFeat<HOG>::gen( "simple/src.png.true", 8, 0.9 );
+  auto img = cvFeat<HOG>::gen( "simple/ref.png", 8, 0.9 );
   auto ref = cvFeat<HOG>::gen( "simple/ref.png", 8, 0.9 );
 
 
   float feat[img.GetPatchDim()];
 
-  cv::Mat srcmat = cv::imread( "simple/src.png.true" );
+  cv::Mat srcmat = cv::imread( "simple/ref.png" );
   ImageViewer srcv( "source", srcmat );
   cv::Mat refmat = cv::imread( "simple/ref.png" );
   ImageViewer refv( "reference", refmat );
@@ -41,11 +41,15 @@ int main()
 
   IconList icons( "test", 13 );
 
+  
+
 
   srcv.setCallback( [&img,&ref,&feat,&refv,&tree,&refimg,&icons]( int x, int y )
                     {
 
                       img.FetchPatch( y, x, feat );
+
+                      printf( "query (%d,%d)\n", y, x );
                       
                       const std::vector<LocInfo>& re = tree->query( feat );
                       

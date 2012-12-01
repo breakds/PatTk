@@ -113,7 +113,7 @@ namespace PatTk
     inline void SetPatchSize( int s ) 
     {
       options.patch_size = s;
-      options.patch_start_offset = - ( s << 1 ) * options.patch_stride;
+      options.patch_start_offset = - ( s >> 1 ) * options.patch_stride;
       options.patch_dim = s * s * dimCell;
       initPatchOptions();
     }
@@ -121,7 +121,7 @@ namespace PatTk
     inline void SetPatchStride( int s )
     {
       options.patch_stride = s;
-      options.patch_start_offset = - ( options.patch_size << 1 ) * s;
+      options.patch_start_offset = - ( options.patch_size >> 1 ) * s;
       initPatchOptions();
     }
 
@@ -362,10 +362,11 @@ namespace PatTk
       float vert_x = -sina * ratio;
       float horz_y = -vert_x;
       float horz_x = vert_y;
-      
 
+      
       float y0 = cy + ( vert_y + horz_y ) * options.patch_start_offset;
       float x0 = cx + ( vert_x + horz_x ) * options.patch_start_offset;
+
 
       vert_y *= options.patch_stride;
       vert_x *= options.patch_stride;
