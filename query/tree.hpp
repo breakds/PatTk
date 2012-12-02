@@ -34,7 +34,7 @@ namespace PatTk
     
   };
 
-
+  
   template <typename T>
   class SimpleKernel
   {
@@ -254,6 +254,8 @@ namespace PatTk
           // internal node
           node->child[0].reset( new Tree() );
           node->child[1].reset( new Tree() );
+          
+
           stack.push_back( std::make_pair( typename kernel::State( state.idx,
                                                                    right,
                                                                    state.shuffler ),
@@ -268,7 +270,7 @@ namespace PatTk
             LocInfo loc;
             loc.y = list[state.idx[i]].y;
             loc.x = list[state.idx[i]].x;
-            loc.id = list[state.idx[i]].parent->id;
+            loc.id = list[state.idx[i]].id();
             node->store.push_back( loc );
           }
         }

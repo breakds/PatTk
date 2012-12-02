@@ -28,6 +28,7 @@ namespace PatTk
   private:
     /* ---------- data ---------- */
     std::vector<std::vector<dataType> > pyramid;
+    std::vector<float> inv_norm;
     float scale_base;
     int scales;
     std::vector<float> scale_layer;
@@ -69,6 +70,7 @@ namespace PatTk
     public:
       const FeatImage<dataType> *parent;
       int y, x, coorIdx;
+      float inv;
 
       
       /* constructor */
@@ -76,6 +78,7 @@ namespace PatTk
         : parent(p), y(y1), x(x1) 
       {
         coorIdx = (y1 * parent->cols + x1) * parent->dimCell;
+        inv = parent->inv_norm[ y1 * parent->cols + x1 ];
       }
 
       /* get dimension */
@@ -94,7 +97,12 @@ namespace PatTk
           return 0;
         }
         
-        return parent->get( coorIdx + parent->options.offset[c] );
+        return parent->get( coorIdx + parent->options.offset[c] ) * inv;
+      }
+
+      inline int id() const
+      {
+        return parent->id;
       }
     };
     
@@ -169,8 +177,33 @@ namespace PatTk
       }
     }
 
+
+    void InitInvNorms()
+    {
+      inv_norm.resize( cols * rows );
+      int k = 0;
+      for ( int i=0; i<rows; i++ ) {
+        for ( int j=0; j<cols; j++ ) {
+          dataType sum = 0.0f;
+          int y = i + options.patch_start_offset;
+          for ( int sy=0; sy<options.patch_size; sy++, y+=options.patch_stride ) {
+            if ( y < 0 || y >= rows ) continue;
+            int x = j + options.patch_start_offset;
+            for ( int sx=0; sx<options.patch_size; sx++, x+=options.patch_stride ) {
+              if ( x < 0 || x >= cols ) continue;
+              const dataType *data = (*this)(y,x);
+              for ( int c=0; c<dimCell; c++ ) {
+                sum += data[c] * data[c];
+              }
+            }
+          }
+          inv_norm[k++] = 1.0 / sqrt(sum);
+        }
+      }
+    }
+
     /* default constructor: zero sized image */
-    FeatImage() : pyramid(1), scale_base(1.0), scales(0), scale_layer(1),
+    FeatImage() : pyramid(1), inv_norm(1), scale_base(1.0), scales(0), scale_layer(1),
                   rows_layer(1), cols_layer(1),
                   rows(0), cols(0), id(-1), dimCell(0), options(0) 
     {
@@ -189,6 +222,7 @@ namespace PatTk
       initPatchOptions();
       pyramid.resize(1);
       pyramid[0].resize( h * w * dim, 0  );
+      inv_norm.resize( h * w, 1.0 );
       memset( &pyramid[0][0], 0, sizeof(dataType) * h * w * dim );
       scale_layer[0] = 1.0f;
       rows_layer[0] = rows;
@@ -213,7 +247,7 @@ namespace PatTk
       cols = imgs[scales].cols;
       dimCell = imgs[scales].dimCell;
       options = imgs[scales].options;
-
+      
       scale_layer.resize( imgs.size() );
       scale_layer[scales] = 1.0;
       float scale = 1.0f;
@@ -243,11 +277,13 @@ namespace PatTk
         pyramid[i].swap( imgs[i].pyramid[0] );
       }
 
+      inv_norm.swap( imgs[scales].inv_norm );
 
     }
     
     /* move constructor */
     FeatImage( FeatImage<dataType> &&other ) : pyramid(std::move(other.pyramid)),
+                                               inv_norm(std::move(other.inv_norm)),
                                                scale_base(other.scale_base),
                                                scales(other.scales),
                                                scale_layer(std::move(other.scale_layer)),
@@ -267,6 +303,7 @@ namespace PatTk
       id = other.id;
       dimCell = other.dimCell;
       pyramid.swap( other.pyramid );
+      inv_norm.swap( other.inv_norm );
       scale_base = other.scale_base;
       scales = other.scales;
       scale_layer.swap( other.scale_layer );
@@ -285,6 +322,7 @@ namespace PatTk
       re.id = id;
       re.dimCell = dimCell;
       re.pyramid = pyramid;
+      re.inv_norm = inv_norm;
       re.data = re.pyramid[0];
       re.options = options;
       return re;
@@ -318,6 +356,11 @@ namespace PatTk
     inline dataType get( const int i ) const
     {
       return pyramid[scales][i];
+    }
+
+    inline dataType get( const int i, const int center ) const
+    {
+      return pyramid[scales][i] * inv_norm[center];
     }
 
     /* ---------- Patch Accessors ---------- */
@@ -362,7 +405,7 @@ namespace PatTk
       float vert_x = -sina * ratio;
       float horz_y = -vert_x;
       float horz_x = vert_y;
-
+      
       
       float y0 = cy + ( vert_y + horz_y ) * options.patch_start_offset;
       float x0 = cx + ( vert_x + horz_x ) * options.patch_start_offset;
@@ -676,10 +719,16 @@ namespace PatTk
       pages.push_back( std::move(img) );
     }
 
+
     /* Only provide read-only access to member images */
     const FeatImage<dataType>& operator()( const int index ) const
     {
       return pages[index];
+    }
+
+    int size() const
+    {
+      return static_cast<int>( pages.size() );
     }
     
   };

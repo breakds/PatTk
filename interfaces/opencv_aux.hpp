@@ -237,7 +237,7 @@ namespace PatTk
       hi_wt = pos - lo_bin;
       lo_wt = 1.0 - hi_wt;
     }
-
+    
     // +--------------------------------------------------+
     // |  HOG Feature Generator                           |
     // +--------------------------------------------------+
@@ -392,6 +392,8 @@ namespace PatTk
 
       pointMap.SetRotBins( options.orientation_bins );
 
+      pointMap.InitInvNorms();
+
       return pointMap;
 
     }
@@ -442,6 +444,16 @@ namespace PatTk
       cv::setMouseCallback( wndName, MouseCallback, this );
       callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
       radius = r;
+    }
+    
+
+    void SwitchImage( std::string filename ) 
+    {
+      image = cv::imread( filename );
+      if ( image.empty() ) {
+        Error( "ImageViewer.SwitchImage(): error while reading image %s", filename.c_str() );
+        exit( -1 );
+      }
     }
 
     void display( int x, int y )

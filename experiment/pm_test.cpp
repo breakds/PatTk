@@ -48,21 +48,23 @@ int main( int argc, char **argv )
 
     
     // debugging:
+    printf( "==============================\n" );
     
     float feat[ref.GetPatchDim()];
 
-    ref.FetchPatch( 189, 85, feat );
+    ref.FetchPatch( 100, 120, feat );
 
-    auto proxy = ref.Spawn( 189, 85 );
-
-    for ( int i=0; i<ref.GetPatchDim(); i++ ) {
-      printf( "%.4f\t%.4f\n", feat[i], proxy(i) );
-    }
-
-    // auto& re = tree.query( feat );
-    // for ( auto& ele : re ) {
-    //   printf( "%d, %d\n", ele.y, ele.x );
+    
+    // auto proxy = ref.Spawn( 100, 120 );
+    // for ( int i=0; i<ref.GetPatchDim(); i++ ) {
+    //   printf( "%.4f %.4f\n", feat[i], proxy(i) );
     // }
+    
+
+    auto& re = tree.query( feat );
+    for ( auto& ele : re ) {
+      printf( "%d, %d\n", ele.y, ele.x );
+    }
 
     
 

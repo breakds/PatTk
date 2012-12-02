@@ -40,7 +40,7 @@ namespace PatTk
 
   template <>
   const float epsilon<float>::v1(1e-1);
-
+  
   template <>
   const double epsilon<double>::value(1e-5);
 

@@ -25,6 +25,8 @@ namespace PatTk
 
     PatLoc( const LocInfo& loc ) :
       id(loc.id), y(loc.y), x(loc.x), rotation(0.0f), scale(1.0f) {}
+
+    PatLoc() : id(-1), y(0), x(0), rotation(0.0f), scale(1.0f) {}
     
     void show() const
     {
