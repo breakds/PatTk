@@ -153,7 +153,7 @@ MESSAGE(STATUS "NVCC VERISON: ${CUDA_NVCC_EXECUTABLE}" )
 set(CMAKE_CXX_FLAGS "${OPENCV_FLAGS} -Wall -Wextra -Wno-non-virtual-dtor -std=c++0x")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -O3 -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g  -D_GLIBCXX_DEBUG")
-set(CMAKE_CXX_FLAGS_GPROF "-O2 -pg")
+set(CMAKE_CXX_FLAGS_GPROF "-O1 -pg")
 
 
 if (BUILD_UNITTEST)
@@ -167,11 +167,16 @@ if (BUILD_UNITTEST)
   TARGET_LINK_LIBRARIES(icon ${OPENCV})
 endif (BUILD_UNITTEST)
 
-ADD_EXECUTABLE(code experiment/code_test.cpp)
-TARGET_LINK_LIBRARIES(code ${OPENCV})
+# ADD_EXECUTABLE(code experiment/code_test.cpp)
+# TARGET_LINK_LIBRARIES(code ${OPENCV})
 
-ADD_EXECUTABLE(pm experiment/pm_test.cpp)
-TARGET_LINK_LIBRARIES(pm ${OPENCV})
+ADD_EXECUTABLE(training experiment/Training.cpp)
+TARGET_LINK_LIBRARIES(training ${OPENCV})
+
+ADD_EXECUTABLE(testing experiment/Testing.cpp)
+TARGET_LINK_LIBRARIES(testing ${OPENCV})
+
+
 
 
 

@@ -31,7 +31,7 @@ namespace PatTk
 
   template <>
   const unsigned char epsilon<unsigned char>::value(1);
-
+  
   template <>
   const unsigned char epsilon<unsigned char>::v1(1);
 

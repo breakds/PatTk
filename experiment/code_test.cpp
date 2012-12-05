@@ -35,10 +35,16 @@ std::vector<std::string> InitImageList()
 int main( int argc, char **argv )
 {
 
+  if ( argc < 1 ) {
+    Error( "Insufficient arguments." );
+    exit( -1 );
+  }
+  
+  
   srand( 345645631 );
 
   int numProp = 10;
-  int numSample = 10;
+  // int numSample = 10;
   
   
   // initialize the training set
@@ -72,8 +78,10 @@ int main( int argc, char **argv )
       idx[i] = i;
     }
 
+    timer::tic();
     Tree<SimpleKernel<float> > tree( l, idx, l.size() );
-
+    Done( "Tree built within %.5lf sec.", timer::utoc() );
+    
     tree.write( "the.tree.dat" );
 
   } else if ( 0 == strcmp( argv[1], "test" ) ) {

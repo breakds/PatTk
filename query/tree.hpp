@@ -185,7 +185,7 @@ namespace PatTk
   template <>
   int SimpleKernel<unsigned char>::converge = 10;
 
-
+  
 
   
 
