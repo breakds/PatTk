@@ -173,8 +173,8 @@ endif (BUILD_UNITTEST)
 ADD_EXECUTABLE(training experiment/Training.cpp)
 TARGET_LINK_LIBRARIES(training ${OPENCV})
 
-ADD_EXECUTABLE(testing experiment/Testing.cpp)
-TARGET_LINK_LIBRARIES(testing ${OPENCV})
+# ADD_EXECUTABLE(testing experiment/Testing.cpp)
+# TARGET_LINK_LIBRARIES(testing ${OPENCV})
 
 
 

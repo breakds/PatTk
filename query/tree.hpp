@@ -18,7 +18,9 @@ namespace PatTk
   {
     int id, y, x;
 
-    inline void write( FILE *out )
+    LocInfo( int id1, int y1, int x1 ) : id(id1), y(y1), x(x1) {}
+    
+    inline void write( FILE *out ) const
     {
       fwrite( &id, sizeof(int), 1, out );
       fwrite( &y, sizeof(int), 1, out );
@@ -31,7 +33,77 @@ namespace PatTk
       fread( &y, sizeof(int), 1, in );
       fread( &x, sizeof(int), 1, in );
     }
-    
+
+    inline LocInfo( FILE *in )
+    {
+      fread( &id, sizeof(int), 1, in );
+      fread( &y, sizeof(int), 1, in );
+      fread( &x, sizeof(int), 1, in );
+    }
+  };
+
+  struct LeafInfo
+  {
+
+  public:
+    std::vector<LocInfo> store;
+
+    inline LeafInfo()
+    {
+      store.clear();
+    }
+
+    inline LeafInfo( FILE *in )
+    {
+      store.clear();
+      int len = 0;
+      fread( &len, sizeof(int), 1, in );
+      for ( int i=0; i<len ;i++ ) {
+        store.push_back( LocInfo( in ) );
+      }
+    }
+
+    inline LeafInfo( LeafInfo &&other )
+    {
+      store.swap( other.store );
+    }
+
+    inline LeafInfo( const LeafInfo &other )
+    {
+      store = other.store;
+    }
+
+    inline const LeafInfo& operator=( LeafInfo &&other )
+    {
+      store.swap( other.store );
+      return (*this);
+    }
+
+
+    inline void add( int id, int y, int x )
+    {
+      store.push_back( LocInfo( id, y, x ) );
+    }
+
+    inline void write( FILE *out ) const
+    {
+      int len = static_cast<int>( store.size() );
+      fwrite( &len, sizeof(int), 1, out );
+      for ( auto& ele : store ) {
+        ele.write( out );
+      }
+    }
+
+    inline void read( FILE *in )
+    {
+      store.clear();
+      int len = 0;
+      fread( &len, sizeof(int), 1, in );
+      for ( int i=0; i<len ;i++ ) {
+        store.push_back( LocInfo( in ) );
+      }
+    }
+
   };
 
   
@@ -90,7 +162,7 @@ namespace PatTk
     static int stopNum;
     static typename Generalized<dataType>::type converge;
     
-    static int split( std::vector<typename FeatImage<T>::PatchProxy> &list, State& state,
+    static int split( const std::vector<typename FeatImage<T>::PatchProxy> &list, State& state,
                       Judger &judger )
     {
 
@@ -196,8 +268,8 @@ namespace PatTk
   {
   private:
     std::unique_ptr< Tree<kernel> > child[2];
-    std::vector<LocInfo> store;
     typename kernel::Judger judger;
+    int leafID;
     
   public:
 
@@ -205,7 +277,7 @@ namespace PatTk
     {
       child[0].reset( nullptr );
       child[1].reset( nullptr );
-      store.clear();
+      leafID = -1;
     }
 
 
@@ -225,23 +297,20 @@ namespace PatTk
       unsigned char finished = 0;
       fread( &finished, sizeof(unsigned char), 1, in );
       if ( 1 == finished ) {
-        int len = 0;
-        fread( &len, sizeof(int), 1, in );
-        store.resize( len );
-        for ( int i=0; i<len; i++ ) {
-          store[i].read( in );
-        }
+        fread( &leafID, sizeof(int), 1, in );
       } else {
+        leafID = -1;
         child[0].reset( new Tree( in ) );
         child[1].reset( new Tree( in ) );
       }
     }
 
-
-
-    Tree( std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len )
+    
+    Tree( const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len,
+          std::vector<LeafInfo> &leaves )
     {
-      store.clear();
+
+      leaves.clear();
       
       std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
       stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
@@ -266,13 +335,14 @@ namespace PatTk
                                            node->child[1].get() ));
         } else {
           // leaf node
+          node->leafID = static_cast<int>( leaves.size() );
+          LeafInfo leaf;
           for ( int i=0; i<state.len; i++ ) {
-            LocInfo loc;
-            loc.y = list[state.idx[i]].y;
-            loc.x = list[state.idx[i]].x;
-            loc.id = list[state.idx[i]].id();
-            node->store.push_back( loc );
+            leaf.add( list[state.idx[i]].id(),
+                      list[state.idx[i]].y,
+                      list[state.idx[i]].x );
           }
+          leaves.push_back( leaf );
         }
         stack.pop_front();
       }
@@ -291,11 +361,7 @@ namespace PatTk
       if ( isLeaf() ) {
         unsigned char uc = 1;
         fwrite( &uc, sizeof(unsigned char), 1, out );
-        int len = static_cast<int>( store.size() );
-        fwrite( &len, sizeof(int), 1, out );
-        for ( auto& ele : store ) {
-          ele.write( out );
-        }
+        fwrite( &leafID, sizeof(int), 1, out );
       } else {
         unsigned char uc = 0;
         fwrite( &uc, sizeof(unsigned char), 1, out );
@@ -304,25 +370,34 @@ namespace PatTk
       }
     }
 
-    inline bool isLeaf() const
-    {
-      if ( child[0] ) return false;
-      return true;
-    }
-
-    const std::vector<LocInfo>& query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const
+    inline void OffsetLeafID( int offset )
     {
       if ( isLeaf() ) {
-        return store;
+        leafID += offset;
+      } else {
+        child[0]->OffsetLeafID( offset );
+        child[1]->OffsetLeafID( offset );
+      }
+    }
+
+    inline bool isLeaf() const
+    {
+      return -1 == leafID;
+    }
+
+    int query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const
+    {
+      if ( isLeaf() ) {
+        return leafID;
       } else {
         return child[judger(p)]->query( p );
       }
     }
 
-    const std::vector<LocInfo>& query( const typename kernel::dataType *p ) const
+    int query( const typename kernel::dataType *p ) const
     {
       if ( isLeaf() ) {
-        return store;
+        return leafID;
       } else {
         return child[judger(p)]->query( p );
       }
