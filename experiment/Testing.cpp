@@ -21,7 +21,7 @@ int main( int argc, char **argv )
     Error( "Missing configuration file in options. (testing.conf)" );
     exit( -1 );
   }
-
+  
   srand( 345645631 );
 
 
@@ -54,10 +54,9 @@ int main( int argc, char **argv )
   std::string srcname = env["source-file"];
   auto img = cvFeat<HOG>::gen( srcname, 8, 0.9 );
   
-  Info( "Loading Tree ..." );
-  auto tree = Tree<SimpleKernel<float> >::read( env["tree-name"] );
+  Info( "Loading Forest ..." );
   Forest<SimpleKernel<float> > forest( env["forest-name"] );
-  Done( "Forest Loaded" );
+  
   Info( "Querying ..." );
 
 
@@ -78,7 +77,7 @@ int main( int argc, char **argv )
       if ( 999 == count % 1000 ) Info( "%d/%d", count+1, area );
       ranker.resize( numProp );
       img.FetchPatch( i, j, feat );
-      auto& re = forest.query( feat );
+      auto re = std::move( forest.pull( feat ) );
       int p = 0;
       for ( auto& ele : re ) {
         p++;

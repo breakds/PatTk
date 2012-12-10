@@ -311,7 +311,7 @@ namespace PatTk
     {
 
       leaves.clear();
-      
+
       std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
       stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
       
@@ -324,7 +324,7 @@ namespace PatTk
           node->child[0].reset( new Tree() );
           node->child[1].reset( new Tree() );
           
-
+          
           stack.push_back( std::make_pair( typename kernel::State( state.idx,
                                                                    right,
                                                                    state.shuffler ),
@@ -333,6 +333,7 @@ namespace PatTk
                                                                    state.len - right,
                                                                    state.shuffler ),
                                            node->child[1].get() ));
+          leafID = -1;
         } else {
           // leaf node
           node->leafID = static_cast<int>( leaves.size() );
@@ -382,7 +383,7 @@ namespace PatTk
 
     inline bool isLeaf() const
     {
-      return -1 == leafID;
+      return -1 != leafID;
     }
 
     int query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const

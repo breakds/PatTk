@@ -5,7 +5,8 @@
  *********************************************************************************/
 
 #pragma once
-#include <sys/stat.h>
+#include <iostream>
+#include <unordered_map>
 #include "LLPack/algorithms/random.hpp"
 #include "tree.hpp"
 
@@ -19,7 +20,8 @@ namespace PatTk
   private:
     std::vector<std::unique_ptr<Tree<kernel> > > trees;
     std::vector<LeafInfo> leaves;
-
+    std::vector<std::unordered_map<int,int> > weights;
+    
   public:
     
     Forest( int n,
@@ -57,6 +59,8 @@ namespace PatTk
           leaves[p] = std::move( leaf[i][j] );
         }
       }
+
+      weights.clear();
       
       for ( int i=0; i<n; i++ ) delete[] idx[i];
       delete[] idx;
@@ -66,17 +70,18 @@ namespace PatTk
 
     Forest( std::string dir )
     {
-
+      
       trees.clear();
       int i = 0;
       do {
-        struct stat fileAtt;
-        
-        if ( 0 != stat( strf( "%s/tree.%d", dir.c_str(), i ).c_str() , &fileAtt ) ) {
-          trees.push_back( new Tree<kernel>( strf( "%s/tree.%d", dir.c_str(), i ).c_str() ) );
+
+        std::ifstream fin( strf( "%s/tree.%d", dir.c_str(), i ) );
+        if ( fin.good() ) {
+          trees.push_back( Tree<kernel>::read( strf( "%s/tree.%d", dir.c_str(), i ).c_str() ) );
         } else {
           break;
         }
+        i++;
       } while (true);
 
       leaves.clear();
@@ -89,10 +94,55 @@ namespace PatTk
       }
       END_WITH( in );
 
+      weights.clear();
+      readWeights( dir );
+
       Done( "Forest loaded (%ld trees, %ld leaves).", trees.size(), leaves.size() );
     }
 
-    void write( std::string dir ) const
+
+    inline void writeWeights( std::string dir ) const
+    {
+      if ( 0 < weights.size() ) {
+        WITH_OPEN( out, strf( "%s/weights.dat", dir.c_str() ).c_str(), "w" );
+        int len = static_cast<int>( leaves.size() );
+        fwrite( &len, sizeof(int), 1, out );
+        for ( int i=0; i<len; i++ ) {
+          len = static_cast<int>( weights[i].size() );
+          fwrite( &len, sizeof(int), 1, out );
+          for ( auto& ele : weights[i] ) {
+            fwrite( &ele.first, sizeof(int), 1, out );
+            fwrite( &ele.second, sizeof(int), 1, out );
+          }
+        }
+        END_WITH( out );
+      }
+    }
+
+    inline void readWeights( std::string dir )
+    {
+      std::ifstream fin( strf( "%s/weights.dat", dir.c_str() ) );
+      if ( fin.good() ) {
+        WITH_OPEN( in, strf( "%s/weights.dat", dir.c_str() ).c_str(), "r" );
+        int len = 0;
+        fread( &len, sizeof(int), 1, in );
+        weights.resize( len );
+        for ( int i=0; i<len; i++ ) {
+          weights[i].clear();
+          fread( &len, sizeof(int), 1, in );
+          for ( int j=0; j<len; j++ ) {
+            int first = 0;
+            int second = 0;
+            fread( &first, sizeof(int), 1, in );
+            fread( &second, sizeof(int), 1, in );
+            weights[i][first] = second;
+          }
+        }
+        END_WITH( in );
+      }
+    }
+
+    inline void write( std::string dir ) const
     {
       system( strf( "mkdir -p %s", dir.c_str() ).c_str() );
       for ( int i=0; i<static_cast<int>( trees.size() ); i++ ) {
@@ -106,7 +156,12 @@ namespace PatTk
         leaves[i].write( out );
       }
       END_WITH( out );
+
+      writeWeights( dir );
+
     }
+
+      
 
     /* ---------- Accessor ---------- */
     inline const LeafInfo& operator()( const int index )
@@ -116,32 +171,110 @@ namespace PatTk
     
 
     /* ---------- Query ---------- */
-    inline std::vector<int> query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const
+
+    template <typename T>
+    inline std::vector<int> query( const T p ) const
     {
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      
       std::vector<int> res;
       res.reserve( trees.size() );
 
       for ( auto& ele : trees ) {
         res.push_back( ele->query( p ) );
+      }
+
+      return res;
+    }
+    
+    template <typename T>
+    inline std::vector<LocInfo> pull( const T p ) const
+    {
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      
+      std::vector<LocInfo> res;
+
+      for ( auto& ele : trees ) {
+        int lid = ele->query( p );
+        for ( auto& loc : leaves[lid].store ) {
+          res.push_back( loc );
+        }
+      }
+      return res;
+    }
+
+
+    /* ---------- Weights ---------- */
+    inline void ResetWeights()
+    {
+      weights.resize( leaves.size() );
+    }
+    
+    inline void PrepareWeitghts()
+    {
+      if ( 0 == weights.size() ) {
+        ResetWeights();
       }
     }
 
-    inline std::vector<int> query( const typename kernel::dataType *p ) const
+    template <typename T>
+    inline void learn( const T p )
     {
-      std::vector<int> res;
-      res.reserve( trees.size() );
-
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      std::vector<int> ids;
       for ( auto& ele : trees ) {
-        res.push_back( ele->query( p ) );
+        ids.push_back( ele->query( p ) );
       }
+      
+      int n = static_cast<int>( trees.size() );
+
+      for ( int i=0; i<n; i++ ) {
+        for ( int j=0; j<n; j++ ) {
+          auto iter = weights[ids[i]].find(ids[j]);
+          if ( weights[ids[i]].end() == iter ) {
+            weights[ids[i]][ids[j]] = 1;
+          } else {
+            weights[ids[i]][ids[j]]++;
+          }
+        }
+      }
+    }
+
+    inline int GetWeight( int i, int j )
+    {
+      assert( 0 < weights.size() );
+      if ( weights[i].end() == weights[i].find( j ) ) {
+        return 0;
+      } else {
+        int res = weights[i][j];
+        return res;
+      }
+    }
+
+    inline const std::unordered_map<int,int>& GetWeights( int i ) const
+    {
+      assert( 0 < weights.size() );
+      return weights[i];
     }
 
     
 
+    /* ---------- Properties ---------- */
 
-    int size() const
+    inline int size() const
     {
       return static_cast<int>( trees.size() );
+    }
+
+    inline int centers() const
+    {
+      return static_cast<int>( leaves.size() );
     }
 
   };

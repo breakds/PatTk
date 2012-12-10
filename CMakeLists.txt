@@ -167,14 +167,21 @@ if (BUILD_UNITTEST)
   TARGET_LINK_LIBRARIES(icon ${OPENCV})
 endif (BUILD_UNITTEST)
 
+ADD_EXECUTABLE(leaf query/UnitTest/LeafView.cpp)
+TARGET_LINK_LIBRARIES(leaf ${OPENCV})
+
 # ADD_EXECUTABLE(code experiment/code_test.cpp)
 # TARGET_LINK_LIBRARIES(code ${OPENCV})
 
-ADD_EXECUTABLE(training experiment/Training.cpp)
-TARGET_LINK_LIBRARIES(training ${OPENCV})
+
+# ADD_EXECUTABLE(training experiment/Training.cpp)
+# TARGET_LINK_LIBRARIES(training ${OPENCV})
 
 # ADD_EXECUTABLE(testing experiment/Testing.cpp)
 # TARGET_LINK_LIBRARIES(testing ${OPENCV})
+
+# ADD_EXECUTABLE(learning experiment/Learning.cpp)
+# TARGET_LINK_LIBRARIES(learning ${OPENCV})
 
 
 
