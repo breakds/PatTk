@@ -165,10 +165,9 @@ if (BUILD_UNITTEST)
   TARGET_LINK_LIBRARIES(TestScale ${OPENCV})
   ADD_EXECUTABLE(icon interfaces/UnitTest/IconList.cpp)
   TARGET_LINK_LIBRARIES(icon ${OPENCV})
+  ADD_EXECUTABLE(leaf query/UnitTest/LeafView.cpp)
+  TARGET_LINK_LIBRARIES(leaf ${OPENCV})
 endif (BUILD_UNITTEST)
-
-ADD_EXECUTABLE(leaf query/UnitTest/LeafView.cpp)
-TARGET_LINK_LIBRARIES(leaf ${OPENCV})
 
 # ADD_EXECUTABLE(code experiment/code_test.cpp)
 # TARGET_LINK_LIBRARIES(code ${OPENCV})
