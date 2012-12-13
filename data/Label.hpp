@@ -25,9 +25,10 @@ namespace PatTk
 
   namespace LabelSet
   {
+    int classes = -1; // uninitialized
+    double inv = 1.0;
     namespace {
       // properties of LabelSet
-      int classes = -1; // uninitialized
       vector<tuple<unsigned char, unsigned char, unsigned char> > colors;
       vector<string> className;
     };
@@ -47,6 +48,7 @@ namespace PatTk
       className.push_back( "Void" );
       colors.push_back( make_tuple( 0, 0, 0 ) );
       classes = static_cast<int>( className.size() );
+      inv = 1.0 / classes;
     }
 
     void Summary()
@@ -81,7 +83,7 @@ namespace PatTk
           return i;
         }
       }
-      return -1;
+      return (classes - 1);
     }
     
     

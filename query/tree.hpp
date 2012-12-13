@@ -10,6 +10,7 @@
 #include <deque>
 #include <memory>
 #include "Revolver.hpp"
+#include "../data/Label.hpp"
 
 namespace PatTk
 {
@@ -47,10 +48,12 @@ namespace PatTk
 
   public:
     std::vector<LocInfo> store;
+    std::vector<float> q; // label probablity map for center pixel
 
     inline LeafInfo()
     {
       store.clear();
+      q.clear();
     }
 
     inline LeafInfo( FILE *in )
@@ -61,24 +64,36 @@ namespace PatTk
       for ( int i=0; i<len ;i++ ) {
         store.push_back( LocInfo( in ) );
       }
+
+      fread( &len, sizeof(int), 1, in );
+      assert( 0 == len || LabelSet::classes == len );
+      float tmp;
+      q.resize( len );
+      for ( int i=0; i<len; i++ ) {
+        fread( &tmp, sizeof(float), 1, in );
+        q[i] = tmp;
+      }
     }
 
     inline LeafInfo( LeafInfo &&other )
     {
       store.swap( other.store );
+      q.swap( other.q );
     }
 
     inline LeafInfo( const LeafInfo &other )
     {
       store = other.store;
+      q = other.q;
     }
 
     inline const LeafInfo& operator=( LeafInfo &&other )
     {
       store.swap( other.store );
+      q.swap( other.q );
       return (*this);
     }
-
+    
 
     inline void add( int id, int y, int x )
     {
@@ -92,6 +107,12 @@ namespace PatTk
       for ( auto& ele : store ) {
         ele.write( out );
       }
+      
+      len = static_cast<int>( q.size() );
+      fwrite( &len, sizeof(int), 1, out );
+      for ( int i=0; i<len; i++ ) {
+        fwrite( &q[i], sizeof(float), 1, out );
+      }
     }
 
     inline void read( FILE *in )
@@ -102,8 +123,15 @@ namespace PatTk
       for ( int i=0; i<len ;i++ ) {
         store.push_back( LocInfo( in ) );
       }
+      fread( &len, sizeof(int), 1, in );
+      assert( 0 == len || LabelSet::classes == len );
+      float tmp;
+      q.resize( len );
+      for ( int i=0; i<len; i++ ) {
+        fread( &tmp, sizeof(float), 1, in );
+        q[i] = tmp;
+      }
     }
-
   };
 
   

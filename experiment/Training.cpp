@@ -57,7 +57,7 @@ int main( int argc, char **argv )
 
 
   timer::tic();
-  Forest<SimpleKernel<float> > forest( 10, l, 0.2 );
+  Forest<SimpleKernel<float> > forest( env["forest-size"], l, env["proportion-of-data-per-tree"].toDouble() );
   Done( "Tree built within %.5lf sec.", timer::utoc() );
 
   forest.write( env["forest-name"] );

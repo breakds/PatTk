@@ -10,6 +10,8 @@
 
 #include <cmath>
 #include <type_traits>
+#include <string>
+#include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/candy.hpp"
 
 namespace PatTk
@@ -79,6 +81,16 @@ namespace PatTk
     return sqrt(re);
   }
 
+  template <typename dataType>
+  inline double norm2( const dataType* vec, int dim )
+  {
+    double re = 0;
+    for ( int i=0; i<dim; i++ ) {
+      re += vec[i] * vec[i];
+    }
+    return re;
+  }
+
 
   template <typename dataType>
   inline double dist_l2( const dataType* vec0, const dataType *vec1, int dim )
@@ -103,6 +115,16 @@ namespace PatTk
     for ( int i=0; i<dim; i++ ) *(vecp++) *= wt;
   }
 
+
+  /* scale a vector and store the result in the last parameter */
+  template <typename dataType>
+  inline void scale( const dataType* vec, int dim, dataType wt, dataType *res )
+  {
+    const dataType* vecp = vec;
+    dataType *resp = res;
+    for ( int i=0; i<dim; i++ ) *(resp++) = *(vecp++) * wt;
+  }
+
   /* add two vectors and assign the result to the first one */
   template <typename dataType>
   inline void addto( dataType *v0, const dataType *v1, int dim )
@@ -112,6 +134,15 @@ namespace PatTk
     for ( int i=0; i<dim; i++ ) *(vp0++) += *(vp1++);
   }
 
+  /* add scaled v1 to v0 */
+  template <typename dataType>
+  inline void addScaledTo( dataType *v0, const dataType *v1, int dim, dataType wt )
+  {
+    dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    for ( int i=0; i<dim; i++ ) *(vp0++) += wt * (*(vp1++));
+  }
+  
   /* add two vectors and store the result in the third parameter */
   template <typename dataType>
   inline void add( const dataType *v0, const dataType *v1, dataType *res, int dim )
@@ -121,6 +152,36 @@ namespace PatTk
     dataType *resp = res;
     for ( int i=0; i<dim; i++ ) *(resp++) = *(vp0++) + *(vp1++);
   }
+
+  /* get the difference between two vectors and store the result in
+     the third parameter */
+  template <typename dataType>
+  inline void minus( const dataType *v0, const dataType *v1, dataType *res, int dim )
+  {
+    const dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    dataType *resp = res;
+    for ( int i=0; i<dim; i++ ) *(resp++) = *(vp0++) - *(vp1++);
+  }
+
+  /* minus v1 from v0 */
+  template <typename dataType>
+  inline void minusFrom( dataType *v0, const dataType *v1, int dim )
+  {
+    dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    for ( int i=0; i<dim; i++ ) *(vp0++) -= *(vp1++);
+  }
+
+  /* minus scaled v1 from v0 */
+  template <typename dataType>
+  inline void minusScaledFrom( dataType *v0, const dataType *v1, int dim, dataType wt )
+  {
+    dataType* vp0 = v0;
+    const dataType* vp1 = v1;
+    for ( int i=0; i<dim; i++ ) *(vp0++) -= wt * (*(vp1++));
+  }
+
 
   /* combine two vectors with weights alpha and beta, store the reuslt
      in the third parameter */
@@ -133,6 +194,8 @@ namespace PatTk
     dataType *resp = res;
     for ( int i=0; i<dim; i++ ) *(resp++) = *(vp0++) * alpha + *(vp1++) * beta;
   }
+
+  
 
   /* shift the vector as a histogram where the shift bins is delta > 0 */
   template <typename dataType>
@@ -151,5 +214,107 @@ namespace PatTk
       lo++;
     }
   }
+
+  /* print vector */
+  void printVec( const double *x, int dim ) {
+    printf( "( " );
+    for ( int i=0; i<dim; i++ ) {
+      printf( "%.4lf ", x[i] );
+    }
+    printf( ")\n" );
+  }
+  void printVec( const float *x, int dim ) {
+    printf( "( " );
+    for ( int i=0; i<dim; i++ ) {
+      printf( "%.4f ", x[i] );
+    }
+    printf( ")\n" );
+  }
+  void printVec( const int *x, int dim ) {
+    printf( "( " );
+    for ( int i=0; i<dim; i++ ) {
+      printf( "%d ", x[i] );
+    }
+    printf( ")\n" );
+  }
+  void printVec( const unsigned char *x, int dim ) {
+    printf( "( " );
+    for ( int i=0; i<dim; i++ ) {
+      printf( "%hhu ", x[i] );
+    }
+    printf( ")\n" );
+  }
   
+  
+
+
+
+
+  /*
+   * watershed algorithm for simplex constraints projection
+   * min_x |x-y|^2
+   * s.t. x >= 0
+   *      sum x = 1
+   */
+  template <typename dataType>
+  void watershed( const dataType *y, dataType *x, int dim ) 
+  {
+    // Projection: sum to 1
+    dataType sum = 0.0;
+    for ( int i=0; i<dim; i++ ) sum += y[i];
+    dataType p = (1.0 - sum) / dim;
+    dataType _y[dim];
+    for ( int i=0; i<dim; i++ ) _y[i] = y[i] + p;
+
+
+    // Projection: All >= 0
+    p = 0.0f;
+    int index[dim];
+    int k = 0;
+    for ( int i=0; i<dim; i++ ) {
+      if ( _y[i] < 0.0 ) {
+        p -= _y[i];
+        x[i] = 0.0;
+      } else {
+        index[k++] = i;
+      }
+    }
+    
+    // sort
+    int tmp;
+    for ( int i=0; i<k-1; i++ ) {
+      for ( int j=i+1; j<k; j++ ) {
+        if ( _y[index[j]] < _y[index[i]]  ) {
+          tmp = index[j];
+          index[j] = index[i];
+          index[i] = tmp;
+        }
+      }
+    }
+
+
+    dataType tc = 0.0;
+    dataType bt = 0.0;
+    int i = 0;
+    for ( i=0; i<k; i++ ) {
+      _y[index[i]] -= bt;
+      tc = _y[index[i]] * (k-i);
+      if ( tc < p ) {
+        p -= tc;
+        bt += _y[index[i]];
+        x[index[i]] = 0.0;
+      } else {
+        break;
+      }
+    }
+
+  
+    tc = p / (k-i);
+    x[index[i]] = _y[index[i]] - tc;
+    i++;
+    for ( ; i<k; i++ ) {
+      x[index[i]] = _y[index[i]] - bt - tc;
+    }
+  }
+
 }

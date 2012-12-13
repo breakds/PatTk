@@ -185,9 +185,28 @@ namespace PatTk
       for ( auto& ele : trees ) {
         res.push_back( ele->query( p ) );
       }
+      
+      return res;
+    }
+
+    template <typename T>
+    inline std::vector< std::pair<int,double> > query_with_coef( const T p ) const
+    {
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      
+      std::vector<std::pair<int,double> > res;
+      res.reserve( trees.size() );
+
+      double w = 1.0 / trees.size();
+      for ( auto& ele : trees ) {
+        res.push_back( std::make_pair( ele->query( p ), w ) );
+      }
 
       return res;
     }
+
     
     template <typename T>
     inline std::vector<LocInfo> pull( const T p ) const

@@ -730,6 +730,17 @@ namespace PatTk
     {
       return static_cast<int>( pages.size() );
     }
+
+
+    inline typename std::vector<FeatImage<dataType> >::const_iterator begin()
+    {
+      return pages.begin();
+    }
+
+    inline typename std::vector<FeatImage<dataType> >::const_iterator end()
+    {
+      return pages.end();
+    }
     
   };
   
