@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unordered_map>
 #include "LLPack/algorithms/random.hpp"
+#include "../data/Label.hpp"
 #include "tree.hpp"
 
 
@@ -142,13 +143,8 @@ namespace PatTk
       }
     }
 
-    inline void write( std::string dir ) const
+    inline void writeLeaves( std::string dir ) const
     {
-      system( strf( "mkdir -p %s", dir.c_str() ).c_str() );
-      for ( int i=0; i<static_cast<int>( trees.size() ); i++ ) {
-        trees[i]->write( strf( "%s/tree.%d", dir.c_str(), i ).c_str() );
-      }
-
       WITH_OPEN( out, strf( "%s/leaves.dat", dir.c_str() ).c_str(), "w" );
       int len = static_cast<int>( leaves.size() );
       fwrite( &len, sizeof(int), 1, out );
@@ -156,6 +152,16 @@ namespace PatTk
         leaves[i].write( out );
       }
       END_WITH( out );
+    }
+
+    inline void write( std::string dir ) const
+    {
+      system( strf( "mkdir -p %s", dir.c_str() ).c_str() );
+      for ( int i=0; i<static_cast<int>( trees.size() ); i++ ) {
+        trees[i]->write( strf( "%s/tree.%d", dir.c_str(), i ).c_str() );
+      }
+
+      writeLeaves( dir );
 
       writeWeights( dir );
 
@@ -163,11 +169,22 @@ namespace PatTk
 
       
 
-    /* ---------- Accessor ---------- */
+    /* ---------- Templates ---------- */
     inline const LeafInfo& operator()( const int index )
     {
       return leaves[index];
     }
+
+    
+    template <typename floating>
+    inline void updateLabelMap( const int index, const floating *vec  )
+    {
+      leaves[index].q.resize( LabelSet::classes );
+      for ( int i=0; i<LabelSet::classes; i++ ) {
+        leaves[index].q[i] = vec[i];
+      }
+    }
+    
     
 
     /* ---------- Query ---------- */
@@ -282,7 +299,7 @@ namespace PatTk
       return weights[i];
     }
 
-    
+
 
     /* ---------- Properties ---------- */
 

@@ -264,6 +264,7 @@ int main( int argc, char **argv )
                         double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
                         if ( dist < minDist ) {
                           list[0] = loc;
+                          minDist = dist;
                         }
                       }
 

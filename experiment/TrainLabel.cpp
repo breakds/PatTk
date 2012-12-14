@@ -100,7 +100,7 @@ private:
 
   /*
    * Restricted Energy on q(l) is
-   *     sum_m ( D(m) - alpha(l) * q(l) + alpha(l) * q'(l) )^2
+   *     sum_m ( D(m) - alpha(l,m) * q(l) + alpha(l,m) * q'(l) )^2
    *   + sum_j w(i,j) * ( q'(l) - q(j) )^2
    */
   inline double restrict_energy( int l, double *q_l = nullptr )
@@ -115,9 +115,12 @@ private:
     if ( nullptr == q_l ) {
       for ( auto& ele : _to_m ) {
         int m = ele.first;
+        double alpha = ele.second;
+        memcpy( t0, D + m * LabelSet::classes, sizeof(double) * LabelSet::classes );
+        scale( t0, LabelSet::classes, alpha );
         energy += norm2( D + m * LabelSet::classes, LabelSet::classes );
       }
-
+      
       for ( auto& ele : _to_j ) {
         int j = ele.first;
         double wt = static_cast<double>( ele.second );
@@ -125,6 +128,8 @@ private:
         minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
         energy += options.beta * wt * norm2( t0, LabelSet::classes );
       }
+
+
     } else {
 
       double t0[LabelSet::classes];
@@ -136,7 +141,7 @@ private:
         memcpy( t0, D + m * LabelSet::classes, sizeof(double) * LabelSet::classes );
         minusScaledFrom( t0, q + l * LabelSet::classes, LabelSet::classes, alpha );
         addScaledTo( t0, q_l, LabelSet::classes, alpha );
-
+        scale( t0, LabelSet::classes, alpha );
         energy += norm2( t0, LabelSet::classes );
       }
 
@@ -165,6 +170,9 @@ private:
     double t1[LabelSet::classes];
         
     
+
+
+    // t0 = sum_m alpha(l,m) * D(m) 
     for ( auto& ele : _to_m ) {
       int m = ele.first;
       double alpha = ele.second;
@@ -172,18 +180,25 @@ private:
     }
 
 
+    
+    // t0 += sum_m wt(l,j) (q(l) - q(j) )
     for ( auto& ele : _to_j ) {
       int j = ele.first;
       double wt = static_cast<double>( ele.second );
       minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t1, LabelSet::classes );
       addScaledTo( t0, t1, LabelSet::classes, wt );
     }
-     
+
+    // negate t0 to get negative gradient direction
+    negate( t0, LabelSet::classes );
+    
     // Line Search
     double energy_old = restrict_energy( l ) * options.wolf;
 
     bool updated = false;
 
+
+    normalize_vec( t0, t0, LabelSet::classes );
     
     for ( int i=0; i<40; i++ ) {
       scale( t0, LabelSet::classes, options.shrinkRatio );
@@ -195,6 +210,7 @@ private:
         break;
       }
     }
+
 
     if ( updated ) {
       // Simplex Projection
@@ -368,13 +384,25 @@ int main( int argc, char **argv )
   
   Solver solver;
   solver.options.beta = 0.0;
+  solver.options.maxIter = 20;
   Info( "Solving ..." );
   solver.solve( M, forest.centers(), &forest, &m_to_l, P, q );
   Done( "Solved." );
+
+  
+  // update center label maps
+  qp = q;
+  for ( int l=0; l<forest.centers(); l++ ) {
+    forest.updateLabelMap( l, qp );
+    qp += LabelSet::classes;
+  }
+  forest.writeLeaves( env["forest-name"] );
+  
+  Done( "Write to forest." );
 
 
   DeleteToNullWithTestArray( q );
   DeleteToNullWithTestArray( P );
   return 0;
 }
-                                                                                                                                                        
+

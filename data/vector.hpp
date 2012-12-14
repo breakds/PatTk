@@ -182,6 +182,11 @@ namespace PatTk
     for ( int i=0; i<dim; i++ ) *(vp0++) -= wt * (*(vp1++));
   }
 
+  /* negate v0 */
+  template <typename dataType>
+  inline void negate( dataType *v0, int dim ) {
+    for ( int i=0; i<dim; i++ ) v0[i] = -v0[i];
+  }
 
   /* combine two vectors with weights alpha and beta, store the reuslt
      in the third parameter */
@@ -246,7 +251,16 @@ namespace PatTk
   }
   
   
-
+  /* sum the vector */
+  template <typename dataType>
+  inline dataType sum( const dataType *x, int dim )
+  {
+    dataType sum = 0;
+    for ( int i=0; i<dim; i++ ) {
+      sum += x[i];
+    }
+    return sum;
+  }
 
 
 
@@ -257,7 +271,7 @@ namespace PatTk
    *      sum x = 1
    */
   template <typename dataType>
-  void watershed( const dataType *y, dataType *x, int dim ) 
+  inline void watershed( const dataType *y, dataType *x, int dim ) 
   {
     // Projection: sum to 1
     dataType sum = 0.0;
