@@ -492,7 +492,7 @@ int main( int argc, char **argv )
   }
 
   Solver solver;
-  solver.options.beta = 0.0;
+  solver.options.beta = 0.05;
   solver.options.maxIter = 10;
 
   double *q = new double[ forest.centers() * LabelSet::classes ];
