@@ -176,8 +176,8 @@ endif (BUILD_UNITTEST)
 ADD_EXECUTABLE(training experiment/Training.cpp)
 TARGET_LINK_LIBRARIES(training ${OPENCV})
 
-# ADD_EXECUTABLE(testing experiment/Testing.cpp)
-# TARGET_LINK_LIBRARIES(testing ${OPENCV})
+ADD_EXECUTABLE(testing experiment/Testing.cpp)
+TARGET_LINK_LIBRARIES(testing ${OPENCV})
 
 ADD_EXECUTABLE(learning experiment/Learning.cpp)
 TARGET_LINK_LIBRARIES(learning ${OPENCV})
@@ -187,6 +187,9 @@ TARGET_LINK_LIBRARIES(TrainLabel ${OPENCV})
 
 ADD_EXECUTABLE(Vote experiment/Vote.cpp)
 TARGET_LINK_LIBRARIES(Vote ${OPENCV})
+
+ADD_EXECUTABLE(verify experiment/Verify.cpp)
+TARGET_LINK_LIBRARIES(verify ${OPENCV})
 
 
 

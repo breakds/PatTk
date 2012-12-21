@@ -77,16 +77,19 @@ namespace PatTk
     inline int GetClass( unsigned char b, unsigned char g, unsigned char r )
     {
       for ( int i=0; i<classes; i++ ) {
-        if ( b == get<0>( colors[i] ) &&
+        if ( r == get<0>( colors[i] ) &&
              g == get<1>( colors[i] ) &&
-             r == get<2>( colors[i] ) ) {
+             b == get<2>( colors[i] ) ) {
           return i;
         }
       }
       return (classes - 1);
     }
     
-    
+    inline const string& GetClassName( int index )
+    {
+      return className[index];
+    }
     
   };
 }

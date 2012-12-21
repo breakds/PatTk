@@ -38,6 +38,7 @@ int main( int argc, char **argv )
 
 
   Info( "Loading Training Album ..." );
+
   Album<float> album;
   for ( auto& ele : imgList ) {
     album.push( std::move( cvFeat<HOG>::gen( ele ) ) );

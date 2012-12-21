@@ -253,7 +253,7 @@ namespace PatTk
   
   /* sum the vector */
   template <typename dataType>
-  inline dataType sum( const dataType *x, int dim )
+  inline dataType sum_vec( const dataType *x, int dim )
   {
     dataType sum = 0;
     for ( int i=0; i<dim; i++ ) {

@@ -64,7 +64,7 @@ namespace PatTk
       for ( int i=0; i<len ;i++ ) {
         store.push_back( LocInfo( in ) );
       }
-
+      
       fread( &len, sizeof(int), 1, in );
       assert( 0 == len || LabelSet::classes == len );
       float tmp;

@@ -44,7 +44,7 @@ private:
   int M, L;
   const Forest<SimpleKernel<float> > *forest;
   const Bipartite *m_to_l;
-    
+  int iter;
 
 
   // D(m) = sum alpha(l,m)*q(l,m) - P(m)
@@ -67,6 +67,13 @@ private:
     minusFrom( t, P + m * LabelSet::classes, LabelSet::classes );
   }
 
+  inline void update_D( int m, int l, const double *q_l, double alpha )
+  {
+
+    minusScaledFrom( D + m * LabelSet::classes, q + l * LabelSet::classes, LabelSet::classes, alpha );
+    addScaledTo( D + m * LabelSet::classes, q_l, LabelSet::classes, alpha );
+  }
+
 
   inline double total_energy()
   {
@@ -78,9 +85,8 @@ private:
       Dp += LabelSet::classes;
     }
 
-
     double t0[LabelSet::classes];
-    
+
     for ( int l=0; l<L; l++ ) {
       auto& _to_j = forest->GetWeights( l );
       for ( auto& ele : _to_j ) {
@@ -92,11 +98,10 @@ private:
         }
       }
     }
-    
+
     return energy;
     
   }
-
 
   /*
    * Restricted Energy on q(l) is
@@ -115,9 +120,6 @@ private:
     if ( nullptr == q_l ) {
       for ( auto& ele : _to_m ) {
         int m = ele.first;
-        double alpha = ele.second;
-        memcpy( t0, D + m * LabelSet::classes, sizeof(double) * LabelSet::classes );
-        scale( t0, LabelSet::classes, alpha );
         energy += norm2( D + m * LabelSet::classes, LabelSet::classes );
       }
       
@@ -128,8 +130,6 @@ private:
         minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
         energy += options.beta * wt * norm2( t0, LabelSet::classes );
       }
-
-
     } else {
 
       double t0[LabelSet::classes];
@@ -141,7 +141,6 @@ private:
         memcpy( t0, D + m * LabelSet::classes, sizeof(double) * LabelSet::classes );
         minusScaledFrom( t0, q + l * LabelSet::classes, LabelSet::classes, alpha );
         addScaledTo( t0, q_l, LabelSet::classes, alpha );
-        scale( t0, LabelSet::classes, alpha );
         energy += norm2( t0, LabelSet::classes );
       }
 
@@ -197,31 +196,35 @@ private:
 
     bool updated = false;
 
-
-    normalize_vec( t0, t0, LabelSet::classes );
     
+    normalize_vec( t0, t0, LabelSet::classes );
+    double energy_new = 0.0;
     for ( int i=0; i<40; i++ ) {
       scale( t0, LabelSet::classes, options.shrinkRatio );
       add( t0, q + l * LabelSet::classes, t1, LabelSet::classes );
-      double energy_new = restrict_energy( l, t1 );
+      // Simplex Projection
+      watershed( t1, t0, LabelSet::classes );
 
+      energy_new = restrict_energy( l, t0 );
       if ( energy_new < energy_old ) {
         updated = true;
         break;
       }
     }
 
-
     if ( updated ) {
-      // Simplex Projection
-      watershed( t1, q + l * LabelSet::classes, LabelSet::classes );
+      for ( auto& ele : _to_m ) {
+        int m = ele.first;
+        double alpha = ele.second;
+        update_D( m, l, t0, alpha );
+      }
+      memcpy( q + l * LabelSet::classes, t0, sizeof(double) * LabelSet::classes );
     }
-    
   }
 
 
 public:
-
+  
   Solver()
   {
     D = nullptr;
@@ -255,13 +258,13 @@ public:
     forest = forest1;
     m_to_l = m_to_l1;
 
+    // Update D(m) = sum alpha(l,m)*q(l,m) - P(m)
+    for ( int m=0; m<M; m++ ) {
+      update_D(m);
+    }
 
     
-    for ( int iter=0; iter<options.maxIter; iter++ ) {
-      // Update D(m) = sum alpha(l,m)*q(l,m) - P(m)
-      for ( int m=0; m<M; m++ ) {
-        update_D(m);
-      }
+    for ( iter=0; iter<options.maxIter; iter++ ) {
       // Update q(l)'s
       for ( int l=0; l<L; l++ ) {
         update_q(l);
@@ -273,9 +276,42 @@ public:
 
     DeleteToNullWithTestArray( D );
     
+
+
+  }
+
+
+  void solve1( int M1, int L1,
+               const Bipartite *m_to_l1,
+               const double *P1, double *q1 )
+  {
+    M = M1;
+    L = L1;
+    P = P1;
+    q = q1;
+    m_to_l = m_to_l1;
+
+    
+    double *qp = q;
+    for ( int l=0; l<L; l++ ) {
+      auto &_to_m = m_to_l->getFromSet( l );
+      memset( qp, 0, sizeof(double) * LabelSet::classes );
+      for ( auto& ele : _to_m ) {
+        int m = ele.first;
+        double alpha = ele.second;
+        addScaledTo( qp, P + m * LabelSet::classes, LabelSet::classes, alpha );
+      }
+
+      double s = sum_vec( qp, LabelSet::classes );
+      
+      scale( qp, LabelSet::classes, 1.0 / s );
+      qp += LabelSet::classes;
+    }
+    
   }
   
 };
+
 
 
 int main( int argc, char **argv )
@@ -362,7 +398,6 @@ int main( int argc, char **argv )
         int classID = LabelSet::GetClass( color[0],
                                           color[1],
                                           color[2] );
-
         for ( int k=0; k<LabelSet::classes; k++ ) {
           if ( k == classID ) {
             *(pP++) = 1.0;
@@ -388,6 +423,27 @@ int main( int argc, char **argv )
   Info( "Solving ..." );
   solver.solve( M, forest.centers(), &forest, &m_to_l, P, q );
   Done( "Solved." );
+
+
+  // debugging:
+  // double *q1 = new double[ forest.centers() * LabelSet::classes ];
+  // solver.solve1( M, forest.centers(), &m_to_l, P, q1 );
+
+  // qp = q;
+  // double *qp1 = q1;
+  // for ( int l=0; l<forest.centers(); l++ ) {
+  //   printf( "q[%d] = ", l );
+  //   printVec( qp, LabelSet::classes );
+  //   printf( "q1[%d] = ", l );
+  //   printVec( qp1, LabelSet::classes );
+  //   char ch;
+  //   scanf( "%c", &ch );
+  //   qp += LabelSet::classes;
+  //   qp1 += LabelSet::classes;
+  // }
+  
+
+  
 
   
   // update center label maps

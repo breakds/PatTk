@@ -630,7 +630,7 @@ namespace PatTk
         exit( -1 );
       }
 
-
+      
       loc.show();
       
 

@@ -289,11 +289,11 @@ int main( int argc, char **argv )
     for ( int j=0; j<geomap.cols; j++ ) {
       double minDist = 1000.0;
       PatLoc best;
-
+      img.FetchPatch( i, j, feat );
       for ( auto& ele : geomap(i,j) ) {
         PatLoc loc = ele.apply(i,j);
         album(loc.id).FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-        double dist = dist_l2( feat_c, feat_c, img.GetPatchDim() );
+        double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
         if ( dist < minDist ) {
           minDist = dist;
           best = loc;
@@ -307,10 +307,6 @@ int main( int argc, char **argv )
         addto( vote, &forest(ele).q[0], LabelSet::classes );
       }
 
-      // debugging
-      printf( "vote(%d,%d) = ", i, j );
-      printVec( vote, LabelSet::classes );
-
       
       float highest = 0.0f;
       int classID = -1;
@@ -323,14 +319,11 @@ int main( int argc, char **argv )
       
       
       auto& color = LabelSet::GetColor( classID );
-      estimated.at<cv::Vec3b>(i,j)[0] = std::get<0>( color );
+      estimated.at<cv::Vec3b>(i,j)[0] = std::get<2>( color );
       estimated.at<cv::Vec3b>(i,j)[1] = std::get<1>( color );
-      estimated.at<cv::Vec3b>(i,j)[2] = std::get<2>( color );
+      estimated.at<cv::Vec3b>(i,j)[2] = std::get<0>( color );
       
       
-      // debugging
-      char ch;
-      scanf( "%c", &ch );
     }
   }
 
