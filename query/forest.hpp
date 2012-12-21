@@ -8,6 +8,7 @@
 #include <iostream>
 #include <unordered_map>
 #include "LLPack/algorithms/random.hpp"
+#include "LLPack/utils/extio.hpp"
 #include "../data/Label.hpp"
 #include "tree.hpp"
 
@@ -243,6 +244,200 @@ namespace PatTk
       return res;
     }
     
+    
+    GeoMap PatchMatch( const FeatImage<typename kernel::dataType> &img, 
+                       int numProp = 10,
+                       int maxIter = 10 )
+    {
+      GeoMap geomap( img.rows, img.cols );
+      int dim = img.GetPatchDim();
+      float feat[dim];
+      float feat_c[dim];
+
+      
+      int count = 0;
+      int area = img.rows * img.cols;
+
+
+      heap<double, Geometric> ranker( numProp );
+
+      for ( int i=0; i<img.rows; i++ ) {
+        for ( int j=0; j<img.cols; j++ ) {
+
+          ranker.resize( numProp );
+          
+          img.FetchPatch( i, j, feat );
+
+          auto re = std::move( pull( feat ) );
+
+          for ( auto& ele : re ) {
+            img.FetchPatch( ele.y, ele.x, feat_c );
+            ranker.add( dist_l2( feat, feat_c, dim ),
+                        Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ),
+                                         PatLoc( ele.id, ele.y, ele.x, 0.0, 1.0 ) ) );
+          }
+
+          
+          for ( int k=0; k<ranker.len; k++ ) {
+            geomap[count].push_back( ranker[k] );
+          }
+          
+          count++;
+          if ( 0 == count % 1000 ) {
+            progress( count, area, "Initial Query" );
+          }
+        }
+      }
+      printf( "\n" );
+      Done( "Query" );
+
+      
+      for ( int iter=0; iter<maxIter; iter++ ) {
+        
+        if ( 0 == ( iter & 1 ) ) {
+          for ( int i=0; i<geomap.rows; i++ ) {
+            for ( int j=0; j<geomap.cols; j++ ) {
+              img.FetchPatch( i, j, feat );
+              ranker.resize( numProp );
+
+
+              // Result from last iteration
+              for ( auto& ele : geomap(i,j) ) {
+                PatLoc loc = ele.apply( i, j );
+                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                  Geometric copy = ele;
+                  ranker.add( dist, copy );
+                }
+              }
+
+              // random search:
+              // for ( auto& ele : geomap(i,j) ) {
+              //   PatLoc loc = ele.apply( i, j );
+              //   Sampler4D sampler( album(loc.id).rows, album(loc.id).cols );
+              //   for ( int s=0; s<numSample; s++ ) {
+              //     PatLoc hypo = sampler.sample( loc );
+              //     if ( 0 <= hypo.y && hypo.y <= album(loc.id).rows && 0 <= hypo.x && hypo.x < album(loc.id).cols ) {
+              //       album(loc.id).FetchPatch( hypo.y, hypo.x, hypo.rotation, hypo.scale, feat_c );
+              //       double dist = dist_l2( feat, feat_c, album(loc.id).GetPatchDim() );
+              //       ranker.add( dist, Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ), hypo ) );
+              //     }
+              //     sampler.shrink();
+              //   }
+              // }
+                
+              
+
+              // left:
+              if ( 0 < j ) {
+                for ( auto& ele : geomap(i,j-1) ) {
+                  PatLoc loc = ele.apply( i, j );
+                  if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                    img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                    double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                    Geometric copy = ele;
+                    ranker.add( dist, copy );
+                  }
+                }
+              }
+
+              // top:
+              if ( 0 < i ) {
+                for ( auto& ele : geomap(i-1,j ) ) {
+                  PatLoc loc = ele.apply( i, j );
+                  if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                    img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                    double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                    Geometric copy = ele;
+                    ranker.add( dist, copy );
+                  }
+                }
+              }
+
+              
+              
+              geomap[ i * geomap.cols + j ].clear();
+              for ( int k=0; k<ranker.len; k++ ) {
+                geomap[i * geomap.cols + j ].push_back( ranker[k] );
+              }
+              
+            }
+          }
+        } else {
+          for ( int i=geomap.rows-1; i>=0; i-- ){
+            for ( int j=geomap.cols-1; j>=0; j-- ) {
+              img.FetchPatch( i, j, feat );
+              ranker.resize( numProp );
+              for ( auto& ele : geomap(i,j) ) {
+                PatLoc loc = ele.apply( i, j );
+                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                  Geometric copy = ele;
+                  ranker.add( dist, copy );
+                }
+              }
+
+
+              // random search:
+              // for ( auto& ele : geomap(i,j) ) {
+              //   PatLoc loc = ele.apply( i, j );
+              //   Sampler4D sampler( album(loc.id).rows, album(loc.id).cols );
+              //   for ( int s=0; s<numSample; s++ ) {
+              //     PatLoc hypo = sampler.sample( loc );
+              //     if ( 0 <= hypo.y && hypo.y <= album(loc.id).rows && 0 <= hypo.x && hypo.x < album(loc.id).cols ) {
+              //       album(loc.id).FetchPatch( hypo.y, hypo.x, hypo.rotation, hypo.scale, feat_c );
+              //       double dist = dist_l2( feat, feat_c, album(loc.id).GetPatchDim() );
+              //       ranker.add( dist, Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ),
+              //                                          hypo ) );
+              //     }
+              //     sampler.shrink();
+              //   }
+              // }
+                
+
+
+              // right:
+              if ( j < geomap.cols - 1 ) {
+                for ( auto& ele : geomap(i,j+1) ) {
+                  PatLoc loc = ele.apply( i, j );
+                  if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                    img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                    double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                    Geometric copy = ele;
+                    ranker.add( dist, copy );
+                  }
+                }
+              }
+
+              // bottom:
+              if ( i < geomap.rows - 1 ) {
+                for ( auto& ele : geomap(i+1,j) ) {
+                  PatLoc loc = ele.apply( i, j );
+                  if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
+                    img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+                    double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+                    Geometric copy = ele;
+                    ranker.add( dist, copy );
+                  }
+                }
+              }
+
+              geomap[ i * geomap.cols + j ].clear();
+              for ( int k=0; k<ranker.len; k++ ) {
+                geomap[i * geomap.cols + j ].push_back( ranker[k] );
+              }
+            }
+          }
+        }
+
+        progress( iter + 1, maxIter, "PatchMatch" );
+      }
+      printf( "\n" );
+      Done( "PatchMatch" );
+      return geomap;
+    }
 
     
 

@@ -167,7 +167,7 @@ private:
     double t0[LabelSet::classes];
     memset( t0, 0, sizeof(double) * LabelSet::classes );
     double t1[LabelSet::classes];
-        
+    double t2[LabelSet::classes];        
     
 
 
@@ -192,33 +192,112 @@ private:
     negate( t0, LabelSet::classes );
     
     // Line Search
-    double energy_old = restrict_energy( l ) * options.wolf;
+    // double energy_old = restrict_energy( l ) * options.wolf;
 
-    bool updated = false;
+    // bool updated = false;
 
     
-    normalize_vec( t0, t0, LabelSet::classes );
-    double energy_new = 0.0;
-    for ( int i=0; i<40; i++ ) {
-      scale( t0, LabelSet::classes, options.shrinkRatio );
-      add( t0, q + l * LabelSet::classes, t1, LabelSet::classes );
-      // Simplex Projection
-      watershed( t1, t0, LabelSet::classes );
+    // normalize_vec( t0, t0, LabelSet::classes );
+    // double energy_new = 0.0;
+    // for ( int i=0; i<40; i++ ) {
+    //   scale( t0, LabelSet::classes, options.shrinkRatio );
+    //   add( t0, q + l * LabelSet::classes, t1, LabelSet::classes );
+    //   // Simplex Projection
+    //   watershed( t1, t2, LabelSet::classes );
 
-      energy_new = restrict_energy( l, t0 );
-      if ( energy_new < energy_old ) {
-        updated = true;
-        break;
+    //   energy_new = restrict_energy( l, t2 );
+    //   if ( energy_new < energy_old ) {
+    //     updated = true;
+    //     break;
+    //   }
+    // }
+
+
+    
+    // Line Search Parabola
+
+
+    double t3[LabelSet::classes];        
+    bool updated = false;
+    double a = 1.0; // initial step size
+    double dE2 = norm2( t0, LabelSet::classes );
+    double E0 = restrict_energy( l );
+
+    memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
+    addScaledTo( t1, t0, LabelSet::classes, a );
+    watershed( t1, t2, LabelSet::classes );
+    double E_a = restrict_energy( l, t2 );
+
+    // printf( "E_a = %.4lf\n", E_a );
+
+    // printf( "E0 = %.4lf\n", E0 );
+
+    if ( E_a >= E0 ) {
+      // Shrinking Branch
+      for ( int i=0; i<40; i++ ) {
+        a = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
+
+        // update E_a
+        memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
+        addScaledTo( t1, t0, LabelSet::classes, a );
+        watershed( t1, t2, LabelSet::classes );
+        E_a = restrict_energy( l, t2 );
+        
+        if ( E_a < E0 ) {
+          updated = true;
+        }
+      }
+    } else { 
+      // Expanding Branch
+      
+      updated = true;
+      
+      double E_best = E_a;
+      for ( int i=0; i<40; i++ ) {
+        if ( E_a > E0 - dE2 * a * ( 1 - 0.5 / 2.0 ) ) {
+          double b = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
+          
+          // update E_a
+          memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
+          addScaledTo( t1, t0, LabelSet::classes, b );
+          watershed( t1, t3, LabelSet::classes );
+          E_a = restrict_energy( l, t3 );
+    
+          if ( E_a < E_best ) {
+            E_best = E_a;
+            memcpy( t2, t3, sizeof(double) * LabelSet::classes );
+          }
+        } else {
+          a = a * 2.0;
+        }
+
+        memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
+        addScaledTo( t1, t0, LabelSet::classes, a );
+        watershed( t1, t3, LabelSet::classes );
+        E_a = restrict_energy( l, t3 );
+        
+        if ( E_a < E_best ) {
+          E_best = E_a;
+          memcpy( t2, t3, sizeof(double) * LabelSet::classes );
+        } else {
+          break;
+        }
+
       }
     }
+    
+    // debugging:
+    // char ch;
+    // scanf( "%c", &ch );
+    
 
     if ( updated ) {
       for ( auto& ele : _to_m ) {
         int m = ele.first;
         double alpha = ele.second;
-        update_D( m, l, t0, alpha );
+        update_D( m, l, t2, alpha );
       }
-      memcpy( q + l * LabelSet::classes, t0, sizeof(double) * LabelSet::classes );
+      memcpy( q + l * LabelSet::classes, t2, sizeof(double) * LabelSet::classes );
     }
   }
 
@@ -311,7 +390,8 @@ public:
     }
     
   }
-  
+
+
 };
 
 
@@ -438,186 +518,7 @@ int main( int argc, char **argv )
   
   /// 5. Query
   
-  if ( 0 < env["patchmatch-iter"] ) {
-    int count = 0;
-    GeoMap geomap( img.rows, img.cols );
-    int area = img.rows * img.cols;
-    int numProp = 10;
-    float feat_c[img.GetPatchDim()];
-    heap<double, Geometric> ranker( numProp );
-    for ( int i=0; i<img.rows; i++ ) {
-      for ( int j=0; j<img.cols; j++ ) {
-        if ( 999 == count % 1000 ) Info( "%d/%d", count+1, area );
-        ranker.resize( numProp );
-        img.FetchPatch( i, j, feat );
-        auto re = std::move( forest.pull( feat ) );
-        int p = 0;
-        for ( auto& ele : re ) {
-          p++;
-          img.FetchPatch( ele.y, ele.x, feat_c );
-          double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-
-          ranker.add( dist, Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ),
-                                             PatLoc( ele.id, ele.y, ele.x, 0.0, 1.0 ) ) );
-          if ( p > 100 ) break;
-        }
-        
-        for ( int k=0; k<ranker.len; k++ ) {
-          geomap[count].push_back( ranker[k] );
-        }
-        count++;
-      }
-    }
-    Done( "Query" );
-
-
-    for ( int iter=0; iter<env["patchmatch-iter"]; iter++ ) {
-      if ( 0 == ( iter & 1 ) ) {
-        for ( int i=0; i<geomap.rows; i++ ) {
-          for ( int j=0; j<geomap.cols; j++ ) {
-            img.FetchPatch( i, j, feat );
-            ranker.resize( numProp );
-
-
-            // Result from last iteration
-            for ( auto& ele : geomap(i,j) ) {
-              PatLoc loc = ele.apply( i, j );
-              if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                Geometric copy = ele;
-                ranker.add( dist, copy );
-              }
-            }
-
-            // random search:
-            // for ( auto& ele : geomap(i,j) ) {
-            //   PatLoc loc = ele.apply( i, j );
-            //   Sampler4D sampler( album(loc.id).rows, album(loc.id).cols );
-            //   for ( int s=0; s<numSample; s++ ) {
-            //     PatLoc hypo = sampler.sample( loc );
-            //     if ( 0 <= hypo.y && hypo.y <= album(loc.id).rows && 0 <= hypo.x && hypo.x < album(loc.id).cols ) {
-            //       album(loc.id).FetchPatch( hypo.y, hypo.x, hypo.rotation, hypo.scale, feat_c );
-            //       double dist = dist_l2( feat, feat_c, album(loc.id).GetPatchDim() );
-            //       ranker.add( dist, Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ), hypo ) );
-            //     }
-            //     sampler.shrink();
-            //   }
-            // }
-                
-              
-
-            // left:
-            if ( 0 < j ) {
-              for ( auto& ele : geomap(i,j-1) ) {
-                PatLoc loc = ele.apply( i, j );
-                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                  Geometric copy = ele;
-                  ranker.add( dist, copy );
-                }
-              }
-            }
-
-            // top:
-            if ( 0 < i ) {
-              for ( auto& ele : geomap(i-1,j ) ) {
-                PatLoc loc = ele.apply( i, j );
-                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                  Geometric copy = ele;
-                  ranker.add( dist, copy );
-                }
-              }
-            }
-
-              
-              
-            geomap[ i * geomap.cols + j ].clear();
-            for ( int k=0; k<ranker.len; k++ ) {
-              geomap[i * geomap.cols + j ].push_back( ranker[k] );
-            }
-              
-          }
-        }
-      } else {
-        for ( int i=geomap.rows-1; i>=0; i-- ){
-          for ( int j=geomap.cols-1; j>=0; j-- ) {
-            img.FetchPatch( i, j, feat );
-            ranker.resize( numProp );
-            for ( auto& ele : geomap(i,j) ) {
-              PatLoc loc = ele.apply( i, j );
-              if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                Geometric copy = ele;
-                ranker.add( dist, copy );
-              }
-            }
-
-
-            // random search:
-            // for ( auto& ele : geomap(i,j) ) {
-            //   PatLoc loc = ele.apply( i, j );
-            //   Sampler4D sampler( album(loc.id).rows, album(loc.id).cols );
-            //   for ( int s=0; s<numSample; s++ ) {
-            //     PatLoc hypo = sampler.sample( loc );
-            //     if ( 0 <= hypo.y && hypo.y <= album(loc.id).rows && 0 <= hypo.x && hypo.x < album(loc.id).cols ) {
-            //       album(loc.id).FetchPatch( hypo.y, hypo.x, hypo.rotation, hypo.scale, feat_c );
-            //       double dist = dist_l2( feat, feat_c, album(loc.id).GetPatchDim() );
-            //       ranker.add( dist, Geometric::diff( PatLoc( -1, i, j, 0.0, 1.0 ),
-            //                                          hypo ) );
-            //     }
-            //     sampler.shrink();
-            //   }
-            // }
-                
-
-
-            // right:
-            if ( j < geomap.cols - 1 ) {
-              for ( auto& ele : geomap(i,j+1) ) {
-                PatLoc loc = ele.apply( i, j );
-                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                  Geometric copy = ele;
-                  ranker.add( dist, copy );
-                }
-              }
-            }
-
-            // bottom:
-            if ( i < geomap.rows - 1 ) {
-              for ( auto& ele : geomap(i+1,j) ) {
-                PatLoc loc = ele.apply( i, j );
-                if ( 0 <= loc.y && loc.y <= img.rows && 0 <= loc.x && loc.x < img.cols ) {
-                  img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
-                  double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
-                  Geometric copy = ele;
-                  ranker.add( dist, copy );
-                }
-              }
-            }
-
-            geomap[ i * geomap.cols + j ].clear();
-            for ( int k=0; k<ranker.len; k++ ) {
-              geomap[i * geomap.cols + j ].push_back( ranker[k] );
-            }
-          }
-        }
-      }
-      Info( "iteration: %d", iter + 1 );
-    }
-    
-    Done( "PatchMatch" );
-    geomap.write( "candidates.dat" );
-  }
-
-  
-  GeoMap geomap( "candidates.dat" );
+  GeoMap geomap = std::move( forest.PatchMatch( img ) );
 
   // 5.5 Verify PatchMatch is working
   // cv::Mat srcmat = cv::imread( env["src-img"] );
@@ -709,7 +610,7 @@ int main( int argc, char **argv )
       
       for ( auto& ele : geomap(i,j) ) {
         PatLoc loc = ele.apply(i,j);
-        img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat );
+        img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
         double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
         if ( dist < minDist ) {
           minDist = dist;
