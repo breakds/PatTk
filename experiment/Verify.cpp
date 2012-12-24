@@ -178,8 +178,6 @@ private:
       addScaledTo( t0, D + m * LabelSet::classes, LabelSet::classes, alpha );
     }
 
-
-    
     // t0 += sum_m wt(l,j) (q(l) - q(j) )
     for ( auto& ele : _to_j ) {
       int j = ele.first;
@@ -190,6 +188,7 @@ private:
 
     // negate t0 to get negative gradient direction
     negate( t0, LabelSet::classes );
+
     
     // Line Search
     // double energy_old = restrict_energy( l ) * options.wolf;
@@ -228,23 +227,38 @@ private:
     watershed( t1, t2, LabelSet::classes );
     double E_a = restrict_energy( l, t2 );
 
-    // printf( "E_a = %.4lf\n", E_a );
-
-    // printf( "E0 = %.4lf\n", E0 );
-
+    
     if ( E_a >= E0 ) {
+
       // Shrinking Branch
       for ( int i=0; i<40; i++ ) {
+
+        // debugging:
+        // if ( 0 == iter && 2280 == l ) {
+        //   printf( "E_a = %.5lf\n", E_a );
+        //   printf( "E0 = %.5lf\n", E0 );
+        //   printf( "E_a - (E0 - dE2 * a ) = %.5lf\n", (E_a - (E0 - dE2 * a) ) );
+        // }
+        
         a = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
 
+        // debugging:
+        // if ( 0 == iter && 2280 == l ) {
+        //   printf( "a1 = %.5lf\n", a );
+        // }
+
+
+        
         // update E_a
         memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
         addScaledTo( t1, t0, LabelSet::classes, a );
         watershed( t1, t2, LabelSet::classes );
         E_a = restrict_energy( l, t2 );
-        
+
+
         if ( E_a < E0 ) {
           updated = true;
+          break;
         }
       }
     } else { 
@@ -285,12 +299,15 @@ private:
 
       }
     }
-    
-    // debugging:
-    // char ch;
-    // scanf( "%c", &ch );
-    
 
+    // debugging:
+    // if ( 0 == iter && 2280 == l ) {
+    //   printf( "t2 = " );
+    //   printVec( t2, LabelSet::classes );
+    // }
+
+
+    
     if ( updated ) {
       for ( auto& ele : _to_m ) {
         int m = ele.first;
@@ -299,6 +316,13 @@ private:
       }
       memcpy( q + l * LabelSet::classes, t2, sizeof(double) * LabelSet::classes );
     }
+    
+    
+    // debugging:
+    // if ( 0 == iter && 2280 == l ) {
+    //   char ch;
+    //   scanf( "%c", &ch );
+    // }
   }
 
 
@@ -346,6 +370,21 @@ public:
 
     
     for ( iter=0; iter<options.maxIter; iter++ ) {
+
+      // debugging
+      // for ( int l=0; l<L; l++ ) {
+      //   bool flag = false;
+      //   double *t = q + l * LabelSet::classes;
+      //   for ( int k=0; k<LabelSet::classes; k++ ) {
+      //     if ( t[k] != t[k] ) {
+      //       flag = true;
+      //     }
+      //   }
+      //   if ( flag ) {
+      //     printf( "bad! %d\n", l );
+      //   }
+      // }
+      
       // Update q(l)'s
       for ( int l=0; l<L; l++ ) {
         update_q(l);
@@ -408,7 +447,7 @@ int main( int argc, char **argv )
 
   env.parse( argv[1] );
   env.Summary();
-
+  
   LabelSet::initialize( env["color-map"] );
 
 
@@ -492,7 +531,7 @@ int main( int argc, char **argv )
   }
 
   Solver solver;
-  solver.options.beta = 0.05;
+  solver.options.beta = 0.005;
   solver.options.maxIter = 10;
 
   double *q = new double[ forest.centers() * LabelSet::classes ];
