@@ -480,6 +480,20 @@ namespace PatTk
       }
     }
 
+    inline void FilterWeights( int thresh = 0 )
+    {
+      for ( int i=0; i<centers(); i++ ) {
+        for ( std::unordered_map<int,int>::const_iterator iter = weights[i].begin();
+              iter != weights[i].end(); ) {
+          if ( iter->second <= thresh ) {
+            weights[i].erase(iter++);
+          } else {
+            iter++;
+          }
+        }
+      }
+    }
+    
     inline int GetWeight( int i, int j )
     {
       assert( 0 < weights.size() );
@@ -496,6 +510,8 @@ namespace PatTk
       assert( 0 < weights.size() );
       return weights[i];
     }
+
+    
 
 
 

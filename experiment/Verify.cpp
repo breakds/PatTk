@@ -87,35 +87,16 @@ private:
 
     double t0[LabelSet::classes];
 
-    // for ( int l=0; l<L; l++ ) {
-    //   auto& _to_j = forest->GetWeights( l );
-    //   for ( auto& ele : _to_j ) {
-    //     int j = ele.first;
-    //     if ( j<l ) {
-    //       double wt = static_cast<double>( ele.second );
-    //       minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
-    //       energy += options.beta * wt * norm2( t0, LabelSet::classes );
-    //     }
-    //   }
-    // }
-
     for ( int l=0; l<L; l++ ) {
       auto& _to_j = forest->GetWeights( l );
-      int total_weight = 0;
-      memset( t0, 0, sizeof(double) * LabelSet::classes );
       for ( auto& ele : _to_j ) {
         int j = ele.first;
-        if ( j == l ) continue;
-        total_weight += ele.second;
-        addScaledTo( t0, q + j * LabelSet::classes, LabelSet::classes, static_cast<double>( ele.second ) );
+        if ( j<l ) {
+          double wt = static_cast<double>( ele.second );
+          minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
+          energy += options.beta * wt * norm2( t0, LabelSet::classes );
+        }
       }
-      
-      scale( t0, LabelSet::classes, 1.0 / static_cast<double>( total_weight ) );
-
-      minusFrom( t0, q + l * LabelSet::classes, LabelSet::classes );
-
-      energy += options.beta * norm2( t0, LabelSet::classes );
-      
     }
 
     return energy;
@@ -141,29 +122,14 @@ private:
         int m = ele.first;
         energy += norm2( D + m * LabelSet::classes, LabelSet::classes );
       }
-
       
       for ( auto& ele : _to_j ) {
-        int l1 = ele.first;
-        
-        auto& _to_j1 = forest->GetWeights( l1 );
-        int total_weight = 0;
-        memset( t0, 0, sizeof(double) * LabelSet::classes );
-        for ( auto& ele : _to_j1 ) {
-          int j1 = ele.first;
-          if ( j1 == l1 ) continue;
-          total_weight += ele.second;
-          addScaledTo( t0, q + j1 * LabelSet::classes, LabelSet::classes, static_cast<double>( ele.second ) );
-        }
-      
-        scale( t0, LabelSet::classes, 1.0 / static_cast<double>( total_weight ) );
+        int j = ele.first;
+        double wt = static_cast<double>( ele.second );
 
-        minusFrom( t0, q + l1 * LabelSet::classes, LabelSet::classes );
-
-        energy += options.beta * norm2( t0, LabelSet::classes );
-        
+        minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
+        energy += options.beta * wt * norm2( t0, LabelSet::classes );
       }
-
     } else {
 
       double t0[LabelSet::classes];
@@ -178,34 +144,12 @@ private:
         energy += norm2( t0, LabelSet::classes );
       }
 
-
-      for ( auto& every_l1 : _to_j ) {
-        int l1 = every_l1.first;
-        
-        auto& _to_j1 = forest->GetWeights( l1 );
-        int total_weight = 0;
-        memset( t0, 0, sizeof(double) * LabelSet::classes );
-        for ( auto& ele : _to_j1 ) {
-          int j1 = ele.first;
-          if ( j1 == l1 ) continue;
-          total_weight += ele.second;
-          if ( j1 != l ) {
-            addScaledTo( t0, q + j1 * LabelSet::classes, LabelSet::classes, static_cast<double>( ele.second ) );
-          } else {
-            addScaledTo( t0, q_l, LabelSet::classes, static_cast<double>( ele.second ) );
-          }
-        }
       
-        scale( t0, LabelSet::classes, 1.0 / static_cast<double>( total_weight ) );
-        
-        if ( l1 != l ) {
-          minusFrom( t0, q + l1 * LabelSet::classes, LabelSet::classes );
-        } else {
-          minusFrom( t0, q_l, LabelSet::classes );
-        }
-
-        energy += options.beta * norm2( t0, LabelSet::classes );
-        
+      for ( auto& ele : _to_j ) {
+        int j = ele.first;
+        double wt = static_cast<double>( ele.second );
+        minus( q_l, q + j * LabelSet::classes, t0, LabelSet::classes );
+        energy += options.beta * wt * norm2( t0, LabelSet::classes );
       }
 
     }
@@ -233,39 +177,15 @@ private:
       double alpha = ele.second;
       addScaledTo( t0, D + m * LabelSet::classes, LabelSet::classes, alpha );
     }
-    
 
-    
-    // t0 += beta * (q(l) - sum q(j) )
-    memset( t1, 0, sizeof(double) * LabelSet::classes );
-    int total_weight = 0;
+    // t0 += sum_m wt(l,j) (q(l) - q(j) )
     for ( auto& ele : _to_j ) {
       int j = ele.first;
-      if ( j == l ) continue;
-      total_weight += ele.second;
-      addScaledTo( t1, q + j * LabelSet::classes, LabelSet::classes, static_cast<double>( ele.second ) );
+      double wt = static_cast<double>( ele.second );
+      minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t1, LabelSet::classes );
+      addScaledTo( t0, t1, LabelSet::classes, wt );
     }
 
-    addScaledTo( t0, t1, LabelSet::classes, options.beta / static_cast<double>( total_weight ) );
-
-    printf( "to_j.size = %ld\n", _to_j.size() );
-
-    for ( auto& every_l1 : _to_j ) {
-      int l1 = every_l1.first;
-      if ( l1 == l ) continue;
-      auto& _to_j1 = forest->GetWeights( l1 );
-      total_weight = 0;
-      memset( t1, 0, sizeof(double) * LabelSet::classes );
-      for ( auto& ele : _to_j1 ) {
-        int j1 = ele.first;
-        if ( j1 == l1 ) continue;
-        total_weight += ele.second;
-        addScaledTo( t1, q + j1 * LabelSet::classes, LabelSet::classes, static_cast<double>( ele.second ) );
-      }
-      addScaledTo( t0, t1, LabelSet::classes, options.beta * every_l1.second / static_cast<double>( total_weight ) );
-    }
-
-    
     // negate t0 to get negative gradient direction
     negate( t0, LabelSet::classes );
 
@@ -313,22 +233,8 @@ private:
       // Shrinking Branch
       for ( int i=0; i<40; i++ ) {
 
-        // debugging:
-        // if ( 0 == iter && 2280 == l ) {
-        //   printf( "E_a = %.5lf\n", E_a );
-        //   printf( "E0 = %.5lf\n", E0 );
-        //   printf( "E_a - (E0 - dE2 * a ) = %.5lf\n", (E_a - (E0 - dE2 * a) ) );
-        // }
-        
         a = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
 
-        // debugging:
-        // if ( 0 == iter && 2280 == l ) {
-        //   printf( "a1 = %.5lf\n", a );
-        // }
-
-
-        
         // update E_a
         memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
         addScaledTo( t1, t0, LabelSet::classes, a );
@@ -380,14 +286,6 @@ private:
       }
     }
 
-    // debugging:
-    // if ( 0 == iter && 2280 == l ) {
-    //   printf( "t2 = " );
-    //   printVec( t2, LabelSet::classes );
-    // }
-
-
-    
     if ( updated ) {
       for ( auto& ele : _to_m ) {
         int m = ele.first;
@@ -398,11 +296,6 @@ private:
     }
     
     
-    // debugging:
-    // if ( 0 == iter && 2280 == l ) {
-    //   char ch;
-    //   scanf( "%c", &ch );
-    // }
   }
 
 
@@ -451,20 +344,6 @@ public:
     
     for ( iter=0; iter<options.maxIter; iter++ ) {
 
-      // debugging
-      // for ( int l=0; l<L; l++ ) {
-      //   bool flag = false;
-      //   double *t = q + l * LabelSet::classes;
-      //   for ( int k=0; k<LabelSet::classes; k++ ) {
-      //     if ( t[k] != t[k] ) {
-      //       flag = true;
-      //     }
-      //   }
-      //   if ( flag ) {
-      //     printf( "bad! %d\n", l );
-      //   }
-      // }
-      
       // Update q(l)'s
       for ( int l=0; l<L; l++ ) {
         update_q(l);
@@ -571,7 +450,18 @@ int main( int argc, char **argv )
     img.FetchPatch( ele.first, ele.second, feat );
     forest.learn( feat );
   }
+  forest.FilterWeights( 1 );
   Done( "Weights learned within %.5lf sec.", timer::utoc() );
+
+  // debugging:
+  // for ( int l=0; l<forest.centers(); l+=100 ) {
+  //   for ( auto& ele : forest.GetWeights( l ) ) {
+  //     printf( "%d: %d\n", ele.first, ele.second );
+  //   }
+  //   printf( "=============== %ld/%d ===============\n", forest.GetWeights(l).size(), forest.centers() );
+  //   char ch;
+  //   scanf( "%c", &ch );
+  // }
 
   /// 4. Train Label
 
@@ -611,7 +501,7 @@ int main( int argc, char **argv )
   }
 
   Solver solver;
-  solver.options.beta = 0.005;
+  solver.options.beta = 0.001;
   solver.options.maxIter = 10;
 
   double *q = new double[ forest.centers() * LabelSet::classes ];
