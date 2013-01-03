@@ -426,7 +426,7 @@ int main( int argc, char **argv )
       }
     }
   }
-  
+
   /// 2. train the forest
   std::vector<FeatImage<float>::PatchProxy> l;
 
@@ -441,38 +441,62 @@ int main( int argc, char **argv )
   /// 3. Learn the leaf weights
   forest.PrepareWeitghts();
   float feat[img.GetPatchDim()];
-  for ( auto& ele : training ) {
-    img.FetchPatch( ele.first, ele.second, feat );
-    forest.learn( feat );
+
+  // for ( auto& ele : training ) {
+  //   img.FetchPatch( ele.first, ele.second, feat );
+  //   forest.learn( feat );
+  // }
+  // timer::tic();
+  // for ( auto& ele : testing ) {
+  //   img.FetchPatch( ele.first, ele.second, feat );
+  //   forest.learn( feat );
+  // }
+
+
+  for ( int i=0; i<env["learn-img"].length(); i++ ) {
+    auto learn_img = std::move( cvFeat<HOG>::gen( env["learn-img"][i] ) );
+    for ( int i=7; i<learn_img.rows-7; i++ ) {
+      for ( int j=7; j<learn_img.cols-7; j++ ) {
+        learn_img.FetchPatch( i, j, feat );
+        forest.learn( feat );
+      }
+    }
   }
-  timer::tic();
-  for ( auto& ele : testing ) {
-    img.FetchPatch( ele.first, ele.second, feat );
-    forest.learn( feat );
-  }
+  
   forest.FilterWeights( 1 );
   Done( "Weights learned within %.5lf sec.", timer::utoc() );
 
   // debugging:
-  // for ( int l=0; l<forest.centers(); l+=100 ) {
-  //   for ( auto& ele : forest.GetWeights( l ) ) {
-  //     printf( "%d: %d\n", ele.first, ele.second );
-  //   }
-  //   printf( "=============== %ld/%d ===============\n", forest.GetWeights(l).size(), forest.centers() );
-  //   char ch;
-  //   scanf( "%c", &ch );
-  // }
+  cv::Mat srcimg = cv::imread( env["src-img"] );
+
+  for ( int l=0; l<forest.centers(); l+=100 ) {
+    IconList major_leaf( "major leaf node", 13 );
+    for ( auto& ele : forest(l).store ) {
+      major_leaf.push( srcimg, PatLoc( ele ) );
+    }
+    major_leaf.display();
+    for ( auto& leaf : forest.GetWeights( l ) ) {
+      IconList major_leaf( "major leaf node", 13 );
+    for ( auto& ele : forest(l).store ) {
+      major_leaf.push( srcimg, PatLoc( ele ) );
+    }
+    major_leaf.display();
+
+    }
+    printf( "=============== %ld/%d ===============\n", forest.GetWeights(l).size(), forest.centers() );
+    cv::waitKey();
+  }
 
   /// 4. Train Label
 
-
+  
   std::vector<pair<int,int> > labeled;
   for ( auto& ele : training ) {
     if ( static_cast<double>( rand() ) / RAND_MAX < env["training-label-ratio"].toDouble() ) {
       labeled.push_back( ele );
     }
   }
-
+  
   int M = static_cast<int>( labeled.size() );
   Bipartite m_to_l( M, forest.centers() );
   double *P = new double[ M * LabelSet::classes ];
@@ -501,7 +525,7 @@ int main( int argc, char **argv )
   }
 
   Solver solver;
-  solver.options.beta = 0.001;
+  solver.options.beta = 0.00001;
   solver.options.maxIter = 10;
 
   double *q = new double[ forest.centers() * LabelSet::classes ];

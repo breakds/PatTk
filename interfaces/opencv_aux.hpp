@@ -707,14 +707,6 @@ namespace PatTk
 
   };
   
-
-
-
-  
-
-
-
-
 }
 
 /* definitions for static members */
