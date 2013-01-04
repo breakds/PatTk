@@ -60,17 +60,48 @@ public:
   } options;
 
 private:
-  double *D;
+
   const double *P;
-  double *q;
-  int L;
+  const double *w;
+
   
-  int K;
-  const Forest<SimpleKernel<float> > *forest;
+  double *q;
+
+  double *D;
+  double *d;
+  
+  int K, L, N, numL, numU;
+  
   const Bipartite *m_to_l;
   const std::vector<std::pair<int,int> > *patchPairs;
-  int iter;
+
+
+public:
   
+  // constructor
+  Solver()
+  {
+    D = nullptr;
+    P = nullptr;
+    q = nullptr;
+    d = nullptr;
+    w = nullptr;
+    
+    K = 0;
+    L = 0;
+    N = 0;
+    numL = 0;
+    numU = 0;
+    
+    m_to_l = nullptr;
+    patchPairs = nullptr;
+  }
+  
+private:
+  
+  
+
+  /* ---------- D(m) ---------- */
 
   // D(m) = sum alpha(l,m)*q(l,m) - P(m)
   inline void update_D( int m )
@@ -93,15 +124,101 @@ private:
     // minus P(m) from D(m)
     minusFrom( t, P + m * K, K );
   }
-
+  
+  
   inline void update_D( int m, int l, const double *q_l, double alpha )
   {
     // D(m) = D(m) - q(l) * alpha(m,l)
     minusScaledFrom( D + m * K, q + l * K, K, alpha );
     // D(m) = D(m) + q_new(l) * alpha(m,l)
-    addScaledTo( D + m * L, q_l, K, alpha );
+    addScaledTo( D + m * K, q_l, K, alpha );
   }
 
+  inline void altered_D( int m, int l, const double *q_l, double alpha, double *dst )
+  {
+    copy( dst, D + m * K, K );
+    // D(m) = D(m) - q(l) * alpha(m,l)
+    minusScaledFrom( dst, q + l * K, K, alpha );
+    // D(m) = D(m) + q_new(l) * alpha(m,l)
+    addScaledTo( dst, q_l, K, alpha );
+  }
+
+
+
+
+  /* ---------- d(n) ---------- */
+
+  // d(n) = sum_l (alpha(i_n,l) - alpha(j_n,l)) * q(l)
+  inline void update_d( int n )
+  {
+    // alias t <- d(n)
+    double *t = d + n * K;
+    zero( t, K );
+    
+    { 
+      // handle i's side
+      int i = patchPairs[n].first;
+      auto& _to_l = m_to_l->getToSet( i );
+      for ( auto& ele : _to_l ) {
+        int l = ele.first;
+        double alpha = ele.second;
+        addScaledTo( t, q + l * K, K, alpha );
+      }
+    }
+
+    {
+      // handle j's side
+      int j = patchPairs[n].first;
+      auto& _to_l = m_to_l->getToSet( j );
+      for ( auto& ele : _to_l ) {
+        int l = ele.first;
+        double alpha = ele.second;
+        minusScaledFrom( t, q + l * K, K, alpha );
+      }
+    }
+  }
+
+  inline void update_d( int n, int l, const double *q_l, double alpha_i, double alpha_j )
+  {
+    double *t = d + n * K;
+    // d(n) = d(n) - alpha(i,l) * q(l) + alpha(i,l) * q_l
+    minusScaledFrom( t, q + l * K, K, alpha_i );
+    addScaledTo( t, q_l, K, alpha_i );
+    
+    // d(n) = d(n) + alpha(j,l) * q(l) - alpha(j,l) * q_l
+    addScaledTo( t, q + l * K, K, alpha_j );
+    minusScaledFrom( t, q_l, K, alpha_j );
+  }
+
+  inline void update_d( int n, int l, const double *q_l, double alpha_i, double alpha_j )
+  {
+    double *t = d + n * K;
+    // d(n) = d(n) - alpha(i,l) * q(l) + alpha(i,l) * q_l
+    minusScaledFrom( t, q + l * K, K, alpha_i );
+    addScaledTo( t, q_l, K, alpha_i );
+    
+    // d(n) = d(n) + alpha(j,l) * q(l) - alpha(j,l) * q_l
+    addScaledTo( t, q + l * K, K, alpha_j );
+    minusScaledFrom( t, q_l, K, alpha_j );
+  }
+
+  inline altered_d( int n, int l, const double *q_l, double alpha_i, double alpha_j, double *dst )
+  {
+    copy( dst, d + n * K );
+    
+    // d(n) = d(n) - alpha(i,l) * q(l) + alpha(i,l) * q_l
+    minusScaledFrom( dst, q + l * K, K, alpha_i );
+    addScaledTo( dst, q_l, K, alpha_i );
+    
+    // d(n) = d(n) + alpha(j,l) * q(l) - alpha(j,l) * q_l
+    addScaledTo( dst, q + l * K, K, alpha_j );
+    minusScaledFrom( dst, q_l, K, alpha_j );
+  }
+
+  
+
+  
+  /* ---------- Energy Computation ---------- */
 
   inline double total_energy()
   {
@@ -115,9 +232,6 @@ private:
       Dp += K;
     }
 
-
-
-
     double energy_second = 0.0;
 
     // sum_n d(n)^2 * w(n)
@@ -128,131 +242,146 @@ private:
       dp += K;
     }
     
-    return energy_first + energy_second;
+    return energy_first + energy_second * options.beta;
   }
 
-  /*
-   * Restricted Energy on q(l) is
-   *     sum_m ( D(m) - alpha(l,m) * q(l) + alpha(l,m) * q'(l) )^2
-   *   + sum_j w(i,j) * ( q'(l) - q(j) )^2
+  /* Restricted Energy on q(l):
+   * sum_{m \in l} D(m)^2 + \beta \sum_{n \in l} w(i_n,j_n) * d(n)^2
    */
-  inline double restrict_energy( int l, double *q_l = nullptr )
+  inline double restrict_energy( int l )
   {
 
     auto& _to_m = m_to_l->getFromSet( l );
-    auto& _to_j = forest->GetWeights( l );
+    auto& _to_n = pair_to_l->getFromSet( l );
     
-    double energy = 0.0;
-    double t0[LabelSet::classes];
-
-    if ( nullptr == q_l ) {
-      for ( auto& ele : _to_m ) {
-        int m = ele.first;
-        energy += norm2( D + m * LabelSet::classes, LabelSet::classes );
-      }
-      
-      for ( auto& ele : _to_j ) {
-        int j = ele.first;
-        double wt = static_cast<double>( ele.second );
-
-        minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
-        energy += options.beta * wt * norm2( t0, LabelSet::classes );
-      }
-    } else {
-
-      double t0[LabelSet::classes];
-
-      for ( auto& ele : _to_m ) {
-        int m = ele.first;
-        double alpha = ele.second;
-
-        memcpy( t0, D + m * LabelSet::classes, sizeof(double) * LabelSet::classes );
-        minusScaledFrom( t0, q + l * LabelSet::classes, LabelSet::classes, alpha );
-        addScaledTo( t0, q_l, LabelSet::classes, alpha );
-        energy += norm2( t0, LabelSet::classes );
-      }
-
-      
-      for ( auto& ele : _to_j ) {
-        int j = ele.first;
-        double wt = static_cast<double>( ele.second );
-        minus( q_l, q + j * LabelSet::classes, t0, LabelSet::classes );
-        energy += options.beta * wt * norm2( t0, LabelSet::classes );
-      }
-
+    
+    // energy_first = sum_{m \in l} D(m)^2
+    double energy_first = 0.0;
+    for ( auto& ele : _to_m ) {
+      int m = ele.first;
+      energy_first += norm2( D + m * K, K );
     }
 
-    return energy;
+    // energy_second = \sum_{n \in l} w(i_n,j_n) * d(n)^2
+    double energy_second = 0.0;
+    for ( auto& ele : _to_n ) {
+      int n = ele.first;
+      energy_second =+= norm2( d + n * K, K ) * w[n];
+    }
 
+    return energy_first + energy_second * options.beta;
   }
+
+  
+  /* Restricted Energy on q(l) replaced with q_l
+   * sum_{m \in l} D(m)^2 + \beta \sum_{n \in l} w(i_n,j_n) * d(n)^2
+   */
+  inline double restrict_energy( int l, const double *q_l )
+  {
+    auto& _to_m = m_to_l->getFromSet( l );
+    auto& _to_n = pair_to_l->getFromSet( l );
+
+    std::unordered_map<int,double> alphas;
+
+    double t[K];
+
+    // energy_first = sum_{m \in l} altered_D(m)^2
+    double energy_first = 0.0;
+    for ( auto& ele : _to_m ) {
+      int m = ele.first;
+      double alpha = ele.second;
+      // map alpha and m
+      alphas[m] = alpha;
+      altered_D( m, l, q_l, alpha, t );
+      energy_first += norm2( t, K );
+    }
+
+    // energy_second = \sum_{n \in l} w(i_n,j_n) * d(n)^2
+    double energy_second = 0.0;
+    for ( auto& ele : _to_n ) {
+      int n = ele.first;
+      int i = patchPairs[n].first;
+      int j = patchPairs[n].second;
+      double alpha_i = 0.0;
+      if ( alphas.end() != alphas.find(i) ) {
+        alpha_i = alphas[i];
+      }
+      double alpha_j = 0.0;
+      if ( alphas.end() != alphas.find(j) ) {
+        alpha_j = alphas[j];
+      }
+      altered_d( n, l, q_l, alpha_i, alpha_j, t );
+      energy_second += norm2( t, K ) * w[n];
+    }
+
+    return energy_first + energy_second * options.beta;
+  }
+
+
+
+
+  /* ---------- Restricted Derivative ---------- */
+  
+  inline void restrict_deriv( int l, double *deriv )
+  {
+
+    zero( deriv, K );
+
+    std::unordered_map<int,double> alphas;
+    
+    // deriv = sum_m alpha(l,m) * D(m)
+    auto& _to_m = m_to_l->getFromSet( l );
+    for ( auto& ele : _to_m ) {
+      int m = ele.first;
+      double alpha = ele.second;
+      // map alpha and m
+      alphas[m] = alpha;
+      addScaledTo( deriv, D + m * K, K, alpha );
+    }
+    
+    // deriv += beta * sum_n (alpha(i_n,l)-alpha(j_n,l)) * d(n) * w(n)
+    for ( auto& ele : _to_n ) {
+      int n = ele.first;
+      int i = patchPairs[n].first;
+      int j = patchPairs[n].second;
+      double alpha_i = 0.0;
+      if ( alphas.end() != alphas.find(i) ) {
+        alpha_i = alphas[i];
+      }
+      double alpha_j = 0.0;
+      if ( alphas.end() != alphas.find(j) ) {
+        alpha_j = alphas[j];
+      }
+      addScaledTo( deriv, d + n * K, K, beta * (alpha_i - alpha_j) * w[n] );
+    }
+  }
+
+
+  /* ---------- update q ---------- */
 
   inline void update_q( int l )
   {
     
-    auto& _to_m = m_to_l->getFromSet( l );
-    auto& _to_j = forest->GetWeights( l );
-    
-    double t0[LabelSet::classes];
-    memset( t0, 0, sizeof(double) * LabelSet::classes );
-    double t1[LabelSet::classes];
-    double t2[LabelSet::classes];        
-    
+    double t0[K];
+    double t1[K];
+    double t2[K];
 
-
-    // t0 = sum_m alpha(l,m) * D(m) 
-    for ( auto& ele : _to_m ) {
-      int m = ele.first;
-      double alpha = ele.second;
-      addScaledTo( t0, D + m * LabelSet::classes, LabelSet::classes, alpha );
-    }
-
-    // t0 += sum_m wt(l,j) (q(l) - q(j) )
-    for ( auto& ele : _to_j ) {
-      int j = ele.first;
-      double wt = static_cast<double>( ele.second );
-      minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t1, LabelSet::classes );
-      addScaledTo( t0, t1, LabelSet::classes, wt );
-    }
-
-    // negate t0 to get negative gradient direction
-    negate( t0, LabelSet::classes );
-
-    
-    // Line Search
-    // double energy_old = restrict_energy( l ) * options.wolf;
-
-    // bool updated = false;
-
-    
-    // normalize_vec( t0, t0, LabelSet::classes );
-    // double energy_new = 0.0;
-    // for ( int i=0; i<40; i++ ) {
-    //   scale( t0, LabelSet::classes, options.shrinkRatio );
-    //   add( t0, q + l * LabelSet::classes, t1, LabelSet::classes );
-    //   // Simplex Projection
-    //   watershed( t1, t2, LabelSet::classes );
-
-    //   energy_new = restrict_energy( l, t2 );
-    //   if ( energy_new < energy_old ) {
-    //     updated = true;
-    //     break;
-    //   }
-    // }
-
+    // Get the negative derivative
+    restrict_deriv( l, t0 );
+    negate( t0, K );
 
     
     // Line Search Parabola
-
-
-    double t3[LabelSet::classes];        
+    
+    double t3[K];        
     bool updated = false;
     double a = 1.0; // initial step size
-    double dE2 = norm2( t0, LabelSet::classes );
+    double dE2 = norm2( t0, K );
     double E0 = restrict_energy( l );
 
-    memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
-    addScaledTo( t1, t0, LabelSet::classes, a );
-    watershed( t1, t2, LabelSet::classes );
+    memcpy( t1, q + l * K, sizeof(double) * K );
+    addScaledTo( t1, t0, K, a );
+    watershed( t1, t2, K );
     double E_a = restrict_energy( l, t2 );
 
     
@@ -264,9 +393,9 @@ private:
         a = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
 
         // update E_a
-        memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
-        addScaledTo( t1, t0, LabelSet::classes, a );
-        watershed( t1, t2, LabelSet::classes );
+        memcpy( t1, q + l * K, sizeof(double) * K );
+        addScaledTo( t1, t0, K, a );
+        watershed( t1, t2, K );
         E_a = restrict_energy( l, t2 );
 
 
@@ -286,27 +415,27 @@ private:
           double b = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
           
           // update E_a
-          memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
-          addScaledTo( t1, t0, LabelSet::classes, b );
-          watershed( t1, t3, LabelSet::classes );
+          memcpy( t1, q + l * K, sizeof(double) * K );
+          addScaledTo( t1, t0, K, b );
+          watershed( t1, t3, K );
           E_a = restrict_energy( l, t3 );
     
           if ( E_a < E_best ) {
             E_best = E_a;
-            memcpy( t2, t3, sizeof(double) * LabelSet::classes );
+            memcpy( t2, t3, sizeof(double) * K );
           }
         } else {
           a = a * 2.0;
         }
 
-        memcpy( t1, q + l * LabelSet::classes, sizeof(double) * LabelSet::classes );
-        addScaledTo( t1, t0, LabelSet::classes, a );
-        watershed( t1, t3, LabelSet::classes );
+        memcpy( t1, q + l * K, sizeof(double) * K );
+        addScaledTo( t1, t0, K, a );
+        watershed( t1, t3, K );
         E_a = restrict_energy( l, t3 );
         
         if ( E_a < E_best ) {
           E_best = E_a;
-          memcpy( t2, t3, sizeof(double) * LabelSet::classes );
+          memcpy( t2, t3, sizeof(double) * K );
         } else {
           break;
         }
@@ -320,7 +449,7 @@ private:
         double alpha = ele.second;
         update_D( m, l, t2, alpha );
       }
-      memcpy( q + l * LabelSet::classes, t2, sizeof(double) * LabelSet::classes );
+      memcpy( q + l * K, t2, sizeof(double) * K );
     }
     
     
@@ -331,31 +460,29 @@ private:
 
 public:
   
-  Solver()
-  {
-    D = nullptr;
-    P = nullptr;
-    q = nullptr;
-    M = 0;
-    L = 0;
-    forest = nullptr;
-    m_to_l = nullptr;
-  }
-  
-  /*
-   * M = number of total patches
-   * L = number of templates
-   * forest = the forest
-   * leafID = vector of leaf IDs xM
-   * alpha =  vector of weights xM
-   * P = label probability vector xM
-   * q = label probability vector xL (solution)
-   */
-  void solve( int M1, int L1, const Forest<SimpleKernel<float> > *forest1,
-              const Bipartite *m_to_l1,
-              const double *P1, double *q1 )
+  void operator()( int M1, int L1,
+                   const Bipartite *m_to_l1,
+                   const std::vector<std::pair<int,int> > *patchPairs1,
+                   const double *w1,
+                   const double *P1, double *q1 )
   {
 
+    K = LabelSet::classes;
+    L = L1;
+    N = static_cast<int>( patchPairs1->size() );
+    numL = M1;
+    numU = 0;
+
+    P = P1;
+    w = w1;
+    q = q1;
+    d = new double[N*K];
+    D = new double[(numL + numU) * K];
+    
+    m_to_l = m_to_l1;
+    patchPairs = patchPairs1;
+
+    
     M = M1;
     L = L1;
     D = new double[M*LabelSet::classes];
@@ -364,9 +491,14 @@ public:
     forest = forest1;
     m_to_l = m_to_l1;
 
-    // Update D(m) = sum alpha(l,m)*q(l,m) - P(m)
-    for ( int m=0; m<M; m++ ) {
+    // Update D(m)'s
+    for ( int m=0; m<numL; m++ ) {
       update_D(m);
+    }
+
+    // update d(n)'s
+    for ( int n=0; n<N; n++ ) {
+      update_d(n);
     }
 
     
@@ -382,41 +514,8 @@ public:
     }
 
     DeleteToNullWithTestArray( D );
-    
-
-
+    DeleteToNullWithTestArray( d );
   }
-
-
-  void solve1( int M1, int L1,
-               const Bipartite *m_to_l1,
-               const double *P1, double *q1 )
-  {
-    M = M1;
-    L = L1;
-    P = P1;
-    q = q1;
-    m_to_l = m_to_l1;
-
-    
-    double *qp = q;
-    for ( int l=0; l<L; l++ ) {
-      auto &_to_m = m_to_l->getFromSet( l );
-      memset( qp, 0, sizeof(double) * LabelSet::classes );
-      for ( auto& ele : _to_m ) {
-        int m = ele.first;
-        double alpha = ele.second;
-        addScaledTo( qp, P + m * LabelSet::classes, LabelSet::classes, alpha );
-      }
-
-      double s = sum_vec( qp, LabelSet::classes );
-      
-      scale( qp, LabelSet::classes, 1.0 / s );
-      qp += LabelSet::classes;
-    }
-    
-  }
-
 
 };
 

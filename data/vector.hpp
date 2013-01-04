@@ -55,6 +55,13 @@ namespace PatTk
   {
     memset( target, 0, sizeof(dataType) * dim );
   }
+
+
+  template<typnemae dataType>
+  inline void copy( dataType *dst, dataType *src, int dim )
+  {
+    memcpy( dst, src, sizeof(dataType) * dim );
+  }
   
 
   /* note: this function works even if src and dst are the same */
