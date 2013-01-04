@@ -19,7 +19,29 @@ using namespace EnvironmentVariable;
 
 
 
+
+
 class Solver {
+  /* Solver for objective function
+   *           \sum_m      ( \sum_l alpha(m,l) * q(l) - P(m) )^2
+   *  + \beta  \sum_{i,j}  w(i,j) [ \sum_l (alpha(i,l)-alpha(j,l)) q(l) ]^2
+   *
+   *  where
+   *  1. P(m)           -    the groud truth label distribution for patch m
+   *  2. alpha(m,l)     -    coefficients for voter l against patch m
+   *  3. q(l)           -    the self-voting label distribution of voter l
+   *  4. beta           -    coefficient for the regularization term
+   *  5. w(i,j)         -    feature similarity between patch i and patch j
+   *
+   *  and
+   *  1. D(m)           =    \sum_l alpha(m,l) * q(l) - P(m)
+   *  2. d(n)           =    \sum_l (alpha(i_n,l) - alpha(j_n,l)) q(l)
+   *  2. numL           -    number of labeled patches
+   *  3. numU           -    number of unlabeled patches
+   *  4. K              -    number of classes
+   *  5. L              -    number of voters
+   *  6. N              -    number of patch neighbor pairs
+   */
 public:
   struct Options
   {
@@ -41,66 +63,72 @@ private:
   double *D;
   const double *P;
   double *q;
-  int M, L;
+  int L;
+  
+  int K;
   const Forest<SimpleKernel<float> > *forest;
   const Bipartite *m_to_l;
+  const std::vector<std::pair<int,int> > *patchPairs;
   int iter;
-
+  
 
   // D(m) = sum alpha(l,m)*q(l,m) - P(m)
   inline void update_D( int m )
   {
-
     auto& _to_l = m_to_l->getToSet( m );
 
+    // Set D(m) to 0
+    double *t = D + m * K;
+    zero( t, K );
+
+    // Note t is an alias of D(m) now
     
-
-    double *t = D + m * LabelSet::classes;
-    memset( t, 0, sizeof(double) * LabelSet::classes );
-
+    // add q(l) * alpha(m,l) to D(m)
     for ( auto& ele : _to_l ) {
       int l = ele.first;
       double alpha = ele.second;
-      addScaledTo( t, q + l * LabelSet::classes, LabelSet::classes, alpha );
+      addScaledTo( t, q + l * K, K, alpha );
     }
-    
-    minusFrom( t, P + m * LabelSet::classes, LabelSet::classes );
+
+    // minus P(m) from D(m)
+    minusFrom( t, P + m * K, K );
   }
 
   inline void update_D( int m, int l, const double *q_l, double alpha )
   {
-
-    minusScaledFrom( D + m * LabelSet::classes, q + l * LabelSet::classes, LabelSet::classes, alpha );
-    addScaledTo( D + m * LabelSet::classes, q_l, LabelSet::classes, alpha );
+    // D(m) = D(m) - q(l) * alpha(m,l)
+    minusScaledFrom( D + m * K, q + l * K, K, alpha );
+    // D(m) = D(m) + q_new(l) * alpha(m,l)
+    addScaledTo( D + m * L, q_l, K, alpha );
   }
 
 
   inline double total_energy()
   {
 
-    double energy = 0.0;
+    double energy_first = 0.0;
+
+    // sum_m D(m)^2
     double *Dp = D;
     for ( int m=0; m<M; m++ ) {
-      energy += norm2( Dp, LabelSet::classes );
-      Dp += LabelSet::classes;
+      energy_first += norm2( Dp, K );
+      Dp += K;
     }
 
-    double t0[LabelSet::classes];
 
-    for ( int l=0; l<L; l++ ) {
-      auto& _to_j = forest->GetWeights( l );
-      for ( auto& ele : _to_j ) {
-        int j = ele.first;
-        if ( j<l ) {
-          double wt = static_cast<double>( ele.second );
-          minus( q + l * LabelSet::classes, q + j * LabelSet::classes, t0, LabelSet::classes );
-          energy += options.beta * wt * norm2( t0, LabelSet::classes );
-        }
-      }
+
+
+    double energy_second = 0.0;
+
+    // sum_n d(n)^2 * w(n)
+    // where w(n) = w(i_n,j_n)
+    double *dp = d;
+    for ( int n=0; n<N; n++ ) {
+      energy_second += norm2( dp, K ) * w[n];
+      dp += K;
     }
-
-    return energy;
     
+    return energy_first + energy_second;
   }
 
   /*
@@ -160,7 +188,7 @@ private:
 
   inline void update_q( int l )
   {
-
+    
     auto& _to_m = m_to_l->getFromSet( l );
     auto& _to_j = forest->GetWeights( l );
     

@@ -49,7 +49,12 @@ namespace PatTk
   template <>
   const double epsilon<double>::v1(1e-1);
 
-  
+
+  template<typnemae dataType>
+  inline void zero( dataType *target, int dim )
+  {
+    memset( target, 0, sizeof(dataType) * dim );
+  }
   
 
   /* note: this function works even if src and dst are the same */
