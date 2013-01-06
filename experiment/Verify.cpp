@@ -1,4 +1,5 @@
 #include <vector>
+#include <set>
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/time.hpp"
 #include "LLPack/utils/SafeOP.hpp"
@@ -73,6 +74,8 @@ private:
   int K, L, N, numL, numU;
   
   const Bipartite *m_to_l;
+  const Bipartite *pair_to_l;
+  
   const std::vector<std::pair<int,int> > *patchPairs;
 
 
@@ -94,6 +97,7 @@ public:
     numU = 0;
     
     m_to_l = nullptr;
+    pair_to_l = nullptr;
     patchPairs = nullptr;
   }
   
@@ -157,7 +161,7 @@ private:
     
     { 
       // handle i's side
-      int i = patchPairs[n].first;
+      int i = (*patchPairs)[n].first;
       auto& _to_l = m_to_l->getToSet( i );
       for ( auto& ele : _to_l ) {
         int l = ele.first;
@@ -168,7 +172,7 @@ private:
 
     {
       // handle j's side
-      int j = patchPairs[n].first;
+      int j = (*patchPairs)[n].second;
       auto& _to_l = m_to_l->getToSet( j );
       for ( auto& ele : _to_l ) {
         int l = ele.first;
@@ -190,21 +194,9 @@ private:
     minusScaledFrom( t, q_l, K, alpha_j );
   }
 
-  inline void update_d( int n, int l, const double *q_l, double alpha_i, double alpha_j )
+  inline void altered_d( int n, int l, const double *q_l, double alpha_i, double alpha_j, double *dst )
   {
-    double *t = d + n * K;
-    // d(n) = d(n) - alpha(i,l) * q(l) + alpha(i,l) * q_l
-    minusScaledFrom( t, q + l * K, K, alpha_i );
-    addScaledTo( t, q_l, K, alpha_i );
-    
-    // d(n) = d(n) + alpha(j,l) * q(l) - alpha(j,l) * q_l
-    addScaledTo( t, q + l * K, K, alpha_j );
-    minusScaledFrom( t, q_l, K, alpha_j );
-  }
-
-  inline altered_d( int n, int l, const double *q_l, double alpha_i, double alpha_j, double *dst )
-  {
-    copy( dst, d + n * K );
+    copy( dst, d + n * K, K );
     
     // d(n) = d(n) - alpha(i,l) * q(l) + alpha(i,l) * q_l
     minusScaledFrom( dst, q + l * K, K, alpha_i );
@@ -227,7 +219,7 @@ private:
 
     // sum_m D(m)^2
     double *Dp = D;
-    for ( int m=0; m<M; m++ ) {
+    for ( int m=0; m<numU; m++ ) {
       energy_first += norm2( Dp, K );
       Dp += K;
     }
@@ -241,6 +233,9 @@ private:
       energy_second += norm2( dp, K ) * w[n];
       dp += K;
     }
+
+    // debugging:
+    // printf( "%.6lf + %.6lf\n", energy_first, energy_second );
     
     return energy_first + energy_second * options.beta;
   }
@@ -266,7 +261,7 @@ private:
     double energy_second = 0.0;
     for ( auto& ele : _to_n ) {
       int n = ele.first;
-      energy_second =+= norm2( d + n * K, K ) * w[n];
+      energy_second += norm2( d + n * K, K ) * w[n];
     }
 
     return energy_first + energy_second * options.beta;
@@ -300,8 +295,8 @@ private:
     double energy_second = 0.0;
     for ( auto& ele : _to_n ) {
       int n = ele.first;
-      int i = patchPairs[n].first;
-      int j = patchPairs[n].second;
+      int i = (*patchPairs)[n].first;
+      int j = (*patchPairs)[n].second;
       double alpha_i = 0.0;
       if ( alphas.end() != alphas.find(i) ) {
         alpha_i = alphas[i];
@@ -340,10 +335,11 @@ private:
     }
     
     // deriv += beta * sum_n (alpha(i_n,l)-alpha(j_n,l)) * d(n) * w(n)
+    auto& _to_n = pair_to_l->getFromSet( l );
     for ( auto& ele : _to_n ) {
       int n = ele.first;
-      int i = patchPairs[n].first;
-      int j = patchPairs[n].second;
+      int i = (*patchPairs)[n].first;
+      int j = (*patchPairs)[n].second;
       double alpha_i = 0.0;
       if ( alphas.end() != alphas.find(i) ) {
         alpha_i = alphas[i];
@@ -352,7 +348,7 @@ private:
       if ( alphas.end() != alphas.find(j) ) {
         alpha_j = alphas[j];
       }
-      addScaledTo( deriv, d + n * K, K, beta * (alpha_i - alpha_j) * w[n] );
+      addScaledTo( deriv, d + n * K, K, options.beta * (alpha_i - alpha_j) * w[n] );
     }
   }
 
@@ -377,13 +373,15 @@ private:
     bool updated = false;
     double a = 1.0; // initial step size
     double dE2 = norm2( t0, K );
+    if ( dE2 < 1e-6 ) {
+      return;
+    }
     double E0 = restrict_energy( l );
 
     memcpy( t1, q + l * K, sizeof(double) * K );
     addScaledTo( t1, t0, K, a );
     watershed( t1, t2, K );
     double E_a = restrict_energy( l, t2 );
-
     
     if ( E_a >= E0 ) {
 
@@ -398,11 +396,16 @@ private:
         watershed( t1, t2, K );
         E_a = restrict_energy( l, t2 );
 
-
         if ( E_a < E0 ) {
           updated = true;
           break;
         }
+      }
+
+      // debugging:
+      if ( 1236 == l ) {
+        printf( "E_a = %.5lf\n", E_a );
+        printf( "E0 = %.5lf\n", E0 );
       }
     } else { 
       // Expanding Branch
@@ -410,6 +413,7 @@ private:
       updated = true;
       
       double E_best = E_a;
+
       for ( int i=0; i<40; i++ ) {
         if ( E_a > E0 - dE2 * a * ( 1 - 0.5 / 2.0 ) ) {
           double b = ( a * a ) * dE2 / ( 2 * ( E_a - (E0 - dE2 * a ) ) );
@@ -428,31 +432,91 @@ private:
           a = a * 2.0;
         }
 
+        // debugging:
+        if ( 1236 == l ) {
+          printf( "pre restrict(t2): %.5lf\n", restrict_energy( l, t2 ) );
+        }
+
+        
         memcpy( t1, q + l * K, sizeof(double) * K );
         addScaledTo( t1, t0, K, a );
         watershed( t1, t3, K );
         E_a = restrict_energy( l, t3 );
-        
+
         if ( E_a < E_best ) {
           E_best = E_a;
           memcpy( t2, t3, sizeof(double) * K );
         } else {
           break;
         }
+      }
 
+      // debugging:
+      if ( 1236 == l ) {
+        printf( "====================\n" );
+        printf( "E_best = %.5lf\n", E_best );
+        printf( "E0 = %.5lf\n", E0 );
+        printf( "====================\n" );
       }
     }
 
     if ( updated ) {
+
+      // debugging:
+      double before = total_energy();
+      if ( 1236 == l ) {
+        // printf( "Energy Before: %.6lf\n", before );
+        // printf( "Restrict Before: %.6lf\n", restrict_energy( l ) );
+        printf( "Restrict(t2): %.6lf\n", restrict_energy( l, t2 ) );
+      }
+              
+      
+      
+      auto& _to_m = m_to_l->getFromSet( l );
+      std::unordered_map<int,double> alphas;
       for ( auto& ele : _to_m ) {
         int m = ele.first;
         double alpha = ele.second;
+        alphas[m] = alpha;
         update_D( m, l, t2, alpha );
       }
+
+      if ( 1236 == l ) {
+        printf( "Restrict(t2) - 1: %.6lf\n", restrict_energy( l, t2 ) );
+      }
+      
+      auto& _to_n = pair_to_l->getFromSet( l );
+      for ( auto& ele : _to_n ) {
+        int n = ele.first;
+        int i = (*patchPairs)[n].first;
+        int j = (*patchPairs)[n].second;
+        double alpha_i = 0.0;
+        if ( alphas.end() != alphas.find(i) ) {
+          alpha_i = alphas[i];
+        }
+        double alpha_j = 0.0;
+        if ( alphas.end() != alphas.find(j) ) {
+          alpha_j = alphas[j];
+        }
+        update_d( n, l, t2, alpha_i, alpha_j );
+      }
+
       memcpy( q + l * K, t2, sizeof(double) * K );
+
+      // debugging:
+      double after = total_energy();
+      if ( 1236 == l ) {
+        printf( "Energy After: %.6lf\n", after );
+        printf( "Restrict After: %.6lf\n", restrict_energy( l ) );
+        printf( "Restrict After 2: %.6lf\n", restrict_energy( l, t2 ) );
+      }
     }
     
-    
+    // debugging:
+    if ( 1236 == l ) {
+      char ch;
+      scanf( "%c", &ch );
+    }
   }
 
 
@@ -460,8 +524,9 @@ private:
 
 public:
   
-  void operator()( int M1, int L1,
+  void operator()( int numL1, int numU1, int L1,
                    const Bipartite *m_to_l1,
+                   const Bipartite *pair_to_l1,
                    const std::vector<std::pair<int,int> > *patchPairs1,
                    const double *w1,
                    const double *P1, double *q1 )
@@ -470,26 +535,20 @@ public:
     K = LabelSet::classes;
     L = L1;
     N = static_cast<int>( patchPairs1->size() );
-    numL = M1;
-    numU = 0;
+    numL = numL1;
+    numU = numU1;
 
     P = P1;
     w = w1;
     q = q1;
     d = new double[N*K];
     D = new double[(numL + numU) * K];
-    
+
+    pair_to_l = pair_to_l1;
     m_to_l = m_to_l1;
     patchPairs = patchPairs1;
 
     
-    M = M1;
-    L = L1;
-    D = new double[M*LabelSet::classes];
-    P = P1;
-    q = q1;
-    forest = forest1;
-    m_to_l = m_to_l1;
 
     // Update D(m)'s
     for ( int m=0; m<numL; m++ ) {
@@ -502,7 +561,7 @@ public:
     }
 
     
-    for ( iter=0; iter<options.maxIter; iter++ ) {
+    for (int iter=0; iter<options.maxIter; iter++ ) {
 
       // Update q(l)'s
       for ( int l=0; l<L; l++ ) {
@@ -518,6 +577,7 @@ public:
   }
 
 };
+
 
 
 int main( int argc, char **argv )
@@ -554,9 +614,30 @@ int main( int argc, char **argv )
     }
   }
 
+
+  // Partition the training set into labeld and unlabeled
+  // and adjust the order
+  std::vector<pair<int,int> > labeled;
+  std::vector<pair<int,int> > unlabeled;
+    
+  for ( auto& ele : training ) {
+    if ( static_cast<double>( rand() ) / RAND_MAX < env["training-label-ratio"].toDouble() ) {
+      labeled.push_back( ele );
+    } else {
+      unlabeled.push_back( ele );
+    }
+  }
+
+  training = labeled;
+  training.insert( training.end(), unlabeled.begin(), unlabeled.end() );
+  
+  int numL = static_cast<int>( labeled.size() );
+  int numU = static_cast<int>( unlabeled.size() );
+  int M = numU + numL;
+
   /// 2. train the forest
   std::vector<FeatImage<float>::PatchProxy> l;
-
+  
   for ( auto& every : training ) {
     l.push_back( img.Spawn( every.first, every.second ) );
   }
@@ -564,72 +645,60 @@ int main( int argc, char **argv )
   timer::tic();
   Forest<SimpleKernel<float> > forest( 10, l, 0.5 );
   Done( "Tree built within %.5lf sec.", timer::utoc() );
+  
 
-  /// 3. Learn the leaf weights
-  forest.PrepareWeitghts();
+  /// 3. Construct Nearest Neightbor Pairs
+  
+  std::vector<double> w;
+  std::vector<std::pair<int,int> > patchPairs;
   float feat[img.GetPatchDim()];
+  float feat_c[img.GetPatchDim()];
+  {
+    std::set<std::pair<int,int> > hash;
 
-  // for ( auto& ele : training ) {
-  //   img.FetchPatch( ele.first, ele.second, feat );
-  //   forest.learn( feat );
-  // }
-  // timer::tic();
-  // for ( auto& ele : testing ) {
-  //   img.FetchPatch( ele.first, ele.second, feat );
-  //   forest.learn( feat );
-  // }
-
-
-  for ( int i=0; i<env["learn-img"].length(); i++ ) {
-    auto learn_img = std::move( cvFeat<HOG>::gen( env["learn-img"][i] ) );
-    for ( int i=7; i<learn_img.rows-7; i++ ) {
-      for ( int j=7; j<learn_img.cols-7; j++ ) {
-        learn_img.FetchPatch( i, j, feat );
-        forest.learn( feat );
+    for ( int i=0; i<M; i++ ) {
+      if ( static_cast<double>( rand() ) / RAND_MAX > env["nn-sample-ratio"].toDouble() ) {
+        continue;
       }
+      heap<double, int> ranker( env["patch-neighbors"] );
+      img.FetchPatch( training[i].first, training[i].second, feat );
+      for ( int j=0; j<M; j++ ) {
+        img.FetchPatch( training[j].first, training[j].second, feat_c );
+        if ( i == j ) continue;
+        ranker.add( dist_l2( feat, feat_c, img.GetPatchDim() ), j );
+      }
+
+      for ( int j=0; j<ranker.len; j++ ) {
+        if ( hash.end() == hash.find( training[ranker[j]] ) ) {
+          if ( ranker(j) < 0.4 ) {
+            w.push_back( - 4 * ranker(j) * ranker(j) + 1 );
+            patchPairs.push_back( training[ranker[j]] );
+            hash.insert( training[ranker[j]] );
+          }
+        }
+      }
+      progress( i, M, "Patch Nearest Neighbor" );
     }
   }
-  
-  forest.FilterWeights( 1 );
-  Done( "Weights learned within %.5lf sec.", timer::utoc() );
+  printf( "\n" );
+
 
   // debugging:
-  cv::Mat srcimg = cv::imread( env["src-img"] );
-
-  for ( int l=0; l<forest.centers(); l+=100 ) {
-    IconList major_leaf( "major leaf node", 13 );
-    for ( auto& ele : forest(l).store ) {
-      major_leaf.push( srcimg, PatLoc( ele ) );
-    }
-    major_leaf.display();
-    for ( auto& leaf : forest.GetWeights( l ) ) {
-      IconList major_leaf( "major leaf node", 13 );
-    for ( auto& ele : forest(l).store ) {
-      major_leaf.push( srcimg, PatLoc( ele ) );
-    }
-    major_leaf.display();
-
-    }
-    printf( "=============== %ld/%d ===============\n", forest.GetWeights(l).size(), forest.centers() );
-    cv::waitKey();
+  WITH_OPEN( out, "distance.txt", "w" );
+  for ( auto& ele : w ) {
+    fprintf( out, "%.2lf\n", ele );
   }
+  END_WITH( out );
+  
 
+  
   /// 4. Train Label
 
-  
-  std::vector<pair<int,int> > labeled;
-  for ( auto& ele : training ) {
-    if ( static_cast<double>( rand() ) / RAND_MAX < env["training-label-ratio"].toDouble() ) {
-      labeled.push_back( ele );
-    }
-  }
-  
-  int M = static_cast<int>( labeled.size() );
   Bipartite m_to_l( M, forest.centers() );
   double *P = new double[ M * LabelSet::classes ];
   double *pP = P;
   int m = 0;
-  for ( auto& ele : labeled ) {
+  for ( auto& ele : training ) {
     img.FetchPatch( ele.first, ele.second, feat );
     auto res = std::move( forest.query_with_coef( feat ) );
     for ( auto& item : res ) {
@@ -651,16 +720,58 @@ int main( int argc, char **argv )
     m++;
   }
 
-  Solver solver;
-  solver.options.beta = 0.00001;
-  solver.options.maxIter = 10;
+
+  Bipartite pair_to_l( static_cast<int>( patchPairs.size() ), forest.centers() );
+  int n = 0;
+  for ( auto& ele : patchPairs ) {
+
+    {
+      int i = ele.first;
+      auto& _to_l = m_to_l.getToSet( i );
+      for ( auto& item : _to_l ) {
+        pair_to_l.add( n, item.first, 1.0 );
+      }
+    }
+
+    {
+      int j = ele.first;
+      auto& _to_l = m_to_l.getToSet( j );
+      for ( auto& item : _to_l ) {
+        pair_to_l.add( n, item.first, 1.0 );
+      }
+    }
+    n++;
+  }
+   
+  
+
+
+  
+  Solver solve;
+  solve.options.beta = 50.0;
+  solve.options.maxIter = 10;
 
   double *q = new double[ forest.centers() * LabelSet::classes ];
   double *qp = q;
   for ( int i=0; i<forest.centers() * LabelSet::classes; i++ ) *(qp++) = LabelSet::inv;
 
   Info( "Solving ..." );
-  solver.solve( M, forest.centers(), &forest, &m_to_l, P, q );
+
+
+
+  // void operator()( int numL1, int numU1, int L1,
+  //                const Bipartite *m_to_l1,
+  //                const Bipartite *pair_to_l1,
+  //                const std::vector<std::pair<int,int> > *patchPairs1,
+  //                const double *w1,
+  //                const double *P1, double *q1 )
+
+  
+  solve( numL, numU, forest.centers(),
+         &m_to_l,
+         &pair_to_l,
+         &patchPairs,
+         &w[0], P, q );
   Done( "Solved." );
 
   qp = q;
@@ -760,7 +871,6 @@ int main( int argc, char **argv )
   /// 6. Vote
   
   cv::Mat estimated( geomap.rows, geomap.cols, CV_8UC3 );
-  float feat_c[img.GetPatchDim()];  
   float vote[LabelSet::classes];
   for ( int i=0; i<geomap.rows; i++ ) {
     for ( int j=0; j<geomap.cols; j++ ) {

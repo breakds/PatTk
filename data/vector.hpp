@@ -50,14 +50,14 @@ namespace PatTk
   const double epsilon<double>::v1(1e-1);
 
 
-  template<typnemae dataType>
+  template<typename dataType>
   inline void zero( dataType *target, int dim )
   {
     memset( target, 0, sizeof(dataType) * dim );
   }
 
 
-  template<typnemae dataType>
+  template<typename dataType>
   inline void copy( dataType *dst, dataType *src, int dim )
   {
     memcpy( dst, src, sizeof(dataType) * dim );
