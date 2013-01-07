@@ -15,6 +15,8 @@
 
 
 
+#define DEBUGGING true
+
 using namespace PatTk;
 using namespace EnvironmentVariable;
 
@@ -219,6 +221,7 @@ private:
 
     // sum_m D(m)^2
     double *Dp = D;
+    printf( "numU: %d\n", numU );
     for ( int m=0; m<numU; m++ ) {
       energy_first += norm2( Dp, K );
       Dp += K;
@@ -229,13 +232,14 @@ private:
     // sum_n d(n)^2 * w(n)
     // where w(n) = w(i_n,j_n)
     double *dp = d;
+    printf( "N: %d\n", N );
     for ( int n=0; n<N; n++ ) {
       energy_second += norm2( dp, K ) * w[n];
       dp += K;
     }
 
     // debugging:
-    // printf( "%.6lf + %.6lf\n", energy_first, energy_second );
+    printf( "%.6lf + %.6lf\n", energy_first, energy_second );
     
     return energy_first + energy_second * options.beta;
   }
@@ -243,6 +247,7 @@ private:
   /* Restricted Energy on q(l):
    * sum_{m \in l} D(m)^2 + \beta \sum_{n \in l} w(i_n,j_n) * d(n)^2
    */
+
   inline double restrict_energy( int l )
   {
 
@@ -256,6 +261,7 @@ private:
       int m = ele.first;
       energy_first += norm2( D + m * K, K );
     }
+    
 
     // energy_second = \sum_{n \in l} w(i_n,j_n) * d(n)^2
     double energy_second = 0.0;
@@ -290,6 +296,7 @@ private:
       altered_D( m, l, q_l, alpha, t );
       energy_first += norm2( t, K );
     }
+    
 
     // energy_second = \sum_{n \in l} w(i_n,j_n) * d(n)^2
     double energy_second = 0.0;
@@ -402,11 +409,6 @@ private:
         }
       }
 
-      // debugging:
-      if ( 1236 == l ) {
-        printf( "E_a = %.5lf\n", E_a );
-        printf( "E0 = %.5lf\n", E0 );
-      }
     } else { 
       // Expanding Branch
       
@@ -432,12 +434,6 @@ private:
           a = a * 2.0;
         }
 
-        // debugging:
-        if ( 1236 == l ) {
-          printf( "pre restrict(t2): %.5lf\n", restrict_energy( l, t2 ) );
-        }
-
-        
         memcpy( t1, q + l * K, sizeof(double) * K );
         addScaledTo( t1, t0, K, a );
         watershed( t1, t3, K );
@@ -451,27 +447,10 @@ private:
         }
       }
 
-      // debugging:
-      if ( 1236 == l ) {
-        printf( "====================\n" );
-        printf( "E_best = %.5lf\n", E_best );
-        printf( "E0 = %.5lf\n", E0 );
-        printf( "====================\n" );
-      }
     }
 
     if ( updated ) {
 
-      // debugging:
-      double before = total_energy();
-      if ( 1236 == l ) {
-        // printf( "Energy Before: %.6lf\n", before );
-        // printf( "Restrict Before: %.6lf\n", restrict_energy( l ) );
-        printf( "Restrict(t2): %.6lf\n", restrict_energy( l, t2 ) );
-      }
-              
-      
-      
       auto& _to_m = m_to_l->getFromSet( l );
       std::unordered_map<int,double> alphas;
       for ( auto& ele : _to_m ) {
@@ -481,10 +460,6 @@ private:
         update_D( m, l, t2, alpha );
       }
 
-      if ( 1236 == l ) {
-        printf( "Restrict(t2) - 1: %.6lf\n", restrict_energy( l, t2 ) );
-      }
-      
       auto& _to_n = pair_to_l->getFromSet( l );
       for ( auto& ele : _to_n ) {
         int n = ele.first;
@@ -503,20 +478,8 @@ private:
 
       memcpy( q + l * K, t2, sizeof(double) * K );
 
-      // debugging:
-      double after = total_energy();
-      if ( 1236 == l ) {
-        printf( "Energy After: %.6lf\n", after );
-        printf( "Restrict After: %.6lf\n", restrict_energy( l ) );
-        printf( "Restrict After 2: %.6lf\n", restrict_energy( l, t2 ) );
-      }
     }
     
-    // debugging:
-    if ( 1236 == l ) {
-      char ch;
-      scanf( "%c", &ch );
-    }
   }
 
 
@@ -653,44 +616,62 @@ int main( int argc, char **argv )
   std::vector<std::pair<int,int> > patchPairs;
   float feat[img.GetPatchDim()];
   float feat_c[img.GetPatchDim()];
-  {
+  if ( ! DEBUGGING ) {
     std::set<std::pair<int,int> > hash;
 
     for ( int i=0; i<M; i++ ) {
-      if ( static_cast<double>( rand() ) / RAND_MAX > env["nn-sample-ratio"].toDouble() ) {
-        continue;
-      }
       heap<double, int> ranker( env["patch-neighbors"] );
       img.FetchPatch( training[i].first, training[i].second, feat );
       for ( int j=0; j<M; j++ ) {
+        if ( static_cast<double>( rand() ) / RAND_MAX > env["nn-sample-ratio"].toDouble() ) {
+          continue;
+        }
         img.FetchPatch( training[j].first, training[j].second, feat_c );
         if ( i == j ) continue;
         ranker.add( dist_l2( feat, feat_c, img.GetPatchDim() ), j );
       }
 
       for ( int j=0; j<ranker.len; j++ ) {
-        if ( hash.end() == hash.find( training[ranker[j]] ) ) {
+        auto p = std::make_pair( i, ranker[j] );
+        if ( i > ranker[j] ) {
+          p = std::make_pair( ranker[j], i );
+        }
+        if ( hash.end() == hash.find( p  ) ) {
           if ( ranker(j) < 0.4 ) {
             w.push_back( - 4 * ranker(j) * ranker(j) + 1 );
-            patchPairs.push_back( training[ranker[j]] );
-            hash.insert( training[ranker[j]] );
+            patchPairs.push_back( p );
+            hash.insert( p );
           }
         }
       }
       progress( i, M, "Patch Nearest Neighbor" );
     }
-  }
-  printf( "\n" );
+    printf( "\n" );
 
-
-  // debugging:
-  WITH_OPEN( out, "distance.txt", "w" );
-  for ( auto& ele : w ) {
-    fprintf( out, "%.2lf\n", ele );
+    WITH_OPEN( out, "interpatch.dat", "w" );
+    int len = static_cast<int>( w.size() );
+    fwrite( &len, sizeof(int), 1, out );
+    for ( int i=0; i<len; i++ ) {
+      fwrite( &patchPairs[i].first, sizeof(int), 1, out );
+      fwrite( &patchPairs[i].second, sizeof(int), 1, out );
+      fwrite( &w[i], sizeof(double), 1, out );
+    }
+    END_WITH( out );
+  } else {
+    WITH_OPEN( in, "interpatch.dat", "r" );
+    int len = 0;
+    fread( &len, sizeof(int), 1, in );
+    patchPairs.resize( len );
+    w.resize( len );
+    for ( int i=0; i<len; i++ ) {
+      fread( &patchPairs[i].first, sizeof(int), 1, in );
+      fread( &patchPairs[i].second, sizeof(int), 1, in );
+      fread( &w[i], sizeof(double), 1, in );
+    }
+    END_WITH( in );
   }
-  END_WITH( out );
   
-
+  
   
   /// 4. Train Label
 
@@ -709,7 +690,7 @@ int main( int argc, char **argv )
     int classID = LabelSet::GetClass( color[0],
                                       color[1],
                                       color[2] );
-
+    
     for ( int k=0; k<LabelSet::classes; k++ ) {
       if ( k == classID ) {
         *(pP++) = 1.0;
@@ -724,36 +705,62 @@ int main( int argc, char **argv )
   Bipartite pair_to_l( static_cast<int>( patchPairs.size() ), forest.centers() );
   int n = 0;
   for ( auto& ele : patchPairs ) {
-
+    std::set<int> hash;
     {
       int i = ele.first;
       auto& _to_l = m_to_l.getToSet( i );
       for ( auto& item : _to_l ) {
-        pair_to_l.add( n, item.first, 1.0 );
+        if ( hash.end() == hash.find( item.first ) ) {
+          pair_to_l.add( n, item.first, 1.0 );
+          hash.insert( item.first );
+        }
       }
     }
 
     {
-      int j = ele.first;
+      int j = ele.second;
       auto& _to_l = m_to_l.getToSet( j );
       for ( auto& item : _to_l ) {
-        pair_to_l.add( n, item.first, 1.0 );
+        if ( hash.end() == hash.find( item.first ) ) {
+          pair_to_l.add( n, item.first, 1.0 );
+          hash.insert( item.first );
+        }
       }
     }
     n++;
   }
    
   
-
-
-  
   Solver solve;
   solve.options.beta = 50.0;
-  solve.options.maxIter = 10;
+  solve.options.maxIter = 50;
+  
 
+  // initialization of q
   double *q = new double[ forest.centers() * LabelSet::classes ];
   double *qp = q;
+  // uniform initialization of q
   for ( int i=0; i<forest.centers() * LabelSet::classes; i++ ) *(qp++) = LabelSet::inv;
+  // special initialization of q
+  {
+    double t[LabelSet::classes];
+    qp = q;
+    for ( int l=0; l<forest.centers(); l++ ) {
+      auto& _to_m = m_to_l.getFromSet( l );
+      int count = 0;
+      zero( t, LabelSet::classes );
+      for ( auto& ele : _to_m ) {
+        int m = ele.first;
+        addto( t, P + m * LabelSet::classes, LabelSet::classes );
+        count++;
+      }
+      if ( count > 0 ) {
+        scale( t, LabelSet::classes, 1.0 / count );
+        copy( qp, t, LabelSet::classes );
+      }
+      qp += LabelSet::classes;
+    }
+  }
 
   Info( "Solving ..." );
 
@@ -773,6 +780,7 @@ int main( int argc, char **argv )
          &patchPairs,
          &w[0], P, q );
   Done( "Solved." );
+  
 
   qp = q;
   for ( int l=0; l<forest.centers(); l++ ) {
