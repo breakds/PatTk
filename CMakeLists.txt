@@ -152,7 +152,7 @@ MESSAGE(STATUS "NVCC VERISON: ${CUDA_NVCC_EXECUTABLE}" )
 # Note -Wno-non-virtual-dtor is for a defect in OpenCV
 set(CMAKE_CXX_FLAGS "${OPENCV_FLAGS} -Wall -Wextra -Wno-non-virtual-dtor -std=c++0x")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -O3 -fopenmp")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g  -D_GLIBCXX_DEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_GPROF "-O1 -pg")
 
 

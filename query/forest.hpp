@@ -43,7 +43,9 @@ namespace PatTk
         leaf[i].clear();
         rndgen::randperm( len, trueLen, idx[i] );
         trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, leaf[i] ) );
+        progress( i + 1, n, "Tree Growth." );
       }
+      printf( "\n" );
 
       // Merging leaf arrays
       int leafCount = 0;

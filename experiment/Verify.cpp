@@ -15,7 +15,7 @@
 
 
 
-#define DEBUGGING true
+#define DEBUGGING false
 
 using namespace PatTk;
 using namespace EnvironmentVariable;
@@ -232,7 +232,6 @@ private:
     // sum_n d(n)^2 * w(n)
     // where w(n) = w(i_n,j_n)
     double *dp = d;
-    printf( "N: %d\n", N );
     for ( int n=0; n<N; n++ ) {
       energy_second += norm2( dp, K ) * w[n];
       dp += K;
@@ -542,6 +541,273 @@ public:
 };
 
 
+void NNGraph( Forest<SimpleKernel<float> > __attribute__((__unused__)) &forest,
+              const std::vector<std::pair<int,int> >& training,
+              const FeatImage<float>& img,
+              std::vector<double>& w,
+              std::vector<std::pair<int,int> >& patchPairs )
+{
+  int M = static_cast<int>( training.size() );
+  float feat[img.GetPatchDim()];
+  float feat_c[img.GetPatchDim()];
+
+  std::set<std::pair<int,int> > hash;
+  
+  for ( int i=0; i<M; i++ ) {
+    heap<double, int> ranker( env["patch-neighbors"] );
+    img.FetchPatch( training[i].first, training[i].second, feat );
+    for ( int j=0; j<M; j++ ) {
+      if ( static_cast<double>( rand() ) / RAND_MAX > env["nn-sample-ratio"].toDouble() ) {
+        continue;
+      }
+      img.FetchPatch( training[j].first, training[j].second, feat_c );
+      if ( i == j ) continue;
+      ranker.add( dist_l2( feat, feat_c, img.GetPatchDim() ), j );
+    }
+
+    for ( int j=0; j<ranker.len; j++ ) {
+      auto p = std::make_pair( i, ranker[j] );
+      if ( i > ranker[j] ) {
+        p = std::make_pair( ranker[j], i );
+      }
+      if ( hash.end() == hash.find( p  ) ) {
+        if ( ranker(j) < 0.4 ) {
+          w.push_back( - 4 * ranker(j) * ranker(j) + 1 );
+          patchPairs.push_back( p );
+          hash.insert( p );
+        }
+      }
+    }
+    progress( i, M, "Patch Nearest Neighbor" );
+  }
+  printf( "\n" );
+}
+
+inline double ExpConv( double dist, double delta )
+{
+  return exp( - dist / delta );
+}
+
+void NNGraph_tree( Forest<SimpleKernel<float> > &forest,
+                   const std::vector<std::pair<int,int> >& training,
+                   const FeatImage<float>& img,
+                   std::vector<double>& w,
+                   std::vector<std::pair<int,int> >& patchPairs )
+{
+  double delta = env["delta"].toDouble();
+  
+  int M = static_cast<int>( training.size() );
+  cv::Mat invIdx( img.rows, img.cols, CV_32SC1 );
+  invIdx = cv::Mat::zeros( img.rows, img.cols, CV_32SC1 ) - 1;
+  float feat[img.GetPatchDim()];
+  float feat_c[img.GetPatchDim()];
+
+  int m = 0;
+  for ( auto& ele : training ) {
+    invIdx.at<int>( ele.first, ele.second ) = m;
+    m++;
+  }
+
+
+  std::set<std::pair<int,int> > hash;
+  m = 0;
+  for ( auto& ele : training ) {
+    img.FetchPatch( ele.first, ele.second, feat );
+    auto re = std::move( forest.pull( feat ) );
+    heap<double, int> ranker( 10 );
+    for ( auto& item : re ) {
+      int j = invIdx.at<int>( item.y, item.x );
+      if ( -1 != j && j != m ) {
+        img.FetchPatch( item.y, item.x, feat_c );
+        ranker.add( dist_l2( feat, feat_c, img.GetPatchDim() ),
+                    j );
+      }
+    }
+
+
+    for ( int j=0; j<ranker.len; j++ ) {
+      auto p = std::make_pair( m, ranker[j] );
+      if ( m > ranker[j] ) {
+        p = std::make_pair( ranker[j], m );
+      }
+      if ( hash.end() == hash.find( p  ) ) {
+        if ( ranker(j) < 0.4 ) {
+          w.push_back( ExpConv( ranker(j), delta ) );
+          patchPairs.push_back( p );
+          hash.insert( p );
+        }
+      }
+    }
+    
+    m++;
+    progress( m, M, "Patch Nearest Neighbor with forest" );
+
+  }
+  printf( "\n" );
+  printf( "N=%ld\n", w.size() );
+}
+
+void NNGraph_patchmatch( Forest<SimpleKernel<float> > &forest,
+                         const std::vector<std::pair<int,int> >& training,
+                         const FeatImage<float>& img,
+                         std::vector<double>& w,
+                         std::vector<std::pair<int,int> >& patchPairs )
+{
+  int M = static_cast<int>( training.size() );
+  cv::Mat invIdx( img.rows, img.cols, CV_32SC1 );
+  invIdx = cv::Mat::zeros( img.rows, img.cols, CV_32SC1 ) - 1;
+  float feat[img.GetPatchDim()];
+  float feat_c[img.GetPatchDim()];
+
+  int m = 0;
+  for ( auto& ele : training ) {
+    invIdx.at<int>( ele.first, ele.second ) = m;
+    m++;
+  }
+
+
+  std::set<std::pair<int,int> > hash;
+  GeoMap geomap = std::move( forest.PatchMatch( img, 10 ) );
+  m = 0;
+  for ( auto& ele : training ) {
+    img.FetchPatch( ele.first, ele.second, feat );
+    for ( auto& item : geomap( ele.first, ele.second ) ) {
+      PatLoc loc = item.apply( ele.first, ele.second );
+      if ( 0 <= loc.y && loc.y < img.rows && 0 <= loc.x && loc.x < img.cols ) {
+        int j = invIdx.at<int>( loc.y, loc.x );
+        if ( -1 != j && m != j ) {
+          img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, feat_c );
+          double dist = dist_l2( feat, feat_c, img.GetPatchDim() );
+
+          auto p = std::make_pair( m, j );
+          if ( m > j ) {
+            p = std::make_pair( j, m );
+          }
+          if ( hash.end() == hash.find( p  ) ) {
+            if ( dist < 0.4 ) {
+              w.push_back( - 4 * dist * dist + 1 );
+              patchPairs.push_back( p );
+              hash.insert( p );
+            }
+          }
+        }
+      }
+    }
+    m++;
+    progress( m, M, "Patch Nearest Neighbor with forest" );
+  }
+  printf( "\n" );
+  printf( "N=%ld\n", w.size() );
+}
+
+
+// for debugging
+void CheckGraph( const std::vector<std::pair<int,int> >& patchPairs,
+                 const std::vector<std::pair<int,int> >& training,
+                 const FeatImage<uchar> &lbl,
+                 const FeatImage<float> &img ) {
+  for ( auto& ele : patchPairs ) {
+    int i = ele.first;
+    int j = ele.second;
+    int y0 = training[i].first;
+    int x0 = training[i].second;
+    int y1 = training[j].first;
+    int x1 = training[j].second;
+    const uchar *c0 = lbl(y0,x0);
+    const uchar *c1 = lbl(y1,x1);
+    int label0 = LabelSet::GetClass( c0[0], c0[1], c0[2] );
+    int label1 = LabelSet::GetClass( c1[0], c1[1], c1[2] );
+    float feat[img.GetPatchDim()];
+    if ( label0 != label1 ) {
+      Info( "Bad pair: (%d,%d) vs (%d,%d)", y0, x0, y1, x1 );
+      printf( "feature: " );
+      img.FetchPatch( y0, x0, feat );
+      printVec( feat, img.GetPatchDim() );
+      printf( "feature: " );
+      img.FetchPatch( y1, x1, feat );
+      printVec( feat, img.GetPatchDim() );
+      char ch;
+      scanf( "%c", &ch );
+    }
+  }
+}
+
+
+
+
+void RandomPartition( const FeatImage<uchar> &lbl,
+                      const std::vector<std::pair<int,int> > &org,
+                      std::vector<std::pair<int,int> > &a,
+                      std::vector<std::pair<int,int> > &b,
+                      float ratio=0.5 )
+{
+
+  std::vector<std::pair<int,int> > classified[LabelSet::classes];
+
+  for ( auto& ele : org ) {
+    const uchar* color = lbl(ele.first,ele.second);
+    int classID = LabelSet::GetClass( color[0],
+                                      color[1],
+                                      color[2] );
+    classified[classID].push_back( ele );
+  }
+  
+  for ( auto& item : classified ) {
+    int n = static_cast<int>( item.size() );
+    int k = static_cast<int>( n * ratio );
+    std::vector<int> selected = rndgen::randperm( n, k );
+    std::vector<int> mask( item.size(), 0 );
+    for ( auto& ele : selected ) {
+      mask[ele] = 1;
+      a.push_back( item[ele] );
+    }
+
+    for ( int i=0; i<n; i++ ) {
+      if ( 0 == mask[i] ) {
+        b.push_back( item[i] );
+      }
+    }
+  }
+}
+
+
+
+void PartitionTrainingTesting( const FeatImage<uchar> &lbl,
+                               std::vector<std::pair<int,int> > &training,
+                               std::vector<std::pair<int,int> > &testing,
+                               float ratio=0.5 )
+{
+
+  
+  std::vector<std::pair<int,int> > org;
+  
+  for ( int i=0; i<lbl.rows; i++ ) {
+    for ( int j=0; j<lbl.cols; j++ ) {
+      org.push_back( std::make_pair( i, j ) );
+    }
+  }
+  RandomPartition( lbl, org, training, testing, ratio );
+}
+
+
+inline void PartitionLabeledUnlabeled( const FeatImage<uchar> &lbl,
+                                const std::vector<std::pair<int,int> > &training,
+                                std::vector<std::pair<int,int> > &labeled,
+                                std::vector<std::pair<int,int> > &unlabeled,
+                                float ratio=0.5 )
+{
+  RandomPartition( lbl, training, labeled, unlabeled, ratio );
+}
+
+inline cv::Mat genSpotGraph( const std::vector<std::pair<int,int> >& lst, int height, int width )
+{
+  cv::Mat canvas = cv::Mat::zeros( height, width, CV_8UC1 );
+  for ( auto& ele : lst ) {
+    canvas.at<uchar>( ele.first, ele.second ) = 255;
+  }
+  return canvas;
+}
+
 
 int main( int argc, char **argv )
 {
@@ -558,39 +824,51 @@ int main( int argc, char **argv )
   env.Summary();
   
   LabelSet::initialize( env["color-map"] );
+  
 
-
-  auto img = std::move( cvFeat<HOG>::gen( env["src-img"] ) );
+  auto img = std::move( cvFeat<BGR_FLOAT>::gen( env["src-img"] ) );
+  img.SetPatchSize(1);
+  img.SetPatchStride(1);
   auto lbl = std::move( cvFeat<BGR>::gen( env["lbl-img"] ) );
+  lbl.SetPatchSize(1);
+  lbl.SetPatchStride(1);
 
   /// 1. Create an random partition of the patches in this image
   std::vector<std::pair<int,int> > training;
   std::vector<std::pair<int,int> > testing;
 
-  for ( int i=7; i<img.rows-7; i++ ) {
-    for ( int j=7; j<img.cols-7; j++ ) {
-      if ( 0 == ( rand() & 1 ) ) {
-        training.push_back( std::make_pair( i, j ) );
-      } else {
-        testing.push_back( std::make_pair( i, j ) );
-      }
-    }
-  }
 
+  
+  PartitionTrainingTesting( lbl, training, testing, env["training-ratio"].toDouble() );
+  cv::imwrite( strf( "%s/sampled_train.png", env["output-dir"].c_str() ), genSpotGraph( training,
+                                                                                        img.rows,
+                                                                                        img.cols ) );
+  
 
+  
   // Partition the training set into labeld and unlabeled
   // and adjust the order
   std::vector<pair<int,int> > labeled;
   std::vector<pair<int,int> > unlabeled;
-    
-  for ( auto& ele : training ) {
-    if ( static_cast<double>( rand() ) / RAND_MAX < env["training-label-ratio"].toDouble() ) {
-      labeled.push_back( ele );
-    } else {
-      unlabeled.push_back( ele );
-    }
-  }
 
+  PartitionLabeledUnlabeled( lbl, training, labeled, unlabeled, env["training-label-ratio"].toDouble() );
+  cv::imwrite( strf( "%s/sampled_labeled.png", env["output-dir"].c_str() ), genSpotGraph( labeled,
+                                                                                          img.rows,
+                                                                                          img.cols ) );
+  cv::imwrite( strf( "%s/sampled_unlabeled.png", env["output-dir"].c_str() ), genSpotGraph( unlabeled,
+                                                                                            img.rows,
+                                                                                            img.cols ) );
+
+  printf( "labeled: %ld\n", labeled.size() );
+    
+  // for ( auto& ele : training ) {
+  //   if ( static_cast<double>( rand() ) / RAND_MAX < env["training-label-ratio"].toDouble() ) {
+  //     labeled.push_back( ele );
+  //   } else {
+  //     unlabeled.push_back( ele );
+  //   }
+  // }
+  
   training = labeled;
   training.insert( training.end(), unlabeled.begin(), unlabeled.end() );
   
@@ -606,7 +884,7 @@ int main( int argc, char **argv )
   }
   
   timer::tic();
-  Forest<SimpleKernel<float> > forest( 10, l, 0.5 );
+  Forest<SimpleKernel<float> > forest( env["num-of-trees"], l, env["each-tree-accounts-for"].toDouble() );
   Done( "Tree built within %.5lf sec.", timer::utoc() );
   
 
@@ -617,37 +895,11 @@ int main( int argc, char **argv )
   float feat[img.GetPatchDim()];
   float feat_c[img.GetPatchDim()];
   if ( ! DEBUGGING ) {
-    std::set<std::pair<int,int> > hash;
 
-    for ( int i=0; i<M; i++ ) {
-      heap<double, int> ranker( env["patch-neighbors"] );
-      img.FetchPatch( training[i].first, training[i].second, feat );
-      for ( int j=0; j<M; j++ ) {
-        if ( static_cast<double>( rand() ) / RAND_MAX > env["nn-sample-ratio"].toDouble() ) {
-          continue;
-        }
-        img.FetchPatch( training[j].first, training[j].second, feat_c );
-        if ( i == j ) continue;
-        ranker.add( dist_l2( feat, feat_c, img.GetPatchDim() ), j );
-      }
-
-      for ( int j=0; j<ranker.len; j++ ) {
-        auto p = std::make_pair( i, ranker[j] );
-        if ( i > ranker[j] ) {
-          p = std::make_pair( ranker[j], i );
-        }
-        if ( hash.end() == hash.find( p  ) ) {
-          if ( ranker(j) < 0.4 ) {
-            w.push_back( - 4 * ranker(j) * ranker(j) + 1 );
-            patchPairs.push_back( p );
-            hash.insert( p );
-          }
-        }
-      }
-      progress( i, M, "Patch Nearest Neighbor" );
-    }
-    printf( "\n" );
-
+    // NNGraph( forest, training, img, w, patchPairs );
+    NNGraph_tree( forest, training, img, w, patchPairs );
+    // NNGraph_patchmatch( forest, training, img, w, patchPairs );
+    
     WITH_OPEN( out, "interpatch.dat", "w" );
     int len = static_cast<int>( w.size() );
     fwrite( &len, sizeof(int), 1, out );
@@ -676,14 +928,18 @@ int main( int argc, char **argv )
   /// 4. Train Label
 
   Bipartite m_to_l( M, forest.centers() );
-  double *P = new double[ M * LabelSet::classes ];
+  double *P = new double[ numL * LabelSet::classes ];
   double *pP = P;
   int m = 0;
-  for ( auto& ele : training ) {
+
+  std::set<int> touched;
+  
+  for ( auto& ele : labeled ) {
     img.FetchPatch( ele.first, ele.second, feat );
     auto res = std::move( forest.query_with_coef( feat ) );
     for ( auto& item : res ) {
       m_to_l.add( m, item.first, item.second );
+      touched.insert( item.first );
     }
 
     const uchar* color = lbl(ele.first,ele.second);
@@ -700,6 +956,27 @@ int main( int argc, char **argv )
     }
     m++;
   }
+
+  // untouched pixels
+  std::vector<std::pair<int,int> > untouched;
+  for ( int i=0; i<img.rows; i++ ) {
+    for ( int j=0; j<img.cols; j++ ) {
+      img.FetchPatch( i, j, feat );
+      auto res = std::move( forest.query_with_coef( feat ) );
+      int touch = 0;
+      for ( auto& item : res ) {
+        if ( touched.end() != touched.find( item.first ) ) {
+          touch++;
+        }
+      }
+      if ( touch < 4 ) {
+        untouched.push_back( std::make_pair( i, j ) );
+      }
+    }
+  }
+  cv::imwrite( strf( "%s/untouched.png", env["output-dir"].c_str() ), genSpotGraph( untouched,
+                                                                                            img.rows,
+                                                                                            img.cols ) );
 
 
   Bipartite pair_to_l( static_cast<int>( patchPairs.size() ), forest.centers() );
@@ -732,8 +1009,8 @@ int main( int argc, char **argv )
    
   
   Solver solve;
-  solve.options.beta = 50.0;
-  solve.options.maxIter = 50;
+  solve.options.beta = env["beta"].toDouble();
+  solve.options.maxIter = env["max-iter"];
   
 
   // initialization of q
@@ -751,8 +1028,10 @@ int main( int argc, char **argv )
       zero( t, LabelSet::classes );
       for ( auto& ele : _to_m ) {
         int m = ele.first;
-        addto( t, P + m * LabelSet::classes, LabelSet::classes );
-        count++;
+        if ( m < numL ) {
+          addto( t, P + m * LabelSet::classes, LabelSet::classes );
+          count++;
+        }
       }
       if ( count > 0 ) {
         scale( t, LabelSet::classes, 1.0 / count );
@@ -764,22 +1043,13 @@ int main( int argc, char **argv )
 
   Info( "Solving ..." );
 
-
-
-  // void operator()( int numL1, int numU1, int L1,
-  //                const Bipartite *m_to_l1,
-  //                const Bipartite *pair_to_l1,
-  //                const std::vector<std::pair<int,int> > *patchPairs1,
-  //                const double *w1,
-  //                const double *P1, double *q1 )
-
-  
   solve( numL, numU, forest.centers(),
          &m_to_l,
          &pair_to_l,
          &patchPairs,
          &w[0], P, q );
   Done( "Solved." );
+
   
 
   qp = q;
@@ -877,7 +1147,8 @@ int main( int argc, char **argv )
 
 
   /// 6. Vote
-  
+
+  int correct = 0;
   cv::Mat estimated( geomap.rows, geomap.cols, CV_8UC3 );
   float vote[LabelSet::classes];
   for ( int i=0; i<geomap.rows; i++ ) {
@@ -911,7 +1182,13 @@ int main( int argc, char **argv )
           classID = k;
         }
       }
-      
+
+      const uchar *trueColor = lbl(i,j);
+      if ( classID == LabelSet::GetClass( trueColor[0],
+                                          trueColor[1],
+                                          trueColor[2] ) ) {
+        correct++;
+      }
       
       auto& color = LabelSet::GetColor( classID );
       estimated.at<cv::Vec3b>(i,j)[0] = std::get<2>( color );
@@ -924,7 +1201,9 @@ int main( int argc, char **argv )
 
   cv::imshow( "result map", estimated );
 
-  cv::imwrite( "result.png", estimated );
+  cv::imwrite( strf( "%s/result.png", env["output-dir"].c_str() ), estimated );
+
+  printf( "correctness: %d/%d\n", correct, img.rows * img.cols );
   
   while ( 27 != cv::waitKey(30) );
   

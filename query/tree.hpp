@@ -265,7 +265,7 @@ namespace PatTk
         }
       }
 
-      return right;
+      return right + 1;
       
     }
   };
@@ -274,13 +274,13 @@ namespace PatTk
   int SimpleKernel<T>::numHypo = 10;
 
   template <typename T>
-  int SimpleKernel<T>::stopNum = 10;
+  int SimpleKernel<T>::stopNum = 3;
 
   template <>
-  double SimpleKernel<float>::converge = 0.05;
+  double SimpleKernel<float>::converge = 0.01;
 
   template <>
-  double SimpleKernel<double>::converge = 0.05;
+  double SimpleKernel<double>::converge = 0.01;
 
   template <>
   int SimpleKernel<unsigned char>::converge = 10;

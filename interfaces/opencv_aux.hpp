@@ -21,7 +21,7 @@
 namespace PatTk
 {
 
-  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT };
+  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT };
   
   /* anonymous namespace for helper functions */
   namespace
@@ -128,7 +128,7 @@ namespace PatTk
       Error( "cvFeat<BGR>::gen()   Bad number of channels: %d\n", raw.channels() );
       exit( -1 );
     }
-
+    
     template <featEnum T=featType>
     static FeatImage<uchar> gen( std::string filename, ENABLE_IF( BGR == T ) )
     {
@@ -178,7 +178,54 @@ namespace PatTk
       return FeatImage<uchar>( std::move(imgs), base );
     }
 
+    // +--------------------------------------------------+
+    // |  BGR Feature Generator (float version)           |
+    // +--------------------------------------------------+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( cv::Mat raw, ENABLE_IF( BGR_FLOAT == T ) )
+    {
+      if ( 1 == raw.channels() ) {
+        FeatImage<float> img( raw.rows, raw.cols, 3 );
+        float *img_ptr = img[0];
+        for ( int i=0; i<raw.rows; i++ ) {
+          uchar *raw_ptr = raw.ptr<uchar>(i);
+          for ( int j=0; j<raw.cols; j++ ) {
+            *(img_ptr++) = static_cast<float>( *raw_ptr ) / 255.0f;
+            *(img_ptr++) = static_cast<float>( *raw_ptr ) / 255.0f;
+            *(img_ptr++) = static_cast<float>( *raw_ptr ) / 255.0f;
+            raw_ptr++;
+          }
+        }
+        img.ToggleNormalized( false );
+        return img;
+      } else if ( 3 == raw.channels() ) {
+        FeatImage<float> img( raw.rows, raw.cols, 3 );
+        float *img_ptr = img[0];
+        size_t row_size = sizeof(uchar) * 3 * raw.cols;
+        for ( int i=0; i<raw.rows; i++ ) {
+          uchar *raw_ptr = raw.ptr<uchar>(i);
+          for ( size_t j=0; j<row_size; j++ ) {
+            *(img_ptr++) = static_cast<float>( *(raw_ptr++) ) / 255.0f;
+          }
+        }
+        img.ToggleNormalized( false );
+        return img;
+      }
 
+      Error( "cvFeat<BGR>::gen()   Bad number of channels: %d\n", raw.channels() );
+      exit( -1 );
+    }
+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( std::string filename, ENABLE_IF( BGR_FLOAT == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<BGR_FLOAT>( raw );
+    }
 
     // +--------------------------------------------------+
     // |  Lab Feature Generator                           |
