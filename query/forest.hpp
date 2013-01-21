@@ -21,6 +21,7 @@ namespace PatTk
   {
   private:
     std::vector<std::unique_ptr<Tree<kernel> > > trees;
+    std::vector<NodeInfo<kernel> > nodes;
     std::vector<LeafInfo> leaves;
     std::vector<std::unordered_map<int,int> > weights;
     
@@ -31,7 +32,6 @@ namespace PatTk
             float proportion = 1.1f )
     {
       trees.resize( n );
-      std::vector<std::vector<LeafInfo> > leaf( n );
 
       int len = static_cast<int>( list.size() );
       int trueLen = len;
@@ -40,40 +40,32 @@ namespace PatTk
       int **idx = new int*[n];
       
       for ( int i=0; i<n; i++ ) {
-        leaf[i].clear();
         rndgen::randperm( len, trueLen, idx[i] );
-        trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, leaf[i] ) );
+        trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves ) );
         progress( i + 1, n, "Tree Growth." );
       }
       printf( "\n" );
-
-      // Merging leaf arrays
-      int leafCount = 0;
-      int offset[n];
-      for ( int i=0; i<n; i++ ) {
-        offset[i] = leafCount;
-        leafCount += static_cast<int>( leaf[i].size() );
-      }
-
-      leaves.resize( leafCount );
       
-      for ( int i=0; i<n; i++ ) {
-        trees[i]->OffsetLeafID( offset[i] );
-        for ( int j=0, p=offset[i], end=static_cast<int>( leaf[i].size() ); j<end; j++, p++ ) {
-          leaves[p] = std::move( leaf[i][j] );
-        }
-      }
-
       weights.clear();
       
       for ( int i=0; i<n; i++ ) delete[] idx[i];
       delete[] idx;
     }
-
+    
     /* ---------- I/O ---------- */
 
     Forest( std::string dir )
     {
+
+      WITH_OPEN( in, strf( "%s/nodes.dat", dir.c_str() ).c_str(), "r" );
+      int len = 0;
+      fread( &len, sizeof(int), 1, in );
+      for ( int i=0; i<len; i++ ) {
+        nodes.emplace( nodes.end(), in );
+      }
+      
+      // dfs
+      END_WITH( in );
       
       trees.clear();
       int i = 0;
@@ -81,7 +73,7 @@ namespace PatTk
 
         std::ifstream fin( strf( "%s/tree.%d", dir.c_str(), i ) );
         if ( fin.good() ) {
-          trees.push_back( Tree<kernel>::read( strf( "%s/tree.%d", dir.c_str(), i ).c_str() ) );
+          trees.push_back( Tree<kernel>::read( strf( "%s/tree.%d", dir.c_str(), i ).c_str(), nodes ) );
         } else {
           break;
         }
@@ -94,9 +86,12 @@ namespace PatTk
       int len = 0;
       fread( &len, sizeof(int), 1, in );
       for ( int i=0; i<len; i++ ) {
-        leaves.push_back( std::move( LeafInfo( in ) ) );
+        leaves.emplace( leaves.end(), in );
       }
       END_WITH( in );
+
+
+
 
       weights.clear();
       readWeights( dir );
@@ -157,6 +152,18 @@ namespace PatTk
       END_WITH( out );
     }
 
+    inline void writeNodes( std::string dir ) const
+    {
+      WITH_OPEN( out, strf( "%s/nodes.dat", dir.c_str() ).c_str(), "w" );
+      int len = static_cast<int>( nodes.size() );
+      fwrite( &len, sizeof(int), 1, out );
+      for ( int i=0; i<len; i++ ) {
+        nodes[i].write( out );
+      }
+      END_WITH( out );
+    }
+
+
     inline void write( std::string dir ) const
     {
       system( strf( "mkdir -p %s", dir.c_str() ).c_str() );
@@ -168,6 +175,8 @@ namespace PatTk
 
       writeWeights( dir );
 
+      writeNodes( dir );
+      
     }
 
       
@@ -178,7 +187,6 @@ namespace PatTk
       return leaves[index];
     }
 
-    
     template <typename floating>
     inline void updateLabelMap( const int index, const floating *vec  )
     {
@@ -192,6 +200,7 @@ namespace PatTk
 
     /* ---------- Query ---------- */
 
+    // query leaf
     template <typename T>
     inline std::vector<int> query( const T p ) const
     {
@@ -203,12 +212,13 @@ namespace PatTk
       res.reserve( trees.size() );
 
       for ( auto& ele : trees ) {
-        res.push_back( ele->query( p ) );
+        res.push_back( nodes[ele->query( p )].leafID );
       }
       
       return res;
     }
 
+    // query leaf
     template <typename T>
     inline std::vector< std::pair<int,double> > query_with_coef( const T p ) const
     {
@@ -221,11 +231,31 @@ namespace PatTk
 
       double w = 1.0 / trees.size();
       for ( auto& ele : trees ) {
-        res.push_back( std::make_pair( ele->query( p ), w ) );
+        res.push_back( std::make_pair( nodes[ele->query( p )].leafID, w ) );
       }
 
       return res;
     }
+
+
+    // query node
+    template <typename T>
+    inline std::vector<int> query_node( const T p, int max_depth ) const
+    {
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      
+      std::vector<int> res;
+      res.reserve( trees.size() );
+
+      for ( auto& ele : trees ) {
+        res.push_back( ele->query_node( p, max_depth ) );
+      }
+      
+      return res;
+    }
+
 
     
     template <typename T>
@@ -238,12 +268,23 @@ namespace PatTk
       std::vector<LocInfo> res;
 
       for ( auto& ele : trees ) {
-        int lid = ele->query( p );
+        int lid = nodes[ele->query( p )].leafID;
         for ( auto& loc : leaves[lid].store ) {
           res.push_back( loc );
         }
       }
       return res;
+    }
+
+
+    inline std::pair<int,int> getChildren( int nodeID )
+    {
+      if ( nodes[nodeID].node->isLeaf() ) {
+        return std::make_pair( -1, -1 );
+      } else {
+        return std::make_pair( nodes[nodeID].node->getChild(0)->nodeID,
+                               nodes[nodeID].node->getChild(1)->nodeID );
+      }
     }
     
     
@@ -465,7 +506,7 @@ namespace PatTk
                      "T is not a feature descriptor type." );
       std::vector<int> ids;
       for ( auto& ele : trees ) {
-        ids.push_back( ele->query( p ) );
+        ids.push_back( nodes[ele->query( p )].leafID );
       }
       
       int n = static_cast<int>( trees.size() );
@@ -527,6 +568,11 @@ namespace PatTk
     inline int centers() const
     {
       return static_cast<int>( leaves.size() );
+    }
+
+    inline int totalNodes() const
+    {
+      return static_cast<int>( nodes.size() );
     }
 
   };

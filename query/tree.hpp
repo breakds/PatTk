@@ -15,10 +15,12 @@
 namespace PatTk
 {
 
+  template <typename kernel> class Tree; // forward declaration
+
   struct LocInfo
   {
     int id, y, x;
-
+    
     LocInfo( int id1, int y1, int x1 ) : id(id1), y(y1), x(x1) {}
     
     inline void write( FILE *out ) const
@@ -42,6 +44,27 @@ namespace PatTk
       fread( &x, sizeof(int), 1, in );
     }
   };
+
+  template <typename kernel>
+  struct NodeInfo
+  {
+  public:
+    Tree<kernel> * node;
+    int leafID;
+    
+    NodeInfo( Tree<kernel> *n = nullptr, int l = -1 ) : node(n), leafID(l) {}
+
+    inline NodeInfo( FILE *in )
+    {
+      fread( &leafID, sizeof(int), 1, in );
+    }
+
+    inline void write( FILE *out ) const
+    {
+      fwrite( &leafID, sizeof(int), 1, out );
+    }
+  };
+
 
   struct LeafInfo
   {
@@ -298,45 +321,46 @@ namespace PatTk
   private:
     std::unique_ptr< Tree<kernel> > child[2];
     typename kernel::Judger judger;
-    int leafID;
+    int nodeID;
     
   public:
-
+    
     Tree() 
     {
       child[0].reset( nullptr );
       child[1].reset( nullptr );
-      leafID = -1;
+      nodeID = -1;
     }
 
 
-    static std::unique_ptr<Tree<kernel> > read( std::string filename )
+    static std::unique_ptr<Tree<kernel> > read( std::string filename, std::vector<NodeInfo<kernel> >& nodes )
     {
       std::unique_ptr<Tree<kernel> > tree;
       WITH_OPEN( in, filename.c_str(), "r" );
-      tree.reset( new Tree( in ) );
+      tree.reset( new Tree( in, nodes ) );
       END_WITH( in );
       return tree;
     }
     
     
-    Tree( FILE *in )
+    Tree( FILE *in, std::vector<NodeInfo<kernel> >& nodes )
     {
       judger.read( in );
       unsigned char finished = 0;
       fread( &finished, sizeof(unsigned char), 1, in );
-      if ( 1 == finished ) {
-        fread( &leafID, sizeof(int), 1, in );
-      } else {
-        leafID = -1;
-        child[0].reset( new Tree( in ) );
-        child[1].reset( new Tree( in ) );
+      fread( &nodeID, sizeof(int), 1, in );
+      nodes[nodeID].node = this;
+      if ( 1 != finished ) {
+        child[0].reset( new Tree( in, nodes ) );
+        child[1].reset( new Tree( in, nodes ) );
       }
     }
 
     
+
+    
     Tree( const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len,
-          std::vector<LeafInfo> &leaves )
+          std::vector<NodeInfo<kernel> >& nodes, std::vector<LeafInfo> &leaves )
     {
 
       leaves.clear();
@@ -362,21 +386,30 @@ namespace PatTk
                                                                    state.len - right,
                                                                    state.shuffler ),
                                            node->child[1].get() ));
-          leafID = -1;
+          // register NodeInfo
+#         pragma omp critical
+          {
+            node->nodeID = static_cast<int>( nodes.size() );
+            nodes.emplace( nodes.end(), node );
+          }
         } else {
           // leaf node
-          node->leafID = static_cast<int>( leaves.size() );
           LeafInfo leaf;
           for ( int i=0; i<state.len; i++ ) {
             leaf.add( list[state.idx[i]].id(),
                       list[state.idx[i]].y,
                       list[state.idx[i]].x );
           }
-          leaves.push_back( leaf );
+#         pragma omp critical
+          {
+            int leafID = static_cast<int>( leaves.size() );
+            leaves.push_back( std::move( leaf ) );
+            node->nodeID = static_cast<int>( nodes.size() );
+            nodes.emplace( nodes.end(), node, leafID );
+          }
         }
         stack.pop_front();
       }
-
     }
 
     void write( std::string filename )
@@ -392,45 +425,59 @@ namespace PatTk
       if ( isLeaf() ) {
         unsigned char uc = 1;
         fwrite( &uc, sizeof(unsigned char), 1, out );
-        fwrite( &leafID, sizeof(int), 1, out );
+        fwrite( &nodeID, sizeof(int), 1, out );
       } else {
         unsigned char uc = 0;
         fwrite( &uc, sizeof(unsigned char), 1, out );
+        fwrite( &nodeID, sizeof(int), 1, out );
         child[0]->write( out );
         child[1]->write( out );
       }
     }
 
-    inline void OffsetLeafID( int offset )
-    {
-      if ( isLeaf() ) {
-        leafID += offset;
-      } else {
-        child[0]->OffsetLeafID( offset );
-        child[1]->OffsetLeafID( offset );
-      }
-    }
-
     inline bool isLeaf() const
     {
-      return -1 != leafID;
+      return ( nullptr == child[0] ) && ( nullptr == child[1] );
+    }
+
+    inline const std::unique_ptr<Tree<kernel> >& getChild( int index )
+    {
+      return child[index];
     }
 
     int query( const typename FeatImage<typename kernel::dataType>::PatchProxy &p ) const
     {
       if ( isLeaf() ) {
-        return leafID;
+        return nodeID;
       } else {
         return child[judger(p)]->query( p );
+      }
+    }
+
+    int query_node( const typename FeatImage<typename kernel::dataType>::PatchProxy &p, int depth ) const
+    {
+      if ( isLeaf() || 0 == depth ) {
+        return nodeID;
+      } else {
+        return child[judger(p)]->query_node( p, depth - 1 );
       }
     }
 
     int query( const typename kernel::dataType *p ) const
     {
       if ( isLeaf() ) {
-        return leafID;
+        return nodeID;
       } else {
         return child[judger(p)]->query( p );
+      }
+    }
+
+    int query_node( const typename kernel::dataType *p, int depth ) const
+    {
+      if ( isLeaf() ) {
+        return nodeID;
+      } else {
+        return child[judger(p)]->query_node( p, depth - 1 );
       }
     }
   };
