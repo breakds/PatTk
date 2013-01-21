@@ -163,6 +163,7 @@ public:
   inline void Disqualify()
   {
     SpliceAddress( curPos );
+    curPos--;
   }
 
 

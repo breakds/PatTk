@@ -886,6 +886,8 @@ int main( int argc, char **argv )
   timer::tic();
   Forest<SimpleKernel<float> > forest( env["num-of-trees"], l, env["each-tree-accounts-for"].toDouble() );
   Done( "Tree built within %.5lf sec.", timer::utoc() );
+
+  printf( "centers: %d\n", forest.centers() );
   
 
   /// 3. Construct Nearest Neightbor Pairs
@@ -896,9 +898,10 @@ int main( int argc, char **argv )
   float feat_c[img.GetPatchDim()];
   if ( ! DEBUGGING ) {
 
-    // NNGraph( forest, training, img, w, patchPairs );
-    NNGraph_tree( forest, training, img, w, patchPairs );
+    NNGraph( forest, training, img, w, patchPairs );
+    // NNGraph_tree( forest, training, img, w, patchPairs );
     // NNGraph_patchmatch( forest, training, img, w, patchPairs );
+    CheckGraph( patchPairs, training, lbl, img );
     
     WITH_OPEN( out, "interpatch.dat", "w" );
     int len = static_cast<int>( w.size() );
@@ -1049,7 +1052,7 @@ int main( int argc, char **argv )
          &patchPairs,
          &w[0], P, q );
   Done( "Solved." );
-
+  
   
 
   qp = q;

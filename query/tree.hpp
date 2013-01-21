@@ -189,7 +189,7 @@ namespace PatTk
     static int numHypo;
     static int stopNum;
     static typename Generalized<dataType>::type converge;
-    
+
     static int split( const std::vector<typename FeatImage<T>::PatchProxy> &list, State& state,
                       Judger &judger )
     {
@@ -202,9 +202,10 @@ namespace PatTk
       }
 
       state.shuffler.ResetShuffle();
-
+      
       int trial = 0;
       uint c[numHypo];
+      dataType th[numHypo];
       while ( SHUFFLER_ERROR != ( c[trial] = state.shuffler.Next() ) && trial < numHypo ) {
         typename Generalized<T>::type min = list[state.idx[0]](c[trial]);
         typename Generalized<T>::type max = list[state.idx[0]](c[trial]);
@@ -219,22 +220,22 @@ namespace PatTk
         if ( max - min < converge ) {
           state.shuffler.Disqualify();
         } else {
+          dataType range = max - min;
+          th[trial] = rand() / static_cast<dataType>( RAND_MAX ) * range * 0.95 + range * 0.025 + min;
           trial++;
         }
       }
-
+      
       if ( 0 == trial ) {
         return -3;
       }
 
       int minDiff = -1;
       for ( int t=0; t<trial; t++ ) {
-        int pick = rand() % state.len;
-        dataType th = list[state.idx[pick]](c[t]);
         int leftNum = 0;
         int rightNum = 0;
         for ( int i=0; i<state.len; i++ ) {
-          if ( list[state.idx[i]](c[t]) < th ) {
+          if ( list[state.idx[i]](c[t]) < th[t] ) {
             leftNum++;
           } else {
             rightNum++;
@@ -242,7 +243,7 @@ namespace PatTk
         }
         if ( -1 == minDiff || abs( leftNum - rightNum ) < minDiff ) {
           minDiff = abs( leftNum - rightNum );
-          judger.th = th;
+          judger.th = th[t];
           judger.component = c[t];
         }
       }
@@ -274,13 +275,13 @@ namespace PatTk
   int SimpleKernel<T>::numHypo = 10;
 
   template <typename T>
-  int SimpleKernel<T>::stopNum = 3;
+  int SimpleKernel<T>::stopNum = 1;
 
   template <>
-  double SimpleKernel<float>::converge = 0.01;
+  double SimpleKernel<float>::converge = 0.001;
 
   template <>
-  double SimpleKernel<double>::converge = 0.01;
+  double SimpleKernel<double>::converge = 0.001;
 
   template <>
   int SimpleKernel<unsigned char>::converge = 10;
@@ -342,7 +343,7 @@ namespace PatTk
 
       std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
       stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
-      
+
       while ( !stack.empty() ) {
         typename kernel::State &state = stack.front().first;
         Tree<kernel> *node = stack.front().second;
@@ -375,6 +376,7 @@ namespace PatTk
         }
         stack.pop_front();
       }
+
     }
 
     void write( std::string filename )
