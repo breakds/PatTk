@@ -7,6 +7,7 @@
 #pragma once
 #include <iostream>
 #include <unordered_map>
+#include <omp.h>
 #include "LLPack/algorithms/random.hpp"
 #include "LLPack/utils/extio.hpp"
 #include "../data/Label.hpp"
@@ -38,11 +39,16 @@ namespace PatTk
       if ( proportion < 1.0f ) trueLen = static_cast<int>( len * proportion );
       
       int **idx = new int*[n];
-      
+
+
+#     pragma omp parallel for
       for ( int i=0; i<n; i++ ) {
         rndgen::randperm( len, trueLen, idx[i] );
         trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves ) );
-        progress( i + 1, n, "Tree Growth." );
+        #pragma omp critical
+        {
+          progress( i + 1, n, "Tree Growth." );
+        }
       }
       printf( "\n" );
       
@@ -255,6 +261,27 @@ namespace PatTk
       
       return res;
     }
+
+
+    // query leaf
+    template <typename T>
+    inline std::vector< std::pair<int,double> > query_node_with_coef( const T p, int max_depth ) const
+    {
+      static_assert( std::is_same<T,typename kernel::dataType*>::value ||
+                     std::is_same<T,typename FeatImage<typename kernel::dataType>::PatchProxy&>::value,
+                     "T is not a feature descriptor type." );
+      
+      std::vector<std::pair<int,double> > res;
+      res.reserve( trees.size() );
+
+      double w = 1.0 / trees.size();
+      for ( auto& ele : trees ) {
+        res.push_back( std::make_pair( ele->query( p, max_depth ), w ) );
+      }
+
+      return res;
+    }
+
 
 
     
