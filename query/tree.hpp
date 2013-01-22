@@ -11,6 +11,7 @@
 #include <memory>
 #include "Revolver.hpp"
 #include "../data/Label.hpp"
+#include "../data/FeatImage.hpp"
 
 namespace PatTk
 {
@@ -363,11 +364,9 @@ namespace PatTk
           std::vector<NodeInfo<kernel> >& nodes, std::vector<LeafInfo> &leaves )
     {
 
-      leaves.clear();
-
       std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
       stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
-
+      
       while ( !stack.empty() ) {
         typename kernel::State &state = stack.front().first;
         Tree<kernel> *node = stack.front().second;
@@ -394,22 +393,24 @@ namespace PatTk
           }
         } else {
           // leaf node
-          LeafInfo leaf;
-          for ( int i=0; i<state.len; i++ ) {
-            leaf.add( list[state.idx[i]].id(),
-                      list[state.idx[i]].y,
-                      list[state.idx[i]].x );
-          }
+          int leafID = 0;
 #         pragma omp critical
           {
-            int leafID = static_cast<int>( leaves.size() );
-            leaves.push_back( std::move( leaf ) );
+            leafID = static_cast<int>( leaves.size() );
+            leaves.emplace( leaves.end() );
             node->nodeID = static_cast<int>( nodes.size() );
             nodes.emplace( nodes.end(), node, leafID );
+          }
+
+          for ( int i=0; i<state.len; i++ ) {
+            leaves[leafID].add( list[state.idx[i]].id(),
+                                list[state.idx[i]].y,
+                                list[state.idx[i]].x );
           }
         }
         stack.pop_front();
       }
+
     }
 
     void write( std::string filename )
@@ -478,6 +479,21 @@ namespace PatTk
         return nodeID;
       } else {
         return child[judger(p)]->query_node( p, depth - 1 );
+      }
+    }
+
+    int maxDepth() const
+    {
+      if ( isLeaf() ) {
+        return 1;
+      } else {
+        int i = child[0]->maxDepth();
+        int j = child[1]->maxDepth();
+        if ( i > j ) {
+          return i + 1;
+        } else {
+          return j + 1;
+        }
       }
     }
   };

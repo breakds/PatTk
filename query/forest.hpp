@@ -9,8 +9,10 @@
 #include <unordered_map>
 #include <omp.h>
 #include "LLPack/algorithms/random.hpp"
+#include "LLPack/algorithms/heap.hpp"
 #include "LLPack/utils/extio.hpp"
 #include "../data/Label.hpp"
+#include "../graph/Trans.hpp"
 #include "tree.hpp"
 
 
@@ -25,14 +27,17 @@ namespace PatTk
     std::vector<NodeInfo<kernel> > nodes;
     std::vector<LeafInfo> leaves;
     std::vector<std::unordered_map<int,int> > weights;
-    
+
   public:
-    
+
     Forest( int n,
             const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list,
             float proportion = 1.1f )
     {
       trees.resize( n );
+
+      leaves.clear();
+      nodes.clear();
 
       int len = static_cast<int>( list.size() );
       int trueLen = len;
@@ -41,22 +46,29 @@ namespace PatTk
       int **idx = new int*[n];
 
 
-#     pragma omp parallel for
+      int finished = 0;
+#     pragma omp parallel for num_threads(7)
       for ( int i=0; i<n; i++ ) {
         rndgen::randperm( len, trueLen, idx[i] );
         trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves ) );
-        #pragma omp critical
+#       pragma omp critical
         {
-          progress( i + 1, n, "Tree Growth." );
+          progress( ++finished, n, "Tree Growth." );
         }
       }
       printf( "\n" );
       
       weights.clear();
-      
+
       for ( int i=0; i<n; i++ ) delete[] idx[i];
       delete[] idx;
     }
+
+    Forest( int n, Album<typename kernel::dataType>& album, float proportion = 1.1f ) :
+      Forest( n, album.list(), proportion ) {}
+      
+    
+
     
     /* ---------- I/O ---------- */
 
@@ -95,13 +107,13 @@ namespace PatTk
         leaves.emplace( leaves.end(), in );
       }
       END_WITH( in );
-
+      
 
 
 
       weights.clear();
       readWeights( dir );
-
+      
       Done( "Forest loaded (%ld trees, %ld leaves).", trees.size(), leaves.size() );
     }
 
@@ -586,7 +598,7 @@ namespace PatTk
 
 
     /* ---------- Properties ---------- */
-
+    
     inline int size() const
     {
       return static_cast<int>( trees.size() );
@@ -600,6 +612,18 @@ namespace PatTk
     inline int totalNodes() const
     {
       return static_cast<int>( nodes.size() );
+    }
+
+    inline int maxDepth() const
+    {
+      int depth = 0;
+      for ( auto& tree : trees ) {
+        int d = tree.maxDepth();
+        if ( d > depth ) {
+          depth = d;
+        }
+      }
+      return depth;
     }
 
   };

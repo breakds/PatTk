@@ -11,6 +11,7 @@
 
 #include <cstdlib>
 #include <vector>
+#include <limits.h>
 
 using std::vector;
 

@@ -152,7 +152,7 @@ MESSAGE(STATUS "NVCC VERISON: ${CUDA_NVCC_EXECUTABLE}" )
 # Note -Wno-non-virtual-dtor is for a defect in OpenCV
 set(CMAKE_CXX_FLAGS "${OPENCV_FLAGS} -Wall -Wextra -Wno-non-virtual-dtor -std=c++0x")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -DNDEBUG -O3 -fopenmp")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -fopenmp")
 set(CMAKE_CXX_FLAGS_GPROF "-O1 -pg")
 
 
@@ -173,23 +173,26 @@ endif (BUILD_UNITTEST)
 # TARGET_LINK_LIBRARIES(code ${OPENCV})
 
 
-ADD_EXECUTABLE(training experiment/Training.cpp)
-TARGET_LINK_LIBRARIES(training ${OPENCV})
+# ADD_EXECUTABLE(training experiment/Training.cpp)
+# TARGET_LINK_LIBRARIES(training ${OPENCV})
 
-ADD_EXECUTABLE(testing experiment/Testing.cpp)
-TARGET_LINK_LIBRARIES(testing ${OPENCV})
+# ADD_EXECUTABLE(testing experiment/Testing.cpp)
+# TARGET_LINK_LIBRARIES(testing ${OPENCV})
 
-ADD_EXECUTABLE(learning experiment/Learning.cpp)
-TARGET_LINK_LIBRARIES(learning ${OPENCV})
+# ADD_EXECUTABLE(learning experiment/Learning.cpp)
+# TARGET_LINK_LIBRARIES(learning ${OPENCV})
 
-ADD_EXECUTABLE(TrainLabel experiment/TrainLabel.cpp)
-TARGET_LINK_LIBRARIES(TrainLabel ${OPENCV})
+# ADD_EXECUTABLE(TrainLabel experiment/TrainLabel.cpp)
+# TARGET_LINK_LIBRARIES(TrainLabel ${OPENCV})
 
-ADD_EXECUTABLE(Vote experiment/Vote.cpp)
-TARGET_LINK_LIBRARIES(Vote ${OPENCV})
+# ADD_EXECUTABLE(Vote experiment/Vote.cpp)
+# TARGET_LINK_LIBRARIES(Vote ${OPENCV})
 
-ADD_EXECUTABLE(verify experiment/Verify.cpp)
-TARGET_LINK_LIBRARIES(verify ${OPENCV})
+# ADD_EXECUTABLE(verify experiment/Verify.cpp)
+# TARGET_LINK_LIBRARIES(verify ${OPENCV})
+
+ADD_EXECUTABLE(forestExp experiment/ForestExp.cpp)
+TARGET_LINK_LIBRARIES(forestExp ${OPENCV})
 
 
 

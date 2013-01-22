@@ -50,7 +50,7 @@ int main( int argc, char **argv )
   Forest<SimpleKernel<float> > forest( env["forest-name"] );
   
   Info( "Learning ..." );
-
+  
   forest.PrepareWeitghts();
   
   float feat[album(0).GetPatchDim()];

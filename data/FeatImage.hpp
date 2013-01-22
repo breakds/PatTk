@@ -719,6 +719,20 @@ namespace PatTk
       pages.push_back( std::move(img) );
     }
 
+    // create a vector of patches
+    std::vector<typename FeatImage<dataType>::PatchProxy> list( int margin = 7, int stride = 1 )
+    {
+      std::vector<typename FeatImage<dataType>::PatchProxy> res;
+      for ( auto& img : pages ) {
+        for ( int i=margin; i<img.rows-margin; i+=stride ) {
+          for ( int j=margin; j<img.cols-margin; j+=stride ) {
+            res.push_back( img.Spawn( i, j ) );
+          }
+        }
+      }
+      return res;
+    }
+
 
     /* Only provide read-only access to member images */
     const FeatImage<dataType>& operator()( const int index ) const
@@ -741,7 +755,7 @@ namespace PatTk
     {
       return pages.end();
     }
-    
+
   };
   
 }
