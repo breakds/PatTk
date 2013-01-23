@@ -111,6 +111,12 @@ namespace PatTk
       q = other.q;
     }
 
+
+    inline int size() const
+    {
+      return static_cast<int>( store.size() );
+    }
+
     inline const LeafInfo& operator=( LeafInfo &&other )
     {
       store.swap( other.store );

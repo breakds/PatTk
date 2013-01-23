@@ -2,6 +2,7 @@
 #include "LLPack/utils/extio.hpp"
 #include "LLPack/utils/time.hpp"
 #include "LLPack/utils/pathname.hpp"
+#include "LLPack/algorithms/random.hpp"
 #include "../data/FeatImage.hpp"
 #include "../data/Label.hpp"
 #include "../interfaces/opencv_aux.hpp"
@@ -9,6 +10,7 @@
 
 using namespace EnvironmentVariable;
 using namespace PatTk;
+using rndgen::randperm;
 
 int main( int argc, char **argv )
 {
@@ -48,22 +50,51 @@ int main( int argc, char **argv )
     forest.write( env["forest-dir"] );
   }
   
-
+  /* ---------- Load Forest ---------- */
+  Info( "Loading Forest .." );
   timer::tic();
   Forest<SimpleKernel<float> > forest( env["forest-dir"] );
   printf( "tree loaded: %.3lf sec\n", timer::utoc() );
-
   printf( "maxDepth: %d\n", forest.maxDepth() );
 
   
   /* ---------- Show Leaves ---------- */
-  for ( int i=0; i<forest.centers(); i++ ) {
-    
-  }
+
+  int viewID = randperm( album.size(), 1 )[0];
+  Info( "ViewID = %d", viewID );
+  
+  Info( "System on." );
+
+  cv::Mat srcmat = cv::imread( imgList[viewID] );
+  ImageViewer srcview( "source", srcmat );
+
+  IconList icons( "test", 13 );
+
+  float feat[album(viewID).GetPatchDim()];
+  srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&forest]( int x, int y )
+                       {
+                         album(viewID).FetchPatch( y, x, feat );
+                         Info( "querying (%d,%d)\n", y, x );
+
+                         std::vector<int> res = std::move( forest.query( feat ) );
+
+                         icons.clear();
+                         int count = 0;
+
+                         for ( auto& leafID : res ) {
+                           for ( auto& loc : forest(leafID).store ) {
+                             if ( count++ > 200 ) break;
+                             icons.push( imgList, PatLoc( loc ) );
+                           }
+                           if ( count > 200 ) break;
+                         }
+                         
+                         icons.display();
+                      
+                       } );
   
   
-  
-  
+  while( 27 != cv::waitKey() );
   
   return 0;
 }

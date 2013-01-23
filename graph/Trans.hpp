@@ -36,7 +36,7 @@ namespace PatTk
 
   };
 
-
+  
   class Sampler4D
   {
   private:

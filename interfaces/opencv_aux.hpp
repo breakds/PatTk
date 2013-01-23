@@ -582,7 +582,6 @@ namespace PatTk
   }
   
 
-
   class IconList
   {
   private:
@@ -648,16 +647,19 @@ namespace PatTk
         Error( "IconList::push() - image is not of type CV_8UC3." );
         exit( -1 );
       }
-      
-      auto img = cvFeat<BGR>::gen( tmp );
+
+
+      auto img = cvFeat<BGR>::gen( tmp ); 
       img.SetPatchStride(1);
-      img.SetPatchSize( patchSize >> 1 );
+      img.SetPatchSize( patchSize );
       uchar patch[img.GetPatchDim()];
-      img.FetchPatch( loc.y, loc.x, loc.rotation, loc.scale, patch );
+      img.FetchPatch( loc.y, loc.x, patch ); //loc.rotation, loc.scale, patch );
 
 
       icons.push_back( cv::Mat( patchSize, patchSize, CV_8UC3 ) );
       cv::Mat& icon = icons.back();
+
+
       int i = 0;
       for ( int dy=0; dy<patchSize; dy++ ) {
         for ( int dx=0; dx<patchSize; dx++ ) {
@@ -666,6 +668,7 @@ namespace PatTk
           }
         }
       }
+
       patches.push_back( loc );
     }
 
