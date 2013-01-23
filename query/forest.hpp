@@ -32,7 +32,7 @@ namespace PatTk
 
     Forest( int n,
             const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list,
-            float proportion = 1.1f )
+            float proportion = 1.1f, int max_depth = -1 )
     {
       trees.resize( n );
 
@@ -50,7 +50,7 @@ namespace PatTk
 #     pragma omp parallel for num_threads(7)
       for ( int i=0; i<n; i++ ) {
         rndgen::randperm( len, trueLen, idx[i] );
-        trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves ) );
+        trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves, max_depth ) );
 #       pragma omp critical
         {
           progress( ++finished, n, "Tree Growth." );
@@ -64,8 +64,8 @@ namespace PatTk
       delete[] idx;
     }
 
-    Forest( int n, Album<typename kernel::dataType>& album, float proportion = 1.1f ) :
-      Forest( n, album.list(), proportion ) {}
+    Forest( int n, Album<typename kernel::dataType>& album, float proportion = 1.1f, int max_depth = -1 ) :
+      Forest( n, album.list(), proportion, max_depth ) {}
       
     
 
@@ -618,7 +618,7 @@ namespace PatTk
     {
       int depth = 0;
       for ( auto& tree : trees ) {
-        int d = tree.maxDepth();
+        int d = tree->maxDepth();
         if ( d > depth ) {
           depth = d;
         }

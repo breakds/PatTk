@@ -171,12 +171,13 @@ namespace PatTk
       int *idx;
       int len;
       Shuffler shuffler;
+      int depth;
 
-      State( int *i, int l, int s )
-        : idx(i), len(l), shuffler(s) {}
+      State( int *i, int l, int s, int d )
+        : idx(i), len(l), shuffler(s), depth(d) {}
       
-      State( int *i, int l, const Shuffler& s )
-        : idx(i), len(l), shuffler(s) {}
+      State( int *i, int l, const Shuffler& s, int d )
+        : idx(i), len(l), shuffler(s), depth(d) {}
     };
 
     class Judger
@@ -215,14 +216,18 @@ namespace PatTk
     static typename Generalized<dataType>::type converge;
 
     static int split( const std::vector<typename FeatImage<T>::PatchProxy> &list, State& state,
-                      Judger &judger )
+                      Judger &judger, int max_depth = -1 )
     {
-
+      
       if ( state.len <= stopNum ) {
         return -1;
       }
       if ( 0 == state.shuffler.Number() ) {
         return -2;
+      }
+
+      if ( max_depth == state.depth ) {
+        return -6;
       }
 
       state.shuffler.ResetShuffle();
@@ -361,16 +366,16 @@ namespace PatTk
 
     
     Tree( const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list, int* idx, int len,
-          std::vector<NodeInfo<kernel> >& nodes, std::vector<LeafInfo> &leaves )
+          std::vector<NodeInfo<kernel> >& nodes, std::vector<LeafInfo> &leaves, int max_depth=-1 )
     {
 
       std::deque<std::pair<typename kernel::State,Tree<kernel>*> > stack;
-      stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim() ), this ) );
+      stack.push_back( std::make_pair( typename kernel::State( idx, len, list[0].dim(), 0 ), this ) );
       
       while ( !stack.empty() ) {
         typename kernel::State &state = stack.front().first;
         Tree<kernel> *node = stack.front().second;
-        int right = kernel::split( list, state, node->judger );
+        int right = kernel::split( list, state, node->judger, max_depth );
         if ( right >= 0 ) {
           // internal node
           node->child[0].reset( new Tree() );
@@ -379,11 +384,13 @@ namespace PatTk
           
           stack.push_back( std::make_pair( typename kernel::State( state.idx,
                                                                    right,
-                                                                   state.shuffler ),
+                                                                   state.shuffler,
+                                                                   state.depth + 1 ),
                                            node->child[0].get() ));
           stack.push_back( std::make_pair( typename kernel::State( state.idx + right,
                                                                    state.len - right,
-                                                                   state.shuffler ),
+                                                                   state.shuffler,
+                                                                   state.depth + 1 ),
                                            node->child[1].get() ));
           // register NodeInfo
 #         pragma omp critical
