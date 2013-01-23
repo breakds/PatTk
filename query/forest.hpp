@@ -23,9 +23,20 @@ namespace PatTk
   class Forest
   {
   private:
+    // trees is the container for random trees in the forest.
     std::vector<std::unique_ptr<Tree<kernel> > > trees;
+
+    // nodes are the container for all the nodes of the trees in the
+    // forest. There is a pointer to that node and (possiblely) an
+    // leafID if the node is actually a leaf node. leafID can be used
+    // to access leaf information.
     std::vector<NodeInfo<kernel> > nodes;
+
+    // leaves are the container for all the leaf nodes of the trees in
+    // the forest. See LeafInfo in tree.hpp for more description.
     std::vector<LeafInfo> leaves;
+
+    // "weights" exists for historical reasons
     std::vector<std::unordered_map<int,int> > weights;
 
   public:
@@ -34,11 +45,12 @@ namespace PatTk
             const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list,
             float proportion = 1.1f, int max_depth = -1 )
     {
+      // initialze the containers
       trees.resize( n );
-
       leaves.clear();
       nodes.clear();
-
+      weights.clear();
+      
       int len = static_cast<int>( list.size() );
       int trueLen = len;
       if ( proportion < 1.0f ) trueLen = static_cast<int>( len * proportion );
@@ -47,7 +59,7 @@ namespace PatTk
 
 
       int finished = 0;
-#     pragma omp parallel for num_threads(7)
+#     pragma omp parallel for
       for ( int i=0; i<n; i++ ) {
         rndgen::randperm( len, trueLen, idx[i] );
         trees[i].reset( new Tree<kernel>( list, idx[i], trueLen, nodes, leaves, max_depth ) );
@@ -58,7 +70,7 @@ namespace PatTk
       }
       printf( "\n" );
       
-      weights.clear();
+
 
       for ( int i=0; i<n; i++ ) delete[] idx[i];
       delete[] idx;
@@ -85,18 +97,22 @@ namespace PatTk
       // dfs
       END_WITH( in );
       
-      trees.clear();
-      int i = 0;
-      do {
 
-        std::ifstream fin( strf( "%s/tree.%d", dir.c_str(), i ) );
-        if ( fin.good() ) {
-          trees.push_back( Tree<kernel>::read( strf( "%s/tree.%d", dir.c_str(), i ).c_str(), nodes ) );
-        } else {
+      // find the number of trees
+      int n = 0;
+      do {
+        std::ifstream fin( strf( "%s/tree.%d", dir.c_str(), n ) );
+        if ( !fin.good() ) {
           break;
         }
-        i++;
+        n++;
       } while (true);
+
+      trees.clear();
+
+      for ( int i=0; i<n; i++ ) {
+        trees.push_back( Tree<kernel>::read( strf( "%s/tree.%d", dir.c_str(), i ).c_str(), nodes ) );
+      }
 
       leaves.clear();
       
