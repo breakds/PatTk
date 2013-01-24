@@ -332,6 +332,18 @@ namespace PatTk
     }
 
 
+    // collect all the LocInfo in one internal node
+    inline std::vector<LocInfo> collect( int nodeID ) const
+    {
+      std::vector<LocInfo> res;
+      for ( auto& nID : nodes[nodeID].node->collect() ) {
+        for ( auto& loc : leaves[nodes[nID].leafID].store ) {
+          res.push_back( loc );
+        }
+      }
+      return res;
+    }
+
     inline std::pair<int,int> getChildren( int nodeID )
     {
       if ( nodes[nodeID].node->isLeaf() ) {

@@ -478,12 +478,15 @@ namespace PatTk
     cv::Mat image;
     int align;
     int radius;
+    bool withLabel;
     std::function<void(int,int)> callback;
   public:
     static const int CENTER = 0;
     static const int TOPLEFT = 1;
+
+    ImageViewer() : align(CENTER), radius(6), withLabel(false) {}
     
-    ImageViewer( std::string wnd, cv::Mat img, int r=6 ) : align(CENTER)
+    ImageViewer( std::string wnd, cv::Mat img, int r=6 ) : align(CENTER), withLabel(false)
     {
       wndName = wnd;
       image = img.clone();
@@ -492,7 +495,20 @@ namespace PatTk
       callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
       radius = r;
     }
-    
+
+    ImageViewer( std::string wnd, cv::Mat img, cv::Mat lbl, int r=6 ) : align(CENTER), withLabel(true)
+    {
+      wndName = wnd;
+      assert( img.rows == lbl.rows && img.cols == lbl.cols );
+      image.create( img.rows << 1, img.cols, CV_8UC3 );
+      img.copyTo( image( cv::Rect( 0, 0, img.cols, img.rows ) ) );
+      lbl.copyTo( image( cv::Rect( 0, img.rows, img.cols, img.rows ) ) );
+      cv::imshow( wndName, image );
+      cv::setMouseCallback( wndName, MouseCallback, this );
+      callback = [](int x, int y){ Info( "(%d,%d) Clicked.", y, x ); };
+      radius = r;
+    }
+
 
     void SwitchImage( std::string filename ) 
     {
@@ -501,6 +517,7 @@ namespace PatTk
         Error( "ImageViewer.SwitchImage(): error while reading image %s", filename.c_str() );
         exit( -1 );
       }
+      withLabel = false;
     }
 
     void display( int x, int y )
@@ -519,13 +536,25 @@ namespace PatTk
                      cv::Scalar( 0, 255, 0 ) ) ;
         }
       }
+      if ( withLabel ) {
+        if ( -1 != x ) {
+          if ( CENTER == align ) {
+            rectangle( canvas,
+                       cv::Point( x-radius, y-radius+(image.rows>>1) ),
+                       cv::Point( x+radius, y+radius+(image.rows>>1) ),
+                       cv::Scalar( 0, 255, 0 ) ) ;
+          } else if ( TOPLEFT == align ) {
+            rectangle( canvas,
+                       cv::Point( x-radius, y-radius+(image.rows>>1) ),
+                       cv::Point( x+radius, y+radius+(image.rows>>1) ),
+                       cv::Scalar( 0, 255, 0 ) ) ;
+          }
+        }
+      }
       cv::imshow( wndName, canvas );
       cv::setMouseCallback( wndName, MouseCallback, this );
     }
-
     
-
-
     void display( const std::vector<PatLoc> &list )
     {
       cv::Mat canvas = image.clone();
@@ -552,11 +581,17 @@ namespace PatTk
     {
       if ( event == CV_EVENT_LBUTTONDOWN ) {
         ImageViewer *viewer = (ImageViewer*) param;
-        viewer->display( x, y );
-        viewer->callback( x, y );
+        if ( (!viewer->withLabel) || y < (viewer->image.rows>>1) ) {
+          viewer->display( x, y );
+          viewer->callback( x, y );
+        } else {
+          viewer->display( x, y - (viewer->image.rows>>1));
+          viewer->callback( x, y - (viewer->image.rows>>1));
+        }
       }
     }
   };
+
 
 
   // +-------------------------------------------------------------------------------

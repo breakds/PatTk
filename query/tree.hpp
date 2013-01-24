@@ -414,12 +414,11 @@ namespace PatTk
             leaves.emplace( leaves.end() );
             node->nodeID = static_cast<int>( nodes.size() );
             nodes.emplace( nodes.end(), node, leafID );
-          }
-
-          for ( int i=0; i<state.len; i++ ) {
-            leaves[leafID].add( list[state.idx[i]].id(),
-                                list[state.idx[i]].y,
-                                list[state.idx[i]].x );
+            for ( int i=0; i<state.len; i++ ) {
+              leaves[leafID].add( list[state.idx[i]].id(),
+                                  list[state.idx[i]].y,
+                                  list[state.idx[i]].x );
+            }
           }
         }
         stack.pop_front();
@@ -489,11 +488,29 @@ namespace PatTk
 
     int query_node( const typename kernel::dataType *p, int depth ) const
     {
-      if ( isLeaf() ) {
+      if ( isLeaf() || 0 == depth ) {
         return nodeID;
       } else {
         return child[judger(p)]->query_node( p, depth - 1 );
       }
+    }
+
+  private:
+    void collect( std::vector<int> &store ) const
+    {
+      if ( isLeaf() ) {
+        store.push_back( nodeID );
+      } else {
+        child[0]->collect( store );
+        child[1]->collect( store );
+      }
+    }
+  public:
+    std::vector<int> collect() const
+    {
+      std::vector<int> store;
+      collect( store );
+      return store;
     }
 
     int maxDepth() const

@@ -20,7 +20,7 @@ int main( int argc, char **argv )
     exit( -1 );
   }
 
-  srand( 7325273 );
+  // srand( 7325273 );
 
   env.parse( argv[1] );
   env.Summary();
@@ -30,6 +30,7 @@ int main( int argc, char **argv )
   /* ---------- Build/Load Forest ---------- */
   std::vector<std::string> imgList = std::move( readlines( strf( "%s/%s", env["dataset"].c_str(),
                                                                  env["list-file"].c_str())) );
+  auto lblList = std::move( path::FFFL( env["dataset"], imgList, "_L.png" ) );
   imgList =  std::move( path::FFFL( env["dataset"], imgList, ".png" ) );
 
   Album<float> album;
@@ -66,7 +67,8 @@ int main( int argc, char **argv )
   Info( "System on." );
 
   cv::Mat srcmat = cv::imread( imgList[viewID] );
-  ImageViewer srcview( "source", srcmat );
+  cv::Mat lblmat = cv::imread( lblList[viewID] );
+  ImageViewer srcview( "source", srcmat, lblmat );
 
   std::vector<IconList> icons;
 
@@ -76,37 +78,78 @@ int main( int argc, char **argv )
   
   float feat[album(viewID).GetPatchDim()];
 
-  forest.getChildren( 12 );
-  
-  srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&forest]( int x, int y )
+  // srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&lblList,&forest]( int x, int y )
+  //                      {
+  //                        album(viewID).FetchPatch( y, x, feat );
+  //                        Info( "querying (%d,%d)\n", y, x );
+                         
+  //                        std::vector<int> res = std::move( forest.query( feat ) );
+
+  //                        for ( auto& item : icons ) {
+  //                          item.clear();
+  //                        }
+
+  //                        int viewTrees = 4;
+  //                        int i = 0;
+  //                        for ( auto& leafID : randperm<int>( res, viewTrees )  ) {
+  //                          int count = 0;
+  //                          for ( auto& loc : forest(leafID).store ) {
+  //                            if ( count++ > 200 ) break;
+  //                            icons[i].push( imgList, PatLoc( loc ) );
+  //                            icons[i].push( lblList, PatLoc( loc ) );
+  //                          }
+  //                          i++;
+  //                        }
+
+  //                        for ( int v=0; v<viewTrees; v++  ) {
+  //                          icons[v].display();
+  //                        }
+                         
+  //                      } );
+
+  srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&lblList,&forest]( int x, int y )
                        {
                          album(viewID).FetchPatch( y, x, feat );
                          Info( "querying (%d,%d)\n", y, x );
+                         
+                         std::vector<int> res = std::move( forest.query_node( feat, 18 ) );
 
-                         std::vector<int> res = std::move( forest.query( feat ) );
+                         icons[0].clear();
+                         icons[1].clear();
 
-                         for ( auto& item : icons ) {
-                           item.clear();
-                         }
+                         int pick_tree = rand() % forest.size();
+                         
+                         auto childID = forest.getChildren( res[pick_tree] );
 
-                         int i = 0;
-                         for ( auto& leafID : res ) {
+                         if ( -1 != childID.first ) {
+                           std::vector<LocInfo> left = std::move( forest.collect( childID.first ) );
+                           std::vector<LocInfo> right = std::move( forest.collect( childID.second ) );
+                           printf( "left: %ld\n", left.size() );
+                           printf( "right: %ld\n", right.size() );
                            int count = 0;
-                           for ( auto& loc : forest(leafID).store ) {
+                           for ( auto& loc : left ) {
                              if ( count++ > 200 ) break;
-                             icons[i].push( imgList, PatLoc( loc ) );
+                             icons[0].push( imgList, PatLoc( loc ) );
+                             icons[0].push( lblList, PatLoc( loc ) );
                            }
-                           i++;
-                         }
-
-                         for ( auto& item : icons ) {
-                           item.display();
+                           count = 0;
+                           for ( auto& loc : right ) {
+                             if ( count++ > 200 ) break;
+                             icons[1].push( imgList, PatLoc( loc ) );
+                             icons[1].push( lblList, PatLoc( loc ) );
+                           }
                          }
                          
+                         icons[0].display();
+                         icons[1].display();
+                         
                        } );
+
   
   
   while( 27 != cv::waitKey() );
+
+  
   
   return 0;
 }
