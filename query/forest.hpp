@@ -291,7 +291,7 @@ namespace PatTk
     }
 
 
-    // query leaf
+    // query node
     template <typename T>
     inline std::vector< std::pair<int,double> > query_node_with_coef( const T p, int max_depth ) const
     {
@@ -304,7 +304,7 @@ namespace PatTk
 
       double w = 1.0 / trees.size();
       for ( auto& ele : trees ) {
-        res.push_back( std::make_pair( ele->query( p, max_depth ), w ) );
+        res.push_back( std::make_pair( ele->query_node( p, max_depth ), w ) );
       }
 
       return res;

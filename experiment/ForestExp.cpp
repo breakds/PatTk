@@ -68,9 +68,16 @@ int main( int argc, char **argv )
   cv::Mat srcmat = cv::imread( imgList[viewID] );
   ImageViewer srcview( "source", srcmat );
 
-  IconList icons( "test", 13 );
+  std::vector<IconList> icons;
 
+  for ( int i=0; i<forest.size(); i++ ) {
+    icons.emplace( icons.end(), strf( "tree %d", i ), 13 );
+  }
+  
   float feat[album(viewID).GetPatchDim()];
+
+  forest.query_node_with_coef( feat, 10 );
+  
   srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&forest]( int x, int y )
                        {
                          album(viewID).FetchPatch( y, x, feat );
@@ -78,19 +85,24 @@ int main( int argc, char **argv )
 
                          std::vector<int> res = std::move( forest.query( feat ) );
 
-                         icons.clear();
-                         int count = 0;
+                         for ( auto& item : icons ) {
+                           item.clear();
+                         }
 
+                         int i = 0;
                          for ( auto& leafID : res ) {
+                           int count = 0;
                            for ( auto& loc : forest(leafID).store ) {
                              if ( count++ > 200 ) break;
-                             icons.push( imgList, PatLoc( loc ) );
+                             icons[i].push( imgList, PatLoc( loc ) );
                            }
-                           if ( count > 200 ) break;
+                           i++;
+                         }
+
+                         for ( auto& item : icons ) {
+                           item.display();
                          }
                          
-                         icons.display();
-                      
                        } );
   
   
