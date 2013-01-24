@@ -333,9 +333,10 @@ namespace PatTk
   private:
     std::unique_ptr< Tree<kernel> > child[2];
     typename kernel::Judger judger;
-    int nodeID;
     
   public:
+    int nodeID;
+    
     
     Tree() 
     {

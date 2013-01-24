@@ -76,7 +76,7 @@ int main( int argc, char **argv )
   
   float feat[album(viewID).GetPatchDim()];
 
-  forest.query_node_with_coef( feat, 10 );
+  forest.getChildren( 12 );
   
   srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&forest]( int x, int y )
                        {
