@@ -194,6 +194,9 @@ endif (BUILD_UNITTEST)
 ADD_EXECUTABLE(forestExp experiment/ForestExp.cpp)
 TARGET_LINK_LIBRARIES(forestExp ${OPENCV})
 
+ADD_EXECUTABLE(treeQ experiment/TreeQuality.cpp)
+TARGET_LINK_LIBRARIES(treeQ ${OPENCV})
+
 
 
 

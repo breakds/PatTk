@@ -232,6 +232,7 @@ namespace PatTk
     }
   }
 
+
   /* print vector */
   void printVec( const double *x, int dim ) {
     printf( "( " );
@@ -272,6 +273,22 @@ namespace PatTk
       sum += x[i];
     }
     return sum;
+  }
+
+  /* Calculate the entropy based on the distribution */
+  template <typename dataType>
+  inline double entropy( const dataType *vec, int dim )
+  {
+    double s = static_cast<double>( sum_vec( vec, dim ) );
+    double re = 0.0;
+    const dataType *x = vec;
+    for ( int i=0; i<dim; i++ ) {
+      double v = *(x++) / s;
+      if ( v >= 1e-6 ) {
+        re += v * log( v );
+      }
+    }
+    return -re;
   }
 
 

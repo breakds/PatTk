@@ -21,6 +21,7 @@ int main( int argc, char **argv )
   }
 
   // srand( 7325273 );
+  srand(time(NULL));
 
   env.parse( argv[1] );
   env.Summary();
@@ -128,13 +129,13 @@ int main( int argc, char **argv )
                            printf( "right: %ld\n", right.size() );
                            int count = 0;
                            for ( auto& loc : left ) {
-                             if ( count++ > 200 ) break;
+                             if ( count++ > 400 ) break;
                              icons[0].push( imgList, PatLoc( loc ) );
                              icons[0].push( lblList, PatLoc( loc ) );
                            }
                            count = 0;
                            for ( auto& loc : right ) {
-                             if ( count++ > 200 ) break;
+                             if ( count++ > 400 ) break;
                              icons[1].push( imgList, PatLoc( loc ) );
                              icons[1].push( lblList, PatLoc( loc ) );
                            }

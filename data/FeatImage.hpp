@@ -734,6 +734,20 @@ namespace PatTk
     }
 
 
+    inline void SetPatchSize( int s )
+    {
+      for ( auto& img : pages ) {
+        img.SetPatchSize( s );
+      }
+    }
+      
+    inline void SetPatchStride( int s )
+    {
+      for ( auto& img : pages ) {
+        img.SetPatchStride( s );
+      }
+    }
+
     /* Only provide read-only access to member images */
     const FeatImage<dataType>& operator()( const int index ) const
     {

@@ -90,6 +90,6 @@ namespace PatTk
     {
       return className[index];
     }
-    
+
   };
 }
