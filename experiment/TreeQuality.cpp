@@ -253,12 +253,14 @@ int main( int argc, char **argv )
         float s = sum_vec( &voters[leafID][i], LabelSet::classes );
         scale( &voters[leafID][i], LabelSet::classes, 1.0f / s );
       }
+      progress( leafID + 1, forest.centers(), "constructing voters" );
     }
+    printf( "\n" );
     
     
     int voterRadius = voterSize >> 1;
     float feat[album(0).GetPatchDim()];
-    for ( int i=0; i<1; i++ ) {
+    for ( int i=0; i<album.size(); i++ ) {
       VoteMap voteMap( album(i).rows, album(i).cols );
       for ( int y=0; y<album(i).rows; y++ ) {
         for ( int x=0; x<album(i).cols; x++ ) {
@@ -286,9 +288,9 @@ int main( int argc, char **argv )
 
       cv::Mat syn = voteMap.synthesis();
       cv::imwrite( strf( "%s/%s", env["reconstruct-output"].c_str(), imgList[i].c_str() ), syn );
-      
+      progress( i+1, album.size(), "Reconstructing" );
     } // for i
-    
+    printf( "\n" );
   }
 
   
