@@ -85,15 +85,46 @@ public:
     for ( int y=0; y<rows; y++ ) {
       for ( int x=0; x<cols; x++ ) {
         auto color = LabelSet::GetColor( getClass( y, x ) );
-        canvas.at<cv::Vec3b>( y, x )[0] = get<0>( color );
+        canvas.at<cv::Vec3b>( y, x )[0] = get<2>( color );
         canvas.at<cv::Vec3b>( y, x )[1] = get<1>( color );
-        canvas.at<cv::Vec3b>( y, x )[2] = get<2>( color );
+        canvas.at<cv::Vec3b>( y, x )[2] = get<0>( color );
       }
     }
     return canvas;
   }
 };
-  
+
+
+
+void GetClassInvDistribution( Album<uchar> &lblAlbum,
+                           double *classWeight )
+{
+  int counts[LabelSet::classes];
+  memset( counts, 0, sizeof(int) * LabelSet::classes );
+
+  int n = lblAlbum.size();
+  int j = 0;
+  for ( auto& lblImg : lblAlbum ) {
+    int area = lblImg.rows * lblImg.cols;
+    for ( int i=0; i<area; i++ ) {
+      counts[ LabelSet::GetClass( lblImg(i)[0], lblImg(i)[1], lblImg(i)[2] ) ] ++;
+    }
+    progress( ++j, n, "calculating inverse weights" );
+  }
+  printf( "\n" );
+
+  int s = sum_vec( counts, LabelSet::classes );
+
+  for ( int i=0; i<LabelSet::classes; i++ ) {
+    classWeight[i] = static_cast<double>(s) / counts[i];
+  }
+
+
+  double t = sum_vec( classWeight, LabelSet::classes ) / static_cast<double>( LabelSet::classes );
+  for ( int i=0; i<LabelSet::classes; i++ ) {
+    classWeight[i] /= t;
+  }
+}
 
 int main( int argc, char **argv )
 {
@@ -197,6 +228,11 @@ int main( int argc, char **argv )
   if ( env.find( "reconstruct-output" ) ) {
 
     uchar label[lblAlbum(0).GetPatchDim()];
+
+    // Class Weight
+    double classWeight[LabelSet::classes];
+    GetClassInvDistribution( lblAlbum, classWeight );
+
     
     // Build voters
     std::vector<std::vector<float> > voters;
@@ -210,7 +246,7 @@ int main( int argc, char **argv )
         lblAlbum(loc.id).FetchPatch( loc.y, loc.x, label );
         for ( int i=0; i<voterSize*voterSize; i++ ) {
           int k = LabelSet::GetClass( label[i*3], label[i*3+1], label[i*3+2] );
-          voters[leafID][ i * LabelSet::classes + k ] += 1.0;
+          voters[leafID][ i * LabelSet::classes + k ] += classWeight[k];
         }
       }
       for ( int i=0; i<voterSize*voterSize*LabelSet::classes; i+=LabelSet::classes ) {
