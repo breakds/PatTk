@@ -82,25 +82,31 @@ endif ("${HOSTNAME}" MATCHES "beggar.cs.wisc.edu")
 # Include Directory Structure for break@zhang-submit.chtc.wisc.edu
 if ("${HOSTNAME}" MATCHES "zhang-submit.chtc.wisc.edu")
   include_directories(
-    "/scratch/usr/local/include"
     "~/pf/projects"
     ".")
   # OpenCV Library
-  add_library( OPENCV SHARED IMPORTED)
-  set_property( TARGET OPENCV PROPERTY
-    IMPORTED_LOCATION "/usr/local/lib/libopencv_core.so" )
-  set_property( TARGET OPENCV PROPERTY
-    IMPORTED_LOCATION "/usr/local/lib/libopencv_highgui.so" )
-  set_property( TARGET OPENCV PROPERTY
-    IMPORTED_LOCATION "/usr/local/lib/libopencv_features2d.so" )
-  set_property( TARGET OPENCV PROPERTY
-    IMPORTED_LOCATION "/usr/local/lib/libopencv_objdetect.so" )
-  set(OPENCV "OPENCV")
-
+  set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_imgproc -lopencv_highgui" )
+  set(OPENCV "")
+  
   # CUDA SDK 5.0
   find_package("CUDA" 5.0 REQUIRED)
-  set(CUDA_NVCC_FLAGS "-arch=sm_30")
+  set(CUDA_NVCC_FLAGS "-arch=sm_30 --compiler-bindir /usr/bin")
 endif ("${HOSTNAME}" MATCHES "zhang-submit.chtc.wisc.edu")
+
+# ================================================================================
+# Include Directory Structure for break@zhang-submit.chtc.wisc.edu
+if ("${HOSTNAME}" MATCHES "zhang-c001.chtc.wisc.edu")
+  include_directories(
+    "~/pf/projects"
+    ".")
+  # OpenCV Library
+  set( CMAKE_EXE_LINKER_FLAGS "-lopencv_core -lopencv_imgproc -lopencv_highgui" )
+  set(OPENCV "")
+  
+  # CUDA SDK 5.0
+  find_package("CUDA" 5.0 REQUIRED)
+  set(CUDA_NVCC_FLAGS "-arch=sm_30 --compiler-bindir /usr/bin")
+endif ("${HOSTNAME}" MATCHES "zhang-c001.chtc.wisc.edu")
 
 
 
