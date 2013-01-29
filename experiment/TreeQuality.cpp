@@ -253,7 +253,9 @@ int main( int argc, char **argv )
         float s = sum_vec( &voters[leafID][i], LabelSet::classes );
         scale( &voters[leafID][i], LabelSet::classes, 1.0f / s );
       }
-      progress( leafID + 1, forest.centers(), "constructing voters" );
+      if ( 0 == leafID % 20000 ) {
+        progress( leafID + 1, forest.centers(), "constructing voters" );
+      }
     }
     printf( "\n" );
     
