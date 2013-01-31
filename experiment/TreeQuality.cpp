@@ -70,11 +70,11 @@ public:
     return cost( y * cols + x, truth );
   }
 
-  inline double compare( const FeatImage<uchar>& truth )
+  inline double compare( const FeatImage<int>& truth )
   {
     double s = 0.0;
     for ( int i=0; i<cols*rows; i++ ) {
-      s += cost( i, LabelSet::GetClass( truth(i)[0], truth(i)[1], truth(i)[2] ) );
+      s += cost( i, *truth(i) );
     }
     return s;
   }
@@ -96,8 +96,8 @@ public:
 
 
 
-void GetClassInvDistribution( Album<uchar> &lblAlbum,
-                           double *classWeight )
+void GetClassInvDistribution( Album<int> &lblAlbum,
+                              double *classWeight )
 {
   int counts[LabelSet::classes];
   memset( counts, 0, sizeof(int) * LabelSet::classes );
@@ -107,7 +107,7 @@ void GetClassInvDistribution( Album<uchar> &lblAlbum,
   for ( auto& lblImg : lblAlbum ) {
     int area = lblImg.rows * lblImg.cols;
     for ( int i=0; i<area; i++ ) {
-      counts[ LabelSet::GetClass( lblImg(i)[0], lblImg(i)[1], lblImg(i)[2] ) ] ++;
+      counts[*lblImg(i)]++;
     }
     progress( ++j, n, "calculating inverse weights" );
   }
@@ -160,25 +160,29 @@ int main( int argc, char **argv )
   printf( "\n" );
 
 
-  Album<uchar> lblAlbum;
+
+  
+  Album<int> lblAlbum;
   {
     int i = 0;
     int n = static_cast<int>( lblList.size() );
     for ( auto& ele : lblList ) {
-      lblAlbum.push( std::move( cvFeat<BGR>::gen( ele ) ) );
+      lblAlbum.push( std::move( cvFeat<HARD_LABEL_MAP>::gen( ele ) ) );
       progress( ++i, n, "Loading Label Album" );
     }
   }
   printf( "\n" );
   lblAlbum.SetPatchSize( env["lbl-size"] );
   lblAlbum.SetPatchStride( 1 );
+
+
   
 
   
   /* ---------- Load Forest ---------- */
   Info( "Loading Forest .." );
   timer::tic();
-  Forest<SimpleKernel<float> > forest( env["forest-dir"] );
+  Forest<EntropyKernel<float> > forest( env["forest-dir"] );
   printf( "tree loaded: %.3lf sec\n", timer::utoc() );
   printf( "maxDepth: %d\n", forest.maxDepth() );
 
@@ -186,14 +190,14 @@ int main( int argc, char **argv )
   /* ---------- Collective Entropy ---------- */
   if ( env.find( "entropy-output" ) ) {
     WITH_OPEN( out, env["entropy-output"].c_str(), "w" );
-    uchar label[lblAlbum(0).GetPatchDim()];
+    int label[lblAlbum(0).GetPatchDim()];
     int count[LabelSet::classes];
     for ( int i=0; i<forest.centers(); i++ ) {
       memset( count, 0, sizeof(int) * LabelSet::classes );
       for ( auto& ele : forest(i).store ) {
         lblAlbum(ele.id).FetchPatch( ele.y, ele.x, label );
-        for ( int j=0; j<lblAlbum(0).GetPatchDim(); j+=3 ) {
-          count[LabelSet::GetClass( label[j], label[j+1], label[j+2] )]++;
+        for ( int j=0; j<lblAlbum(0).GetPatchDim(); j++ ) {
+          count[label[j]]++;
         }
       }
       double ent = entropy( count, LabelSet::classes );
@@ -212,8 +216,7 @@ int main( int argc, char **argv )
     for ( int i=0; i<forest.centers(); i++ ) {
       memset( count, 0, sizeof(int) * LabelSet::classes );
       for ( auto& ele : forest(i).store ) {
-        const uchar *color = lblAlbum(ele.id)(ele.y, ele.x);
-        count[LabelSet::GetClass( color[0], color[1], color[2] )]++;
+        count[*lblAlbum(ele.id)(ele.y, ele.x)]++;
       }
       double ent = entropy( count, LabelSet::classes );
       fprintf( out, "%.8lf\n", ent );
@@ -227,16 +230,23 @@ int main( int argc, char **argv )
   /* ---------- Voting Test ---------- */
   if ( env.find( "reconstruct-output" ) ) {
 
-    uchar label[lblAlbum(0).GetPatchDim()];
+    int label[lblAlbum(0).GetPatchDim()];
 
     // Class Weight
     double classWeight[LabelSet::classes];
     GetClassInvDistribution( lblAlbum, classWeight );
 
-    
+
+    printf( "---------- Class Weight ----------\n" );
+    for ( int i=0; i<LabelSet::classes; i++ ) {
+      printf( "%20s: %.6lf\n", LabelSet::GetClassName(i).c_str(), classWeight[i] );
+    }
+    Done( "Calculating Inverse Class Weight." );
+
+
     // Build voters
     std::vector<std::vector<float> > voters;
-
+    
     int voterSize = env["lbl-size"];
     
     voters.resize( forest.centers() );
@@ -245,7 +255,7 @@ int main( int argc, char **argv )
       for ( auto& loc : forest(leafID).store ) {
         lblAlbum(loc.id).FetchPatch( loc.y, loc.x, label );
         for ( int i=0; i<voterSize*voterSize; i++ ) {
-          int k = LabelSet::GetClass( label[i*3], label[i*3+1], label[i*3+2] );
+          int k = label[i];
           voters[leafID][ i * LabelSet::classes + k ] += classWeight[k];
         }
       }
@@ -273,11 +283,10 @@ int main( int argc, char **argv )
             for ( int dy=-voterRadius; dy<=voterRadius; dy++ ) {
               int y1 = y + dy;
               if ( 0 > y1 || album(i).rows <= y1 ) continue;
-              for ( int dx=-voterRadius; dx<=voterRadius; dx++ ) {
+              for ( int dx=-voterRadius; dx<=voterRadius; dx++, j += LabelSet::classes ) {
                 int x1 = x + dx;
                 if ( 0 > x1 || album(i).cols <= x1 ) continue;
                 voteMap.vote( y1, x1, &voters[leafID][j] );
-                j += LabelSet::classes;
               } // for dx
             } // for dy
           } // for leafID

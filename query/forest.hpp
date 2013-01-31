@@ -76,9 +76,55 @@ namespace PatTk
       delete[] idx;
     }
 
-    Forest( int n, Album<typename kernel::dataType>& album, float proportion = 1.1f, int max_depth = -1 ) :
-      Forest( n, album.list(), proportion, max_depth ) {}
+
+    Forest( int n,
+            const std::vector<typename FeatImage<typename kernel::dataType>::PatchProxy> &list,
+            const std::vector<typename FeatImage<float>::PatchProxy> &labels,
+            float proportion = 1.1f, int max_depth = -1 )
+    {
+      // initialze the containers
+      trees.resize( n );
+      leaves.clear();
+      nodes.clear();
+      weights.clear();
       
+      int len = static_cast<int>( list.size() );
+      int trueLen = len;
+      if ( proportion < 1.0f ) trueLen = static_cast<int>( len * proportion );
+      
+      int **idx = new int*[n];
+
+
+      int finished = 0;
+#     pragma omp parallel for
+      for ( int i=0; i<n; i++ ) {
+        rndgen::randperm( len, trueLen, idx[i] );
+        trees[i].reset( new Tree<kernel>( list, labels, idx[i], trueLen, nodes, leaves, max_depth ) );
+#       pragma omp critical
+        {
+          progress( ++finished, n, "Tree Growth." );
+        }
+      }
+      printf( "\n" );
+      
+
+
+      for ( int i=0; i<n; i++ ) delete[] idx[i];
+      delete[] idx;
+    }
+
+
+    Forest( int n,
+            Album<typename kernel::dataType>& album,
+            float proportion = 1.1f, int max_depth = -1 ) :
+      Forest( n, album.list(), proportion, max_depth ) {}
+
+    Forest( int n,
+            Album<typename kernel::dataType>& album,
+            Album<float>& softAlbum,
+            float proportion = 1.1f, int max_depth = -1 ) :
+      Forest( n, album.list(), softAlbum.list(), proportion, max_depth ) {}
+
     
 
     

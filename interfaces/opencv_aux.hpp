@@ -15,13 +15,14 @@
 #include "../graph/Trans.hpp"
 #include "../data/FeatImage.hpp"
 #include "../data/vector.hpp"
+#include "../data/Label.hpp"
 
 #define _USE_MATH_DEFINES
 
 namespace PatTk
 {
 
-  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT };
+  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
   
   /* anonymous namespace for helper functions */
   namespace
@@ -38,6 +39,13 @@ namespace PatTk
     public:
       typedef uchar type;
     };
+    
+    template <>
+    class GetDataType<BGR_FLOAT>
+    {
+    public:
+      typedef float type;
+    };
 
     template <>
     class GetDataType<Lab>
@@ -53,6 +61,19 @@ namespace PatTk
       typedef float type;
     };
 
+    template <>
+    class GetDataType<SOFT_LABEL_MAP>
+    {
+    public:
+      typedef float type;
+    };
+
+    template <>
+    class GetDataType<HARD_LABEL_MAP>
+    {
+    public:
+      typedef int type;
+    };
   }
 
 
@@ -75,6 +96,14 @@ namespace PatTk
   };
 
 
+  template<>
+  struct FeatOptions<SOFT_LABEL_MAP>
+  {
+    int cell_side;
+    FeatOptions() : cell_side(5) {}
+  };
+
+
   
   
 
@@ -90,6 +119,11 @@ namespace PatTk
     {
       return FeatImage<unsigned char>();
     }
+
+
+
+    /* -------------------- BGR -------------------- */
+
     
     // +--------------------------------------------------+
     // |  BGR Feature Generator                           |
@@ -178,6 +212,9 @@ namespace PatTk
       return FeatImage<uchar>( std::move(imgs), base );
     }
 
+
+    /* -------------------- BGR_FLOAT -------------------- */
+
     // +--------------------------------------------------+
     // |  BGR Feature Generator (float version)           |
     // +--------------------------------------------------+
@@ -227,6 +264,9 @@ namespace PatTk
       return gen<BGR_FLOAT>( raw );
     }
 
+
+    /* -------------------- Lab -------------------- */
+    
     // +--------------------------------------------------+
     // |  Lab Feature Generator                           |
     // +--------------------------------------------------+
@@ -260,10 +300,7 @@ namespace PatTk
 
 
 
-
-    
-
-
+    /* -------------------- HOG -------------------- */
 
     template <featEnum T=featType>
     inline static void Angle2Bin( float angle, int &lo_bin, int &hi_bin, float &lo_wt, float &hi_wt,
@@ -444,6 +481,83 @@ namespace PatTk
       return pointMap;
 
     }
+
+    /* -------------------- HARD_LABEL_MAP -------------------- */
+
+    template <featEnum T=featType>
+    static FeatImage<typename GetDataType<HARD_LABEL_MAP>::type>
+    gen( cv::Mat raw, ENABLE_IF( HARD_LABEL_MAP == T ) )
+    {
+      FeatImage<typename GetDataType<HARD_LABEL_MAP>::type> img( raw.rows, raw.cols, 1 );
+      int *img_ptr = img[0];
+      for ( int i=0; i<raw.rows; i++ ) {
+        uchar *raw_ptr = raw.ptr<uchar>(i);
+        for ( int j=0; j<raw.cols; j++ ) {
+          uchar b = *(raw_ptr++);
+          uchar g = *(raw_ptr++);
+          uchar r = *(raw_ptr++);
+          *(img_ptr++) = static_cast<typename GetDataType<HARD_LABEL_MAP>::type>( LabelSet::GetClass( b, g, r ) );
+        }
+      }
+      img.ToggleNormalized( false );
+      return img;
+    }
+    
+
+    template <featEnum T=featType>
+    static FeatImage<typename GetDataType<HARD_LABEL_MAP>::type>
+    gen( std::string filename, ENABLE_IF( HARD_LABEL_MAP == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<HARD_LABEL_MAP>( raw );
+    }
+
+
+    /* -------------------- SOFT_LABEL_MAP -------------------- */
+
+    // +--------------------------------------------------+
+    // |  Soft Label  Feature Generator Core              |
+    // +--------------------------------------------------+
+    template <featEnum T=featType>
+    static FeatImage<typename GetDataType<SOFT_LABEL_MAP>::type>
+    gen( cv::Mat raw, ENABLE_IF( SOFT_LABEL_MAP == T ) )
+    {
+      FeatImage<typename GetDataType<SOFT_LABEL_MAP>::type> img( raw.rows, raw.cols, LabelSet::classes );
+      typename GetDataType<SOFT_LABEL_MAP>::type *img_ptr = img[0];
+      for ( int i=0; i<raw.rows; i++ ) {
+        uchar *raw_ptr = raw.ptr<uchar>(i);
+        for ( int j=0; j<raw.cols; j++ ) {
+          uchar b = *(raw_ptr++);
+          uchar g = *(raw_ptr++);
+          uchar r = *(raw_ptr++);
+          memset( img_ptr, 0, sizeof(typename GetDataType<SOFT_LABEL_MAP>::type) * LabelSet::classes );
+          img_ptr[LabelSet::GetClass( b, g, r )] = 1.0;
+          img_ptr += LabelSet::classes;
+        }
+      }
+      img.MeanFilter( options.cell_side >> 1 );
+      img.ToggleNormalized( false );
+      return img;
+    }
+
+    template <featEnum T=featType>
+    static FeatImage<typename GetDataType<SOFT_LABEL_MAP>::type>
+    gen( std::string filename, ENABLE_IF( SOFT_LABEL_MAP == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<SOFT_LABEL_MAP>( raw );
+    }
+
+
+
     
   };
 

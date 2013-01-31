@@ -45,9 +45,23 @@ int main( int argc, char **argv )
   }
   printf( "\n" );
 
+  Album<float> softAlbum;
+  {
+    cvFeat<SOFT_LABEL_MAP>::options.cell_side = env["lbl-size"];
+    int i = 0;
+    int n = static_cast<float>( lblList.size() );
+    for ( auto& ele : lblList ) {
+      softAlbum.push( std::move( cvFeat<SOFT_LABEL_MAP>::gen( ele ) ) );
+      progress( ++i, n, "Loading Label Album" );
+    }
+  }
+  printf( "\n" );
+  softAlbum.SetPatchSize( 1 );
+  softAlbum.SetPatchStride( 1 );
   
+
   if ( "yes" == static_cast<string>( env["build-forest"] ) ) {
-    Forest<SimpleKernel<float> > forest( env["forest-size"], album, env["per-tree"].toDouble(),
+    Forest<EntropyKernel<float> > forest( env["forest-size"], album, softAlbum, env["per-tree"].toDouble(),
                                          env["max-depth"] );
     forest.write( env["forest-dir"] );
   }
@@ -55,7 +69,7 @@ int main( int argc, char **argv )
   /* ---------- Load Forest ---------- */
   Info( "Loading Forest .." );
   timer::tic();
-  Forest<SimpleKernel<float> > forest( env["forest-dir"] );
+  Forest<EntropyKernel<float> > forest( env["forest-dir"] );
   printf( "tree loaded: %.3lf sec\n", timer::utoc() );
   printf( "maxDepth: %d\n", forest.maxDepth() );
 

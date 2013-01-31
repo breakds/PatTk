@@ -367,6 +367,7 @@ namespace PatTk
 
     inline void FetchPatch( int i, int j, dataType *feat ) const
     {
+
       int y = i + options.patch_start_offset;
       dataType *featp = feat;
       memset( feat, 0, sizeof(dataType) * options.patch_dim );
@@ -381,9 +382,12 @@ namespace PatTk
           featp += dimCell;
         }
       }
+
+      
       if ( options.normalized ) {
         normalize_vec( feat, feat, options.patch_dim );
       }
+
     }
     
     /* get patch from a particular layer of pyramid */
