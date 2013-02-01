@@ -226,6 +226,7 @@ namespace PatTk
       while ( !stack.empty() ) {
         typename kernel::State &state = stack.front().first;
         Tree<kernel> *node = stack.front().second;
+        // right is the starting index of the right branch
         int right = kernel::split( list, state, node->judger, max_depth );
         if ( right >= 0 ) {
           // internal node
