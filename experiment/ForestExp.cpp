@@ -92,7 +92,7 @@ int main( int argc, char **argv )
   }
   
   float feat[album(viewID).GetPatchDim()];
-
+  
   // srcview.setCallback( [&album,&viewID,&feat,&icons,&imgList,&lblList,&forest]( int x, int y )
   //                      {
   //                        album(viewID).FetchPatch( y, x, feat );
