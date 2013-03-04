@@ -53,15 +53,13 @@ public:
 
   inline double cost( int index, int truth ) const
   {
-    int winner = getClass( index );
-    if ( winner == truth ) {
-      return 0.0;
-    } else {
-      const float *p = &mat[ index * LabelSet::classes ];
-      double ratio = p[truth] / p[winner];
-      if ( ratio > 0.7 ) return ratio;
+    
+    const float *p = &mat[ index * LabelSet::classes ];
+    double c = 0.0;
+    for ( int i=0; i<LabelSet::classes; i++ ) {
+      c += p[truth] - p[i];
     }
-    return 1.0;
+    return c;
   }
 
 

@@ -978,8 +978,8 @@ int main( int argc, char **argv )
     }
   }
   cv::imwrite( strf( "%s/untouched.png", env["output-dir"].c_str() ), genSpotGraph( untouched,
-                                                                                            img.rows,
-                                                                                            img.cols ) );
+                                                                                    img.rows,
+                                                                                    img.cols ) );
 
 
   Bipartite pair_to_l( static_cast<int>( patchPairs.size() ), forest.centers() );

@@ -46,7 +46,7 @@ int main( int argc, char **argv )
   Done( "Training Album Loaded" );
   
   std::vector<FeatImage<float>::PatchProxy> l;
-    
+  
   for ( int k=0; k<album.size(); k++ ) {
     auto& ref = album(k);
     for ( int i=7; i<ref.rows-7; i++ ) {

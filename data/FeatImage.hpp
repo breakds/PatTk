@@ -100,6 +100,20 @@ namespace PatTk
         return parent->get( coorIdx + parent->options.offset[c] ) * inv;
       }
 
+      inline dataType operator[]( int c ) const
+      {
+        int y1 = parent->options.offsetY[c] + y;
+        int x1 = parent->options.offsetX[c] + x;
+        
+        if ( y1 < 0 || y1 >= parent->rows ||
+             x1 < 0 || x1 >= parent->cols ) {
+          return 0;
+        }
+        
+        return parent->get( coorIdx + parent->options.offset[c] ) * inv;
+      }
+
+
       inline int id() const
       {
         return parent->id;
