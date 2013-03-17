@@ -438,7 +438,8 @@ namespace PatTk
       dataType vec1[dimCell];
 
       dataType *featp = feat;
-      
+      bool re = true;
+
       for ( int l=0; l<options.patch_size; l++ ) {
         float y = y0;
         float x = x0;
@@ -483,6 +484,8 @@ namespace PatTk
             miss++;
           }
 
+          if ( 2 == miss ) re = false;
+
           if ( 0 == indicator ) {
             combine( vec0, vec1, vec0, dimCell, 1.0f - beta, beta );
           } else if ( 1 == indicator ) {
@@ -510,11 +513,7 @@ namespace PatTk
         normalize_vec( feat, feat, options.patch_dim );
       }
 
-      if ( 2 == miss ) {
-        return false;
-      } else {
-        return true;
-      }
+      return re;
     }
     
 
