@@ -405,7 +405,7 @@ namespace PatTk
     }
     
     /* get patch from a particular layer of pyramid */
-    inline void FetchPatch( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
+    inline bool FetchPatch( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
     {
       assert( layer >= 0 && layer < ( scales << 1 ) + 1 );
 
@@ -454,6 +454,7 @@ namespace PatTk
           float alpha = y - y1;
           float beta = x - x1;
           int indicator = 0;
+          int miss = 0;
 
           // note from now on vec0 and featp are interchangebale
           vec0 = featp;
@@ -467,6 +468,7 @@ namespace PatTk
             memcpy( vec0, (*this)( y1 + 1, x1, layer ), sizeof( dataType ) * dimCell );
           } else {
             indicator = 1;
+            miss++;
           }
 
           if ( b01 && b11 ) {
@@ -478,6 +480,7 @@ namespace PatTk
             memcpy( vec1, (*this)( y1 + 1, x1 + 1, layer ), sizeof( dataType ) * dimCell );
           } else {
             indicator = -1;
+            miss++;
           }
 
           if ( 0 == indicator ) {
@@ -506,29 +509,36 @@ namespace PatTk
       if ( options.normalized ) {
         normalize_vec( feat, feat, options.patch_dim );
       }
+
+      if ( 2 == miss ) {
+        return false;
+      } else {
+        return true;
+      }
     }
     
 
     /* rotation is clockwize and in rad
      * scale > 1 = upsampled and < 1 = downsampled
      */
-    inline void FetchPatch( float i, float j, float rotation, float scale, dataType *feat ) const
+    inline bool FetchPatch( float i, float j, float rotation, float scale, dataType *feat ) const
     {
 
       float log_scale = log(scale) / log(scale_base);
       if ( 0 == scales ) {
-        FetchPatch( 0, i, j, rotation, scale, feat );
+        return FetchPatch( 0, i, j, rotation, scale, feat );
       } else if ( log_scale < -scales ) {
-        FetchPatch( -scales, i, j, rotation, scale, feat );
+        return FetchPatch( -scales, i, j, rotation, scale, feat );
       } else if ( log_scale > scales ) {
-        FetchPatch( scales, i, j, rotation, scale, feat );
+        return FetchPatch( scales, i, j, rotation, scale, feat );
       } else {
         int l = static_cast<int>( log_scale );
         float alpha = log_scale - l;
         dataType tmp[options.patch_dim];
-        FetchPatch( l + scales, i, j, rotation, scale, feat );
-        FetchPatch( l + 1 + scales, i, j, rotation, scale,tmp );
+        bool a = FetchPatch( l + scales, i, j, rotation, scale, feat );
+        bool b = FetchPatch( l + 1 + scales, i, j, rotation, scale,tmp );
         combine( feat, tmp, feat, options.patch_dim, 1 - alpha, alpha );
+        return a && b;
       }
     }
 
