@@ -380,23 +380,22 @@ namespace PatTk
     /* ---------- Patch Accessors ---------- */
 
 
-    inline bool isValidPatch( int i, int j ) {
-      return ( 0 <= i ) && ( i < rows ) && ( 0 <= j ) && ( j < cols );
-    }
-
-    inline void FetchPatch( int i, int j, dataType *feat ) const
+    inline bool FetchPatch( int i, int j, dataType *feat ) const
     {
 
       int y = i + options.patch_start_offset;
       dataType *featp = feat;
       memset( feat, 0, sizeof(dataType) * options.patch_dim );
 
+      bool re = true;
       for ( int l=0; l<options.patch_size; l++, y+=options.patch_stride ) {
         int x = j + options.patch_start_offset;
         for ( int k=0; k<options.patch_size; k++, x+=options.patch_stride ) {
           if ( 0 <= y && y < rows &&
                0 <= x && x < cols ) {
             memcpy( featp, (*this)(y,x), sizeof(dataType) * dimCell );
+          } else {
+            re = false;
           }
           featp += dimCell;
         }
@@ -406,6 +405,8 @@ namespace PatTk
       if ( options.normalized ) {
         normalize_vec( feat, feat, options.patch_dim );
       }
+
+      return re;
 
     }
 
