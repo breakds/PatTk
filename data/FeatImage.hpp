@@ -403,32 +403,32 @@ namespace PatTk
       }
 
     }
-    
+
+
     /* get patch from a particular layer of pyramid */
-    inline bool FetchPatch( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
+    inline bool FetchPatchLayer( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
     {
       assert( layer >= 0 && layer < ( scales << 1 ) + 1 );
-
+      
       float ratio = scale * scale_layer[layer];
 
       
 
       float cy = i * scale_layer[layer];
       float cx = j * scale_layer[layer];
-      
+
       float cosa = cos( rotation );
       float sina = sin( rotation );
-
-      float vert_y = cosa * ratio;
-      float vert_x = -sina * ratio;
+      
+      float vert_y = cosa;
+      float vert_x = -sina;
       float horz_y = -vert_x;
       float horz_x = vert_y;
       
       
       float y0 = cy + ( vert_y + horz_y ) * options.patch_start_offset;
       float x0 = cx + ( vert_x + horz_x ) * options.patch_start_offset;
-
-
+      
       vert_y *= options.patch_stride;
       vert_x *= options.patch_stride;
       horz_y = -vert_x;
@@ -445,13 +445,137 @@ namespace PatTk
         float x = x0;
         for ( int k=0; k<options.patch_size; k++ ) {
 
-          int y1 = static_cast<int>( y );
-          int x1 = static_cast<int>( x );
+          int y1 = static_cast<int>( roundf( y ) );
+          int x1 = static_cast<int>( roundf( x ) );
+
+          DebugInfo( "(%d,%d)", y1, x1 );
+          DebugInfo( "(%f,%f)", y, x );
 
           bool b00 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b10 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b01 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
           bool b11 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
+
+          DebugInfo( "(%d,%d,%d,%d)", b00, b10, b01, b11 );
+          
+          float alpha = y - y1;
+          float beta = x - x1;
+          int indicator = 0;
+          int miss = 0;
+
+          // note from now on vec0 and featp are interchangebale
+          vec0 = featp;
+          
+          if ( b00 && b10 ) {
+            combine( (*this)( y1, x1, layer ), (*this)( y1 + 1, x1, layer ),
+                     vec0, dimCell, 1.0f - alpha, alpha );
+          } else if ( b00 ) {
+            memcpy( vec0, (*this)( y1, x1, layer ), sizeof( dataType ) * dimCell );
+          } else if ( b10 ) {
+            memcpy( vec0, (*this)( y1 + 1, x1, layer ), sizeof( dataType ) * dimCell );
+          } else {
+            indicator = 1;
+            miss++;
+          }
+
+          if ( b01 && b11 ) {
+            combine( (*this)( y1, x1 + 1, layer ), (*this)( y1 + 1, x1 + 1, layer ),
+                     vec1, dimCell, 1.0f - alpha, alpha );
+          } else if ( b01 ) {
+            memcpy( vec1, (*this)( y1, x1 + 1, layer ), sizeof( dataType ) * dimCell );
+          } else if ( b11 ) {
+            memcpy( vec1, (*this)( y1 + 1, x1 + 1, layer ), sizeof( dataType ) * dimCell );
+          } else {
+            indicator = -1;
+            miss++;
+          }
+
+          if ( 2 == miss ) re = false;
+
+          if ( 0 == indicator ) {
+            combine( vec0, vec1, vec0, dimCell, 1.0f - beta, beta );
+          } else if ( 1 == indicator ) {
+            memcpy( vec0, vec1, sizeof( dataType ) * dimCell );
+          } 
+
+          y += horz_y;
+          x += horz_x;
+          featp += dimCell;
+        }
+        y0 += vert_y;
+        x0 += vert_x;
+      }
+
+      if ( 0 != options.rotBins ) {
+        float delta = rotation / options.shiftUnit;
+        while ( delta < 0 ) delta += options.rotBins;
+        dataType *featp = feat;
+        for ( i=0; i<options.patch_dim; i+=options.rotBins ) {
+          shift( featp, options.rotBins, delta );
+          featp += options.rotBins;
+        }
+      }
+      if ( options.normalized ) {
+        normalize_vec( feat, feat, options.patch_dim );
+      }
+
+      return re;
+    }
+
+    
+    /* get patch from a particular layer of pyramid */
+    inline bool FetchPatch( int layer, float i, float j, float rotation, float scale, dataType *feat ) const
+    {
+      assert( layer >= 0 && layer < ( scales << 1 ) + 1 );
+
+      float ratio = scale * scale_layer[layer];
+
+      
+
+      float cy = i * scale_layer[layer];
+      float cx = j * scale_layer[layer];
+
+      float cosa = cos( rotation );
+      float sina = sin( rotation );
+
+      float vert_y = cosa * ratio;
+      float vert_x = -sina * ratio;
+      float horz_y = -vert_x;
+      float horz_x = vert_y;
+      
+      
+      float y0 = cy + ( vert_y + horz_y ) * options.patch_start_offset;
+      float x0 = cx + ( vert_x + horz_x ) * options.patch_start_offset;
+      
+      vert_y *= options.patch_stride;
+      vert_x *= options.patch_stride;
+      horz_y = -vert_x;
+      horz_x = vert_y;
+
+      dataType *vec0 = nullptr;
+      dataType vec1[dimCell];
+
+      dataType *featp = feat;
+      bool re = true;
+
+      for ( int l=0; l<options.patch_size; l++ ) {
+        float y = y0;
+        float x = x0;
+        for ( int k=0; k<options.patch_size; k++ ) {
+
+          int y1 = static_cast<int>( roundf( y ) );
+          int x1 = static_cast<int>( roundf( x ) );
+
+          DebugInfo( "(%d,%d)", y1, x1 );
+          DebugInfo( "(%f,%f)", y, x );
+
+          bool b00 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
+          bool b10 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
+          bool b01 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
+          bool b11 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
+
+          DebugInfo( "(%d,%d,%d,%d)", b00, b10, b01, b11 );
+          
           float alpha = y - y1;
           float beta = x - x1;
           int indicator = 0;

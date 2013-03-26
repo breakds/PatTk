@@ -22,21 +22,28 @@ int main( int argc, char **argv )
   }
 
 
-  auto img = cvFeat<HOG>::gen( argv[1], 2, 0.5 );
-  
-  
-  float feat[img.GetPatchDim()];
-  for ( int i=0; i<img.rows; i++ ) {
-    for ( int j=0; j<img.cols; j++ ) {
-      if ( img.FetchPatch( i, j, 0.0, 0.01, feat ) ) {
-        DebugInfo( "(%d,%d): true", i, j );
-      } else {
-        DebugInfo( "(%d,%d): false", i, j );
-      }
-    }
-    ResumeOnRet();
-  }
+  auto img = cvFeat<HOG>::gen( argv[1], 2, 0.8 );
 
+  float feat[img.GetPatchDim()];
+
+  if ( img.FetchPatch( 1, 170, 1.25, 0.0, 0.8, feat ) ) {
+    DebugInfo( "true" );
+  } else {
+    DebugInfo( "false" );
+  }
+  
+
+  // for ( int i=0; i<img.rows; i++ ) {
+  //   for ( int j=0; j<img.cols; j++ ) {
+  //     if ( img.FetchPatch( 3, i, j, 0.0, feat ) ) {
+  //       DebugInfo( "(%d,%d): true", i, j );
+  //     } else {
+  //       DebugInfo( "(%d,%d): false", i, j );
+  //     }
+  //   }
+  //   ResumeOnRet();
+  // }
+  
 
 
   return 0;
