@@ -197,11 +197,14 @@ endif (BUILD_UNITTEST)
 # ADD_EXECUTABLE(verify experiment/Verify.cpp)
 # TARGET_LINK_LIBRARIES(verify ${OPENCV})
 
-ADD_EXECUTABLE(forestExp experiment/ForestExp.cpp)
-TARGET_LINK_LIBRARIES(forestExp ${OPENCV})
+# ADD_EXECUTABLE(forestExp experiment/ForestExp.cpp)
+# TARGET_LINK_LIBRARIES(forestExp ${OPENCV})
 
-ADD_EXECUTABLE(treeQ experiment/TreeQuality.cpp)
-TARGET_LINK_LIBRARIES(treeQ ${OPENCV})
+# ADD_EXECUTABLE(treeQ experiment/TreeQuality.cpp)
+# TARGET_LINK_LIBRARIES(treeQ ${OPENCV})
+
+ADD_EXECUTABLE(hpatch sample/HeavyPatch.cpp)
+TARGET_LINK_LIBRARIES(hpatch ${OPENCV})
 
 
 

@@ -5,9 +5,9 @@
  *********************************************************************************/
 
 #include <utility>
-#include "data/features.hpp"
-#include "opencv2/opencv.hpp"
-#include "interfaces/cv_interface.hpp"
+#include "data/FeatImage.hpp"
+#include "interfaces/opencv_aux.hpp"
+#include "LLPack/utils/extio.hpp"
 
 using namespace PatTk;
 using std::pair;
@@ -21,53 +21,22 @@ int main( int argc, char **argv )
     exit( -1 );
   }
 
-  {
-    cv::Mat mat = cv::imread( argv[1] );
 
-    // Create an image with CIEL*a*b* feature descriptors
-    auto img = cvFeatGen<HoGCell,std::pair<int,int>,false >::gen( mat );
-
-    // Set the parameter for patches
-    // in this case, will be 5 x 5 patch with a cell stride of 4
-    img.SetPatchParameter( 5, 5, 4 );
-
-    auto patch = img.Spawn( 3, 24, 1, 0 );
-
-    // Iterate the patch components directly
-    for ( int i=0; i<patch.dim(); i++ ) {
-      printf( "%3hhu ", patch[i] );
-    }
-    printf( "\n" );
-  }
-
-  printf( "------------------------------\n" );
-  {
-    cv::Mat mat = cv::imread( argv[2] );
-
-    // Create an image with CIEL*a*b* feature descriptors
-    auto img = cvFeatGen<HoGCell,std::pair<int,int>,false>::gen( mat );
-
-    // Set the parameter for patches
-    // in this case, will be 5 x 5 patch with a cell stride of 4
-    img.SetPatchParameter( 3, 3, 1 );
-
-    img( 18,165 ).Summary();
-    img( 18,166 ).Summary();
-    img( 19,166 ).Summary();
-    img( 19,165 ).Summary();
-    
-    auto patch = img.Spawn( 18.77103, 165.85076, 1, 45 );
-    // Iterate the patch components directly
-    for ( int i=0; i<patch.dim(); i++ ) {
-      printf( "%3hhu ", patch[i] );
-    }
-    printf( "\n" );
-
-
-  }
-
-
+  auto img = cvFeat<HOG>::gen( argv[1], 2, 0.5 );
   
+  
+  float feat[img.GetPatchDim()];
+  for ( int i=0; i<img.rows; i++ ) {
+    for ( int j=0; j<img.cols; j++ ) {
+      if ( img.FetchPatch( i, j, 0.0, 0.01, feat ) ) {
+        DebugInfo( "(%d,%d): true", i, j );
+      } else {
+        DebugInfo( "(%d,%d): false", i, j );
+      }
+    }
+    ResumeOnRet();
+  }
+
 
 
   return 0;

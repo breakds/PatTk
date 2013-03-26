@@ -365,7 +365,6 @@ namespace PatTk
         cv::resize( org, tmp, cv::Size( org.cols * scale, org.rows * scale ) );
         scale = scale * base;
         imgs[scales+i] = std::move( gen<HOG>( tmp ) );
-        DebugInfo( "%d", i );
       }
 
 
@@ -375,7 +374,6 @@ namespace PatTk
         cv::resize( org, tmp, cv::Size( org.cols * scale, org.rows * scale ) );
         scale = scale / base;
         imgs[scales+i] = std::move( gen<HOG>( tmp ) );
-        DebugInfo( "%d", i );
       }
       
       return FeatImage<float>( std::move(imgs), base );
