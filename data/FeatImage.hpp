@@ -379,6 +379,11 @@ namespace PatTk
 
     /* ---------- Patch Accessors ---------- */
 
+
+    inline bool isValidPatch( int i, int j ) {
+      return ( 0 <= i ) && ( i < rows ) && ( 0 <= j ) && ( j < cols );
+    }
+
     inline void FetchPatch( int i, int j, dataType *feat ) const
     {
 
