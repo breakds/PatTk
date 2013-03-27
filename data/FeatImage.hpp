@@ -454,16 +454,11 @@ namespace PatTk
           int y1 = static_cast<int>( roundf( y ) );
           int x1 = static_cast<int>( roundf( x ) );
 
-          DebugInfo( "(%d,%d)", y1, x1 );
-          DebugInfo( "(%f,%f)", y, x );
-
           bool b00 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b10 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b01 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
           bool b11 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
 
-          DebugInfo( "(%d,%d,%d,%d)", b00, b10, b01, b11 );
-          
           float alpha = y - y1;
           float beta = x - x1;
           int indicator = 0;
@@ -572,15 +567,13 @@ namespace PatTk
           int y1 = static_cast<int>( roundf( y ) );
           int x1 = static_cast<int>( roundf( x ) );
 
-          DebugInfo( "(%d,%d)", y1, x1 );
-          DebugInfo( "(%f,%f)", y, x );
 
           bool b00 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b10 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 && x1 < cols_layer[layer];
           bool b01 = 0 <= y1 && y1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
           bool b11 = 0 <= y1 + 1 && y1 + 1 < rows_layer[layer] && 0 <= x1 + 1 && x1 + 1 < cols_layer[layer];
 
-          DebugInfo( "(%d,%d,%d,%d)", b00, b10, b01, b11 );
+
           
           float alpha = y - y1;
           float beta = x - x1;

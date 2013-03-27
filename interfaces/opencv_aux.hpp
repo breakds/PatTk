@@ -238,10 +238,10 @@ namespace PatTk
       } else if ( 3 == raw.channels() ) {
         FeatImage<float> img( raw.rows, raw.cols, 3 );
         float *img_ptr = img[0];
-        size_t row_size = sizeof(uchar) * 3 * raw.cols;
+        int row_size = 3 * raw.cols;
         for ( int i=0; i<raw.rows; i++ ) {
           uchar *raw_ptr = raw.ptr<uchar>(i);
-          for ( size_t j=0; j<row_size; j++ ) {
+          for ( int j=0; j<row_size; j++ ) {
             *(img_ptr++) = static_cast<float>( *(raw_ptr++) ) / 255.0f;
           }
         }
