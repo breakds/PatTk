@@ -89,8 +89,8 @@ namespace PatTk
     int cell_side;
     bool enable_color;
     bool gaussian_filter;
-    FeatOptions() : orientation_bins(9), cell_side(5),
-                    enable_color(true), gaussian_filter(false)
+    FeatOptions() : orientation_bins(9), cell_side(9),
+                    enable_color(true), gaussian_filter(true)
     {}
 
   };

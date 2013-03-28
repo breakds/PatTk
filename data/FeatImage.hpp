@@ -51,10 +51,10 @@ namespace PatTk
       std::vector<int> offsetY;
       std::vector<int> offsetX;
       bool normalized;
-      PatchOptions( int dimCell ) : patch_size(3), patch_stride(3), 
-                                    patch_start_offset(-3), 
+      PatchOptions( int dimCell ) : patch_size(5), patch_stride(4), 
+                                    patch_start_offset( - ( patch_size >> 1 ) * patch_stride ),
                                     hist_dim( dimCell ),
-                                    patch_dim( 3 * 3 * dimCell ),
+                                    patch_dim( patch_size * patch_size * dimCell ),
                                     rotBins(0), shiftUnit(1.0),
                                     normalized(true) {}
     };
