@@ -109,7 +109,7 @@ namespace PatTk
              x1 < 0 || x1 >= parent->cols ) {
           return 0;
         }
-        
+
         return parent->get( coorIdx + parent->options.offset[c] ) * inv;
       }
 
@@ -211,7 +211,11 @@ namespace PatTk
               }
             }
           }
-          inv_norm[k++] = 1.0 / sqrt(sum);
+          if ( sum > 1e-9 ) {
+            inv_norm[k++] = 1.0 / sqrt(sum);
+          } else {
+            inv_norm[k++] = 0.0f;
+          }
         }
       }
     }
