@@ -22,7 +22,7 @@
 namespace PatTk
 {
 
-  enum featEnum { BGR, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
+  enum featEnum { BGR, BGRF, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
   
   /* anonymous namespace for helper functions */
   namespace
@@ -262,6 +262,59 @@ namespace PatTk
         exit( -1 );
       }
       return gen<BGR_FLOAT>( raw );
+    }
+
+
+
+    /* -------------------- BGRF -------------------- */
+    // +--------------------------------------------------+
+    // |  BGR Feature Generator (float version)           |
+    // |  BGR Feature float version ranged 0 .. 255.0     |
+    // +--------------------------------------------------+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( cv::Mat raw, ENABLE_IF( BGRF == T ) )
+    {
+      if ( 1 == raw.channels() ) {
+        FeatImage<float> img( raw.rows, raw.cols, 3 );
+        float *img_ptr = img[0];
+        for ( int i=0; i<raw.rows; i++ ) {
+          uchar *raw_ptr = raw.ptr<uchar>(i);
+          for ( int j=0; j<raw.cols; j++ ) {
+            *(img_ptr++) = static_cast<float>( *raw_ptr );
+            *(img_ptr++) = static_cast<float>( *raw_ptr );
+            *(img_ptr++) = static_cast<float>( *raw_ptr );
+            raw_ptr++;
+          }
+        }
+        img.ToggleNormalized( false );
+        return img;
+      } else if ( 3 == raw.channels() ) {
+        FeatImage<float> img( raw.rows, raw.cols, 3 );
+        float *img_ptr = img[0];
+        int row_size = 3 * raw.cols;
+        for ( int i=0; i<raw.rows; i++ ) {
+          uchar *raw_ptr = raw.ptr<uchar>(i);
+          for ( int j=0; j<row_size; j++ ) {
+            *(img_ptr++) = static_cast<float>( *(raw_ptr++) );
+          }
+        }
+        img.ToggleNormalized( false );
+        return img;
+      }
+
+      Error( "cvFeat<BGR>::gen()   Bad number of channels: %d\n", raw.channels() );
+      exit( -1 );
+    }
+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( std::string filename, ENABLE_IF( BGRF == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<BGR::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<BGRF>( raw );
     }
 
 
