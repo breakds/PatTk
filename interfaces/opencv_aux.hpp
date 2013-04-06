@@ -22,7 +22,7 @@
 namespace PatTk
 {
 
-  enum featEnum { BGR, BGRF, Lab, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
+  enum featEnum { BGR, BGRF, Lab, LabF, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
   
   /* anonymous namespace for helper functions */
   namespace
@@ -49,6 +49,13 @@ namespace PatTk
 
     template <>
     class GetDataType<Lab>
+    {
+    public:
+      typedef uchar type;
+    };
+
+    template <>
+    class GetDataType<LabF>
     {
     public:
       typedef uchar type;
@@ -350,6 +357,48 @@ namespace PatTk
       Error( "cvFeat<Lab>::gen()   Bad number of channels: %d\n", raw.channels() );
       exit( -1 );
     }
+
+
+
+    /* -------------------- LabF -------------------- */
+    // +--------------------------------------------------+
+    // |  Lab Feature Generator (float version)           |
+    // |  Lab Feature float version ranged 0 .. 255.0     |
+    // +--------------------------------------------------+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( cv::Mat raw, ENABLE_IF( LabF == T ) )
+    {
+      if ( 3 == raw.channels() ) {
+        cv::Mat lab;
+        cv::cvtColor( raw, lab, CV_BGR2Lab );
+        FeatImage<uchar> img( lab.rows, lab.cols, 3 );
+        uchar *img_ptr = img[0];
+        size_t row_size = sizeof(uchar) * 3 * lab.cols;
+        int row_stride = 3 * lab.cols;
+        for ( int i=0; i<lab.rows; i++ ) {
+          uchar *lab_ptr = lab.ptr<float>(i);
+          memcpy( img_ptr, lab_ptr, row_size );
+          img_ptr += row_stride;
+        }
+        return img;
+      }
+
+      Error( "cvFeat<LabF>::gen()   Bad number of channels: %d\n", raw.channels() );
+      exit( -1 );
+    }
+
+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( std::string filename, ENABLE_IF( LabF == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<Labef>::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<BGRF>( raw );
+    }
+
 
 
 
