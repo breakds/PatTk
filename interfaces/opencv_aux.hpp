@@ -22,7 +22,7 @@
 namespace PatTk
 {
 
-  enum featEnum { BGR, BGRF, Lab, LabF, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
+  enum featEnum { BGR, BGRF, Lab, LabF, Grab, HOG, DEFAULT_FEAT, BGR_FLOAT, SOFT_LABEL_MAP, HARD_LABEL_MAP };
   
   /* anonymous namespace for helper functions */
   namespace
@@ -58,7 +58,14 @@ namespace PatTk
     class GetDataType<LabF>
     {
     public:
-      typedef uchar type;
+      typedef float type;
+    };
+
+    template <>
+    class GetDataType<Grab>
+    {
+    public:
+      typedef float type;
     };
 
     template <>
@@ -108,6 +115,14 @@ namespace PatTk
   {
     int cell_side;
     FeatOptions() : cell_side(5) {}
+  };
+
+  template<>
+  struct FeatOptions<Grab>
+  {
+    float grad_coef;
+    FeatOptions() : grad_coef(1.0f)
+    {}
   };
 
 
@@ -371,14 +386,16 @@ namespace PatTk
       if ( 3 == raw.channels() ) {
         cv::Mat lab;
         cv::cvtColor( raw, lab, CV_BGR2Lab );
-        FeatImage<uchar> img( lab.rows, lab.cols, 3 );
-        uchar *img_ptr = img[0];
-        size_t row_size = sizeof(uchar) * 3 * lab.cols;
-        int row_stride = 3 * lab.cols;
+        FeatImage<float> img( lab.rows, lab.cols, 3 );
+        float *img_ptr = img[0];
+
+
         for ( int i=0; i<lab.rows; i++ ) {
-          uchar *lab_ptr = lab.ptr<float>(i);
-          memcpy( img_ptr, lab_ptr, row_size );
-          img_ptr += row_stride;
+          for ( int j=0; j<lab.cols; j++ ) {
+            *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[0] ) / 255.0 * 100.0;
+            *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[1] );
+            *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[2] );
+          }
         }
         return img;
       }
@@ -396,8 +413,88 @@ namespace PatTk
         Error( "cvFeat<Labef>::gen()   Failed to load image %s", filename.c_str() );
         exit( -1 );
       }
-      return gen<BGRF>( raw );
+      return gen<LabF>( raw );
     }
+
+
+
+     /* -------------------- Grab -------------------- */
+    // +----------------------------------------------------------+
+    // |  Gradient+ab Feature Generator (float version)           |
+    // |  Gradient+ab Feature float version ranged 0 .. 255.0     |
+    // +----------------------------------------------------------+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( cv::Mat raw, ENABLE_IF( Grab == T ) )
+    {
+      if ( 3 == raw.channels() ) {
+        /* Gradient */
+        cv::Mat normalized;
+        cv::normalize( raw, normalized, 0, 255, cv::NORM_MINMAX );
+        cv::Mat gradx( raw.rows, raw.cols, CV_32FC1 );
+        cv::Mat grady( raw.rows, raw.cols, CV_32FC1 );
+                cv::Mat multiGradx, multiGrady;
+        cv::Sobel( normalized, multiGradx, CV_32F, 1, 0 );
+        cv::Sobel( normalized, multiGrady, CV_32F, 0, 1 );
+
+        for ( int i=0; i<raw.rows; i++ ) {
+          float *mxptr = multiGradx.ptr<float>(i);
+          float *myptr = multiGrady.ptr<float>(i);
+          float *gxptr = gradx.ptr<float>(i);
+          float *gyptr = grady.ptr<float>(i);
+          for ( int j=0; j<raw.cols; j++ ) {
+            float max = (*mxptr) * (*mxptr) + (*myptr) * (*myptr);
+            *gxptr = *(mxptr++);
+            *gyptr = *(myptr++);
+            for ( int k=1; k<3; k++ ) {
+              float norm = (*mxptr) * (*mxptr) + (*myptr) * (*myptr);
+              if ( norm > max ) {
+                max = norm;
+                *gxptr = *mxptr;
+                *gyptr = *myptr;
+              }
+              mxptr++;
+              myptr++;
+            }
+            gxptr++;
+            gyptr++;
+          }
+        }
+        
+        /* Lab */
+        cv::Mat lab;
+        cv::cvtColor( raw, lab, CV_BGR2Lab );
+
+        
+        FeatImage<float> img( lab.rows, lab.cols, 4 );
+        
+        float *img_ptr = img[0];
+        for ( int i=0; i<raw.rows; i++ ) {
+          for ( int j=0; j<raw.cols; j++ ) {
+            *(img_ptr++) = grady.at<float>( i, j ) * options.grad_coef;
+            *(img_ptr++) = gradx.at<float>( i, j ) * options.grad_coef;
+            *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[1] );
+            *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[2] );
+          }
+        }
+        return img;
+      }
+
+      Error( "cvFeat<LabF>::gen()   Bad number of channels: %d\n", raw.channels() );
+      exit( -1 );
+    }
+
+
+    template <featEnum T=featType>
+    static FeatImage<float> gen( std::string filename, ENABLE_IF( Grab == T ) )
+    {
+      cv::Mat raw = cv::imread( filename );
+      if ( raw.empty() ) {
+        Error( "cvFeat<Labef>::gen()   Failed to load image %s", filename.c_str() );
+        exit( -1 );
+      }
+      return gen<Grab>( raw );
+    }
+
 
 
 

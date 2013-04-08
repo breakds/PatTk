@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../../data/FeatImage.hpp"
+
 namespace PatTk
 {
   template <typename T>

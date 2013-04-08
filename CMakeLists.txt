@@ -203,8 +203,10 @@ endif (BUILD_UNITTEST)
 # ADD_EXECUTABLE(treeQ experiment/TreeQuality.cpp)
 # TARGET_LINK_LIBRARIES(treeQ ${OPENCV})
 
-ADD_EXECUTABLE(hpatch sample/HeavyPatch.cpp)
-TARGET_LINK_LIBRARIES(hpatch ${OPENCV})
+ADD_EXECUTABLE(feattest sample/FeatTest.cpp)
+TARGET_LINK_LIBRARIES(feattest ${OPENCV})
+
+
 
 
 
