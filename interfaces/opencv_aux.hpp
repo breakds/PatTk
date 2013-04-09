@@ -397,6 +397,7 @@ namespace PatTk
             *(img_ptr++) = static_cast<float>( lab.at<cv::Vec3b>( i, j )[2] );
           }
         }
+        img.ToggleNormalized( false );
         return img;
       }
 

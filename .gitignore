@@ -13,3 +13,6 @@
 
 # Emacs backup files
 *~
+
+# binary files
+build/*
