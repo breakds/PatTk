@@ -86,6 +86,12 @@ namespace PatTk
       {
         return parent->GetPatchDim();
       }
+
+      inline int size() const
+      {
+        return parent->GetPatchDim();
+      }
+        
       
       inline dataType operator()( int c ) const
       {
